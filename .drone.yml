@@ -14,6 +14,7 @@ pipeline:
 
   build:
     image: docker.naveego.com:4333/build-go:latest
+    pull: true
     environment:
       - GOOS=linux
       - GOARCH=amd64
@@ -28,6 +29,7 @@ pipeline:
 
   build-release:
     image: docker.naveego.com:4333/build-go:latest
+    pull: true
     environment:
       - CGO_ENABLED=0
       - GIT_TOKEN=${GIT_TOKEN}
