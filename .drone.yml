@@ -1,0 +1,53 @@
+
+workspace:
+  base: /go
+  path: src/github.com/naveego/pipeline-subscribers
+
+pipeline:
+
+  restore-cache:
+    image: drillster/drone-volume-cache
+    restore: true
+    mount:
+      - vendor
+    volumes:
+      - /tmp/cache/pipeline-subscribers-go:/cache
+
+  prep:
+    image: docker.naveego.com:4333/build-go:latest
+    environment:
+      - GOOS=linux
+      - GOARCH=amd64
+      - CGO_ENABLED=0
+    commands:
+      - dep ensure -vendor-only  
+
+  rebuild-cache:
+    image: drillster/drone-volume-cache
+    rebuild: true
+    mount:
+      - node_modules
+    volumes:
+      - /tmp/cache:/cache
+      
+  test:
+    image: docker.naveego.com:4333/build-go:latest
+    environment:
+      - GOOS=linux
+      - GOARCH=amd64
+      - CGO_ENABLED=0
+    commands:
+      - go test ./...
+      - go build -ldflags "-X main.version=${DRONE_BUILD_NUMBER} -X main.versionHash=${DRONE_COMMIT}"  bitbucket.org/naveego/pipeline-agent/cmd/agentd 
+
+  build:
+    image: docker.naveego.com:4333/build-go:latest
+    environment:
+      - GOOS=${OS}
+      - GOARCH=${ARCH}
+      - CGO_ENABLED=0
+    commands:
+      - go build -ldflags "-X main.version=${DRONE_TAG} -X main.versionHash=${DRONE_COMMIT}"  bitbucket.org/naveego/pipeline-agent/cmd/agentd
+    when:
+      event: tag
+
