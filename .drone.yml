@@ -21,7 +21,7 @@ pipeline:
     secrets: [ git_token ]
     commands:
       - dep ensure -vendor-only  
-      - goreleaser --snapshot
+      - /go/bin/goreleaser --snapshot
     when:
       event: [ push, pull_request ]
 
@@ -34,7 +34,7 @@ pipeline:
     secrets: [ git_token ]
     commands:
       - dep ensure -vendor-only  
-      - goreleaser
+      - /go/bin/goreleaser
     when: 
       event: [ tag, deployment ]
 
