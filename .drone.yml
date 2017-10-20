@@ -21,7 +21,7 @@ pipeline:
     pull: true
     environment:
       - CGO_ENABLED=0
-    secrets: [ git_token ]
+    secrets: [ github_token ]
     commands:
       - dep ensure -vendor-only  
       - goreleaser --snapshot
@@ -34,7 +34,7 @@ pipeline:
     environment:
       - CGO_ENABLED=0
       - GITHUB_TOKEN=${GITHUB_TOKEN}
-    secrets: [ git_token ]
+    secrets: [ github_token ]
     commands:
       - dep ensure -vendor-only  
       - goreleaser
