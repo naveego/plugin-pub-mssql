@@ -22,7 +22,21 @@ pipeline:
     secrets: [ git_token ]
     commands:
       - dep ensure -vendor-only  
+      - goreleaser --snapshot
+    when:
+      event: !tag
+
+  build-release:
+    image: docker.naveego.com:4333/build-go:latest
+    environment:
+      - CGO_ENABLED=0
+      - GIT_TOKEN=${GIT_TOKEN}
+    secrets: [ git_token ]
+    commands:
+      - dep ensure -vendor-only  
       - goreleaser
+    when: 
+      event: tag
 
   rebuild-cache:
     image: drillster/drone-volume-cache
