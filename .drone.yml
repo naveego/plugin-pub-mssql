@@ -16,14 +16,11 @@ pipeline:
     image: docker.naveego.com:4333/release-go:latest
     pull: true
     environment:
-      - GOOS=linux
-      - GOARCH=amd64
       - CGO_ENABLED=0
       - GIT_TOKEN=${GIT_TOKEN}
     secrets: [ git_token ]
     commands:
       - dep ensure -vendor-only  
-      - go get github.com/goreleaser/goreleaser
       - goreleaser --snapshot
     when:
       event: [ push, pull_request ]
@@ -45,8 +42,8 @@ pipeline:
     image: drillster/drone-volume-cache
     rebuild: true
     mount:
-      - node_modules
+      - vendor
     volumes:
-      - /tmp/cache:/cache
+      - /tmp/cache/plugin-pub-mssql:/cache
     when:
       status:  [ failure, success ]
