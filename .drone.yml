@@ -24,7 +24,8 @@ pipeline:
       - ls ../
       - ls ../../
       - ls ../../../
-      - ../../../bin/goreleaser --snapshot
+      - ls ../../../../
+      - ../../../../bin/goreleaser --snapshot
     when:
       event: [ push, pull_request ]
 
