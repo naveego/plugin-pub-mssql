@@ -24,7 +24,7 @@ pipeline:
       - dep ensure -vendor-only  
       - goreleaser --snapshot
     when:
-      event: !tag
+      event: [ push, pull_request ]
 
   build-release:
     image: docker.naveego.com:4333/build-go:latest
@@ -36,7 +36,7 @@ pipeline:
       - dep ensure -vendor-only  
       - goreleaser
     when: 
-      event: tag
+      event: [ tag, deployment ]
 
   rebuild-cache:
     image: drillster/drone-volume-cache
