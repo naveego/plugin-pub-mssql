@@ -13,7 +13,7 @@ pipeline:
       - /tmp/cache/plugin-pub-mssql:/cache
 
   build:
-    image: docker.naveego.com:4333/release-go:latest
+    image: docker.naveego.com:4333/build-go:latest
     pull: true
     environment:
       - CGO_ENABLED=0
@@ -26,7 +26,7 @@ pipeline:
       event: [ push, pull_request ]
 
   build-release:
-    image: docker.naveego.com:4333/release-go:latest
+    image: docker.naveego.com:4333/build-go:latest
     pull: true
     environment:
       - CGO_ENABLED=0
