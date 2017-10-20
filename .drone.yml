@@ -23,6 +23,7 @@ pipeline:
     secrets: [ git_token ]
     commands:
       - dep ensure -vendor-only  
+      - go get github.com/goreleaser/goreleaser
       - goreleaser --snapshot
     when:
       event: [ push, pull_request ]
