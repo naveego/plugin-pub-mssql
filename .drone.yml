@@ -21,7 +21,6 @@ pipeline:
     pull: true
     environment:
       - CGO_ENABLED=0
-      - GIT_TOKEN=${GIT_TOKEN}
     secrets: [ git_token ]
     commands:
       - dep ensure -vendor-only  
@@ -34,7 +33,7 @@ pipeline:
     pull: true
     environment:
       - CGO_ENABLED=0
-      - GIT_TOKEN=${GIT_TOKEN}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
     secrets: [ git_token ]
     commands:
       - dep ensure -vendor-only  
