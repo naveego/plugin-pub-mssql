@@ -20,10 +20,11 @@ pipeline:
       - GIT_TOKEN=${GIT_TOKEN}
     secrets: [ git_token ]
     commands:
-      - dep ensure -vendor-only  
-      - ls /go/bin
-      - ls ../../../bin
-      - /bin/goreleaser --snapshot
+      #- dep ensure -vendor-only  
+      - ls ../
+      - ls ../../
+      - ls ../../../
+      - ../../../bin/goreleaser --snapshot
     when:
       event: [ push, pull_request ]
 
