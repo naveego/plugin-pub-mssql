@@ -5,6 +5,7 @@
         "**/.hg": true,
         "**/CVS": true,
         "**/.DS_Store": true,
-        "vendor":true
+        "vendor":true,
+        "dist": true
     }
 }

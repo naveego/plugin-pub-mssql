@@ -1,0 +1,12 @@
+# .goreleaser.yml
+# Build customization
+project_name: pub-mssql
+builds:
+  - binary: pub-mssql
+    ldflags: -s -w -X main.version={{.Version}} -X main.versionHash={{.Commit}}
+    goos:
+      - windows
+      - darwin
+      - linux
+    goarch:
+      - amd64
