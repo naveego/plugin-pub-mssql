@@ -7,39 +7,42 @@ workspace:
   base: /go
   path: src/github.com/naveego/plugin-pub-mssql
 
+matrix:
+  GOOS: 
+    - windows
+    - darwin
+    - linux
+
 pipeline:
+
   restore-cache:
     image: drillster/drone-volume-cache
     restore: true
     mount:
       - vendor
     volumes:
-      - /tmp/cache/plugin-pub-mssql:/cache
+      - /tmp/cache:/cache
 
   build:
     image: docker.naveego.com:4333/build-go:latest
     pull: true
     environment:
       - CGO_ENABLED=0
-    secrets: [ github_token ]
+      - GOOS=${GOOS}
     commands:
-      - dep ensure -vendor-only  
-      - goreleaser --snapshot
-    when:
-      event: [ push, pull_request ]
-
-  build-release:
-    image: docker.naveego.com:4333/build-go:latest
+      - dep ensure -vendor-only      
+      - go build -o plugin-pub-mssql
+      
+  publish-test:
+    image: docker.naveego.com:4333/navget-drone:latest
     pull: true
-    environment:
-      - CGO_ENABLED=0
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-    secrets: [ github_token ]
-    commands:
-      - dep ensure -vendor-only  
-      - goreleaser
+    endpoint: http://navget.n5o.green
+    files: plugin-pub-mssql icon.png
+    os: ${GOOS}
+    secrets: [ "navget_token" ]
     when: 
-      event: [ tag, deployment ]
+      branch: master
+
 
   rebuild-cache:
     image: drillster/drone-volume-cache
@@ -47,6 +50,8 @@ pipeline:
     mount:
       - vendor
     volumes:
-      - /tmp/cache/plugin-pub-mssql:/cache
+      - /tmp/cache:/cache
     when:
       status:  [ failure, success ]
+
+
