@@ -1,0 +1,40 @@
+{
+    "name": "Microsoft SQL Server Publisher",
+    "description": "Publisher which pulls data from an MS SQL Server instance.",
+    "versionDescription": "Version 1",
+    "version": "1.0.0",
+    "iconFile": "icon.png",
+    "executable": "plugin-pub-mssql",
+    "kind": "subscriber",
+    "configSchema": [
+        {
+           "name": "server",
+           "label": "Server",
+           "type": "string"
+        },
+        {
+           "name": "database",
+           "label": "Database Name",
+           "type": "string"
+        },
+        {
+           "name": "auth",
+           "label": "Authentication Type",
+           "type": "enum",
+           "items": [
+              "sql",
+              "windows"
+           ]
+        },
+        {
+           "name": "username",
+           "label": "Username",
+           "type": "string"
+        },
+        {
+           "name": "password",
+           "label": "Password",
+           "type": "password"
+        }
+     ]
+}
