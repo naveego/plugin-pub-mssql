@@ -1,11 +1,12 @@
 {
-    "name": "Microsoft SQL Server Publisher",
+    "name": "pub-mssql",
+    "displayName": "Microsoft SQL Server Publisher",
     "description": "Publisher which pulls data from an MS SQL Server instance.",
     "versionDescription": "Version 1",
     "version": "1.0.0",
     "iconFile": "icon.png",
     "executable": "plugin-pub-mssql",
-    "kind": "subscriber",
+    "kind": "publisher",
     "configSchema": [
         {
            "name": "server",
