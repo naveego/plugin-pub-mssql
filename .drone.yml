@@ -9,9 +9,9 @@ workspace:
 
 matrix:
   GOOS: 
+    - linux
     - windows
     - darwin
-    - linux
 
 pipeline:
 
@@ -42,7 +42,6 @@ pipeline:
     secrets: [ "navget_token" ]
     when: 
       branch: master
-
 
   rebuild-cache:
     image: drillster/drone-volume-cache
