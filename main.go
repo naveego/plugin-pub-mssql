@@ -2,7 +2,7 @@
 
 package main
 
-import "github.com/naveego/pipeline-publishers/sql/mssql-pub/cmd"
+import "github.com/naveego/plugin-pub-mssql/cmd"
 
 func main() {
 	cmd.Execute()

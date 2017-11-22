@@ -113,7 +113,6 @@ func (m *mssqlClient) Publish(request protocol.PublishRequest, toClient protocol
 	}
 
 	var safeTableName string
-	tableName := shapeDef.Name
 
 	if strings.Contains(shapeDef.Name, ".") {
 		nameParts := strings.Split(shapeDef.Name, ".")
