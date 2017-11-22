@@ -9,11 +9,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/naveego/api/types/pipeline"
 	"github.com/naveego/api/utils"
 	"github.com/naveego/navigator-go/publishers/protocol"
+	"github.com/sirupsen/logrus"
 )
 
 type mssqlClient struct {
@@ -112,17 +112,16 @@ func (m *mssqlClient) Publish(request protocol.PublishRequest, toClient protocol
 		shape.Properties = append(shape.Properties, v.Name+":"+v.Type)
 	}
 
-	schemaName := "dbo"
+	var safeTableName string
 	tableName := shapeDef.Name
 
-	if strings.Contains(shapeDef.Name, "__") {
-		idx := strings.Index(shapeDef.Name, "__")
-		schemaName = tableName[:idx]
-		tableName = tableName[idx+2:]
+	if strings.Contains(shapeDef.Name, ".") {
+		nameParts := strings.Split(shapeDef.Name, ".")
+		safeTableName = "[" + strings.Join(nameParts, "],[") + "]"
 	}
 
 	colStr := "[" + strings.Join(columns, "],[") + "]"
-	query := fmt.Sprintf("SELECT %s FROM [%s].[%s]", colStr, schemaName, tableName)
+	query := fmt.Sprintf("SELECT %s FROM %s", colStr, safeTableName)
 
 	logrus.Debugf("Query: %s", query)
 
@@ -274,7 +273,7 @@ ORDER  BY Schema_name(o.schema_id),
 
 		shapeName := tableName
 		if schemaName != "dbo" {
-			shapeName = fmt.Sprintf("%s__%s", schemaName, tableName)
+			shapeName = fmt.Sprintf("%s.%s", schemaName, tableName)
 		}
 
 		shapeDef, ok := s[shapeName]
