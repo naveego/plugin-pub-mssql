@@ -112,11 +112,11 @@ func (m *mssqlClient) Publish(request protocol.PublishRequest, toClient protocol
 		shape.Properties = append(shape.Properties, v.Name+":"+v.Type)
 	}
 
-	var safeTableName string
+	safeTableName := shapeDef.Name
 
 	if strings.Contains(shapeDef.Name, ".") {
 		nameParts := strings.Split(shapeDef.Name, ".")
-		safeTableName = "[" + strings.Join(nameParts, "],[") + "]"
+		safeTableName = "[" + strings.Join(nameParts, "].[") + "]"
 	}
 
 	colStr := "[" + strings.Join(columns, "],[") + "]"
