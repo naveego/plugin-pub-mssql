@@ -22,7 +22,10 @@
 [[projects]]
   branch = "master"
   name = "github.com/naveego/api"
-  packages = ["types/pipeline","utils"]
+  packages = [
+    "types/pipeline",
+    "utils"
+  ]
   revision = "5ab83846c36301064ff4125a05f9f33e024052f2"
 
 [[projects]]
@@ -34,14 +37,11 @@
 [[projects]]
   branch = "master"
   name = "github.com/naveego/navigator-go"
-  packages = ["publishers/protocol","publishers/server"]
+  packages = [
+    "publishers/protocol",
+    "publishers/server"
+  ]
   revision = "b606d84086255db0d7912513122b347d5cb0920d"
-
-[[projects]]
-  branch = "develop"
-  name = "github.com/naveego/pipeline-publishers"
-  packages = ["sql/mssql-pub/cmd"]
-  revision = "6c8ac0dd47c1a13f763dd725aebe588de5ebcb39"
 
 [[projects]]
   name = "github.com/satori/go.uuid"
@@ -70,7 +70,10 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["md4","ssh/terminal"]
+  packages = [
+    "md4",
+    "ssh/terminal"
+  ]
   revision = "541b9d50ad47e36efd8fb423e938e59ff1691f68"
 
 [[projects]]
@@ -82,12 +85,15 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix","windows"]
+  packages = [
+    "unix",
+    "windows"
+  ]
   revision = "8dbc5d05d6edcc104950cc299a1ce6641235bc86"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "701b76c012e0e3b16c823e27841c8cb85d459c74a2fe342480648f52b35d22a1"
+  inputs-digest = "c03f6a3467ecda42556b2422e5bc14c0591e2da383db567298d954c41e41e9a3"
   solver-name = "gps-cdcl"
   solver-version = 1

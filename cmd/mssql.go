@@ -19,6 +19,7 @@ import (
 type mssqlClient struct {
 	mu               *sync.Mutex
 	connectionString string
+	preCommand       string
 	publishing       bool
 	stopPublish      func()
 }
@@ -38,6 +39,9 @@ func (m *mssqlClient) Init(request protocol.InitRequest) (protocol.InitResponse,
 	if m.publishing {
 		return e("A publish is still running. You must wait for it to finish or call Dispose to cancel it.")
 	}
+
+	mr := utils.NewMapReader(request.Settings)
+	m.preCommand, _ = mr.ReadString("preCommand")
 
 	// TestConnection sets m.connectionString
 	tr, err := m.TestConnection(protocol.TestConnectionRequest{Settings: request.Settings})
@@ -132,6 +136,13 @@ func (m *mssqlClient) Publish(request protocol.PublishRequest, toClient protocol
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	if m.preCommand != "" {
+		_, err = conn.ExecContext(ctx, m.preCommand)
+		if err != nil {
+			return e(fmt.Sprintf("Could not execute pre-command: %v", err))
+		}
+	}
 
 	m.stopPublish = func() {
 		cancel()
