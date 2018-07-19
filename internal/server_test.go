@@ -30,39 +30,6 @@ var _ = Describe("Server", func() {
 		}
 	})
 
-	Describe("Validate settings", func() {
-
-		It("Should error if server is not set", func() {
-			settings.Server = ""
-			Expect(settings.Validate()).ToNot(Succeed())
-		})
-
-		It("Should error if database is not set", func() {
-			settings.Database = ""
-			Expect(settings.Validate()).ToNot(Succeed())
-		})
-
-		It("Should error if auth is not set", func() {
-			settings.Auth = ""
-			Expect(settings.Validate()).ToNot(Succeed())
-		})
-
-		It("Should error if auth is sql and username is not set", func() {
-			settings.Auth = AuthTypeSQL
-			settings.Username = ""
-			Expect(settings.Validate()).ToNot(Succeed())
-		})
-
-		It("Should error if auth is sql and password is not set", func() {
-			settings.Auth = AuthTypeSQL
-			settings.Password = ""
-			Expect(settings.Validate()).ToNot(Succeed())
-		})
-		It("Should succeed if settings are valid", func() {
-			Expect(settings.Validate()).To(Succeed())
-		})
-
-	})
 
 	Describe("Connect", func() {
 
@@ -71,9 +38,14 @@ var _ = Describe("Server", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should error when connection is valid", func() {
+		It("should error when connection is invalid", func() {
 			settings.Username = "a"
 			_, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should error when settings are malformed", func() {
+			_, err := sut.Connect(context.Background(), &pub.ConnectRequest{SettingsJson:"{"})
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -139,8 +111,8 @@ var _ = Describe("Server", func() {
 					Expect(properties).To(ContainElement(&pub.Property{
 						Id:           "[COMMISSION]",
 						Name:         "COMMISSION",
-						Type:         pub.PropertyType_DECIMAL,
-						TypeAtSource: "numeric(10,2)",
+						Type:         pub.PropertyType_FLOAT,
+						TypeAtSource: "float(53)",
 						IsNullable:   true,
 					}))
 					Expect(properties).To(ContainElement(&pub.Property{
@@ -256,7 +228,7 @@ var _ = Describe("Server", func() {
 						HaveKeyWithValue("[AGENT_CODE]", "A003"),
 						HaveKeyWithValue("[AGENT_NAME]", "Alex"),
 						HaveKeyWithValue("[WORKING_AREA]", "London"),
-						HaveKeyWithValue("[COMMISSION]", "0.13"),
+						HaveKeyWithValue("[COMMISSION]", float64(0.13)),
 						HaveKeyWithValue("[PHONE_NO]", "075-12458969"),
 						HaveKeyWithValue("[UPDATED_AT]", "1970-01-02T00:00:00Z"),
 						HaveKeyWithValue("[BIOGRAPHY]", ""),
@@ -269,13 +241,40 @@ var _ = Describe("Server", func() {
 						{
 							Kind:pub.PublishFilter_EQUALS,
 							PropertyId: "[AGENT_CODE]",
-							PropertyValue: "A003",
+							Value: "A003",
 						},
 					}
 					Expect(sut.PublishStream(req, stream)).To(Succeed())
 					Expect(stream.err).ToNot(HaveOccurred())
 					Expect(stream.records).To(HaveLen(1))
 					Expect(stream.records[0].DataJson).To(ContainSubstring("Alex"))
+				})
+
+				It("should filter on GREATER_THAN", func() {
+					stream := new(publisherStream)
+					req.Filters = []*pub.PublishFilter{
+						{
+							Kind:pub.PublishFilter_GREATER_THAN,
+							PropertyId: "[UPDATED_AT]",
+							Value: "1970-01-02T00:00:00Z",
+						},
+					}
+					Expect(sut.PublishStream(req, stream)).To(Succeed())
+					Expect(stream.err).ToNot(HaveOccurred())
+					Expect(stream.records).To(HaveLen(7))
+				})
+				It("should filter on LESS_THAN", func() {
+					stream := new(publisherStream)
+					req.Filters = []*pub.PublishFilter{
+						{
+							Kind:pub.PublishFilter_LESS_THAN,
+							PropertyId: "[COMMISSION]",
+							Value: "0.12",
+						},
+					}
+					Expect(sut.PublishStream(req, stream)).To(Succeed())
+					Expect(stream.err).ToNot(HaveOccurred())
+					Expect(stream.records).To(HaveLen(2))
 				})
 			})
 			Describe("typing", func() {
@@ -340,6 +339,16 @@ var _ = Describe("Server", func() {
 				})
 
 				Describe("Disconnect", func() {
+
+					It("should not be connected after disconnect", func(){
+						Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
+
+						_, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{})
+						Expect(err).To(MatchError(ContainSubstring("not connected")))
+
+						err = sut.PublishStream(&pub.PublishRequest{}, nil)
+						Expect(err).To(MatchError(ContainSubstring("not connected")))
+					})
 
 				})
 

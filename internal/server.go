@@ -319,9 +319,52 @@ func buildQuery(req *pub.PublishRequest) (string, error) {
 		columnIDs = append(columnIDs, p.Id)
 	}
 	columns := strings.Join(columnIDs, ", ")
-	w.WriteString(columns)
-	w.WriteString("from ")
-	w.WriteString(req.Shape.Id)
+	fmt.Fprintln(w, columns)
+	fmt.Fprintln(w, "from ", req.Shape.Id)
+
+	if len(req.Filters) > 0 {
+		fmt.Fprintln(w, "where")
+
+		properties := make(map[string]*pub.Property, len(req.Shape.Properties))
+		for _, p := range req.Shape.Properties {
+			properties[p.Id] = p
+		}
+
+		var filters []string
+		for _, f := range req.Filters {
+			property, ok := properties[f.PropertyId]
+			if !ok {
+				continue
+			}
+
+			wf := new(strings.Builder)
+
+
+			fmt.Fprintf(wf, "  %s ", f.PropertyId)
+			switch f.Kind {
+			case pub.PublishFilter_EQUALS:
+				fmt.Fprint(wf, "= ")
+			case pub.PublishFilter_GREATER_THAN:
+				fmt.Fprint(wf, "> ")
+			case pub.PublishFilter_LESS_THAN:
+				fmt.Fprint(wf, "< ")
+			default:
+				continue
+			}
+
+			switch property.Type {
+			case pub.PropertyType_INTEGER, pub.PropertyType_FLOAT:
+				fmt.Fprintf(wf, "%v", f.Value)
+			default:
+				fmt.Fprintf(wf, "CAST('%s' as %s)", f.Value, property.TypeAtSource)
+			}
+
+			filters = append(filters, wf.String())
+		}
+
+		fmt.Fprintln(w, strings.Join(filters, "AND\n  "))
+
+	}
 
 	return w.String(), nil
 }
@@ -372,7 +415,7 @@ func convertSQLType(t string, maxLength int) pub.PropertyType {
 		return pub.PropertyType_TIME
 	case "int", "smallint", "tinyint":
 		return pub.PropertyType_INTEGER
-	case "bigint",  "decimal", "money", "smallmoney", "numeric":
+	case "bigint", "decimal", "money", "smallmoney", "numeric":
 		return pub.PropertyType_DECIMAL
 	case "float", "real":
 		return pub.PropertyType_FLOAT
