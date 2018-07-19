@@ -10,7 +10,49 @@ import (
 	"encoding/json"
 	"encoding"
 	"fmt"
+	"strings"
 )
+
+type ShapeMetadata struct {
+
+}
+
+type PropertyMetadata struct {
+
+}
+
+type SortableShapes []*Shape
+
+func (s SortableShapes) Len() int {
+	return len(s)
+}
+
+func (s SortableShapes) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s SortableShapes) Less(i, j int) bool {
+	s1Name := s[i].Id
+	s2Name := s[j].Id
+	return strings.Compare(s1Name, s2Name) < 0
+}
+
+type SortableProperties []*Property
+
+func (s SortableProperties) Len() int {
+	return len(s)
+}
+
+func (s SortableProperties) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s SortableProperties) Less(i, j int) bool {
+	s1Name := s[i].Id
+	s2Name := s[j].Id
+	return strings.Compare(s1Name, s2Name) < 0
+}
+
 
 
 func (c *Count) Format() string {

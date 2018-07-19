@@ -10,26 +10,37 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"encoding/json"
 	"github.com/pkg/errors"
-	"encoding/csv"
-	"bytes"
-	"io"
 	"fmt"
-	"math"
 	"database/sql"
 	"net/url"
+	"strings"
+	"sort"
 )
 
 type Server struct {
-	mu           *sync.Mutex
-	log          hclog.Logger
-	settings     *Settings
-	db           *sql.DB
-	publishing   bool
-	disconnected bool
+	mu         *sync.Mutex
+	log        hclog.Logger
+	settings   *Settings
+	db         *sql.DB
+	publishing bool
+	connected  bool
+}
+
+// NewServer creates a new publisher Server.
+func NewServer() pub.PublisherServer {
+	return &Server{
+		mu: &sync.Mutex{},
+		log: hclog.New(&hclog.LoggerOptions{
+			Level:      hclog.Trace,
+			Output:     os.Stderr,
+			JSONFormat: true,
+		}),
+	}
 }
 
 func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.ConnectResponse, error) {
 	s.settings = nil
+	s.connected = false
 
 	settings := new(Settings)
 	if err := json.Unmarshal([]byte(req.SettingsJson), settings); err != nil {
@@ -41,8 +52,8 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 	}
 
 	u := &url.URL{
-		Scheme:   "sqlserver",
-		Host:     settings.Server,
+		Scheme: "sqlserver",
+		Host:   settings.Server,
 		// Path:  instance, // if connecting to an instance instead of a port
 		RawQuery: fmt.Sprintf("database=%s", settings.Database),
 	}
@@ -54,7 +65,7 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 	var err error
 	s.db, err = sql.Open("sqlserver", u.String())
 	if err != nil {
-		return nil, fmt.Errorf("could not open connection: %s",err)
+		return nil, fmt.Errorf("could not open connection: %s", err)
 	}
 
 	_, err = s.db.Query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES ")
@@ -65,7 +76,7 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 
 	// connection made and tested
 
-	s.disconnected = false
+	s.connected = true
 	s.settings = settings
 
 	return new(pub.ConnectResponse), err
@@ -73,42 +84,227 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 
 func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequest) (*pub.DiscoverShapesResponse, error) {
 
-	files, err := s.findFiles()
+	if !s.connected {
+		return nil, errNotConnected
+	}
+
+	rows, err := s.db.Query(`SELECT Schema_name(o.schema_id) SchemaName, 
+	o.NAME                   TableName, 
+	col.NAME                 ColumnName, 
+	ty.NAME                  TypeName, 
+    col.max_length           MaxLength,
+  	col.precision            [Precision],
+  	col.scale                [Scale],
+	CASE 
+	  WHEN EXISTS (SELECT 1 
+				   FROM   sys.indexes ind 
+						  INNER JOIN sys.index_columns indcol 
+								  ON indcol.object_id = o.object_id 
+									 AND indcol.index_id = ind.index_id 
+									 AND col.column_id = indcol.column_id 
+				   WHERE  ind.object_id = o.object_id 
+						  AND ind.is_primary_key = 1) THEN 1 
+	  ELSE 0 
+	END                      AS IsPrimaryKey 
+
+FROM   sys.objects o 
+	INNER JOIN sys.columns col 
+			ON col.object_id = o.object_id 
+	INNER JOIN sys.types ty 
+			ON ( col.system_type_id = ty.system_type_id ) 
+WHERE  o.type IN ( 'U', 'V' ) 
+ORDER  BY Schema_name(o.schema_id), 
+	   o.NAME, 
+	   col.column_id`)
+
 	if err != nil {
 		return nil, err
 	}
 
-	resp := new(pub.DiscoverShapesResponse)
+	defer rows.Close()
 
-	shapes := make(map[string][]*pub.Shape)
+	var schemaName string
+	var tableName string
+	var columnName string
+	var columnType string
+	var maxLength int
+	var precision int
+	var scale int
+	var isPrimaryKey bool
 
-	var summaryShape *pub.Shape
+	shapes := map[string]*pub.Shape{}
 
-	for _, filePath := range files {
-		shape, err := s.buildShapeFromFile(filePath, int(req.SampleSize))
+	for _, shape := range req.ToRefresh {
+		shapes[shape.Id] = shape
+		shape.Properties = nil
+	}
+
+	for rows.Next() {
+		err = rows.Scan(&schemaName, &tableName, &columnName, &columnType, &maxLength, &precision, &scale, &isPrimaryKey)
 		if err != nil {
 			return nil, err
 		}
 
-		if summaryShape == nil {
-			summaryShape = shape
+		var (
+			shapeID   string
+			shapeName string
+		)
+		if schemaName == "dbo" {
+			shapeID = fmt.Sprintf("[%s]", tableName)
+			shapeName = tableName
 		} else {
-			if summaryShape.Query == shape.Query {
-				summaryShape.Count.Value += shape.Count.Value
-				summaryShape.Description += ";" + shape.Description
-			} else {
-				return nil, fmt.Errorf("found multiple schemas: found columns %q in file(s) %q, but columns %q in file %q", summaryShape.Query, summaryShape.Description, shape.Query, shape.Description)
+			shapeID = fmt.Sprintf("[%s].[%s]", schemaName, tableName)
+			shapeName = fmt.Sprintf("%s.%s", schemaName, tableName)
+		}
+
+		// in refresh mode, only refresh requested shapes
+		if req.Mode == pub.DiscoverShapesRequest_REFRESH {
+			if _, ok := shapes[shapeID]; !ok {
+				continue
 			}
 		}
 
-		shapes[shape.Query] = append(shapes[shape.Query], shape)
+		shape, ok := shapes[shapeID]
+		if !ok {
+			shape = &pub.Shape{
+				Id:   shapeID,
+				Name: shapeName,
+			}
+			shapes[shapeID] = shape
+		}
+
+		property := &pub.Property{
+			Id:           fmt.Sprintf("[%s]", columnName),
+			Name:         columnName,
+			Type:         convertSQLType(columnType, maxLength),
+			TypeAtSource: formatTypeAtSource(columnType, maxLength, precision, scale),
+			IsKey:        isPrimaryKey,
+		}
+
+		shape.Properties = append(shape.Properties, property)
 	}
 
-	if summaryShape != nil {
-		resp.Shapes = []*pub.Shape{summaryShape}
+	resp := &pub.DiscoverShapesResponse{}
+
+	for _, shape := range shapes {
+		sort.Sort(pub.SortableProperties(shape.Properties))
+
+		shape.Count, err = s.getCount(shape)
+		if err != nil {
+			return nil, fmt.Errorf("could not get row count for shape %q: %s", shape.Id, err)
+		}
+
+		if req.SampleSize > 0 {
+			publishReq := &pub.PublishRequest{
+				Shape: shape,
+				Limit: req.SampleSize,
+			}
+			records := make(chan *pub.Record)
+
+			go func(){
+				err = s.readRecords(ctx, publishReq, records)
+			}()
+
+			for record := range records {
+				shape.Sample = append(shape.Sample, record)
+			}
+
+			if err != nil {
+				return nil, fmt.Errorf("error while collecting sample: %s", err)
+			}
+		}
+
+		resp.Shapes = append(resp.Shapes, shape)
 	}
+
+	sort.Sort(pub.SortableShapes(resp.Shapes))
 
 	return resp, nil
+
+}
+
+func (s *Server) getCount(shape *pub.Shape) (*pub.Count, error) {
+
+	var count int
+
+	row := s.db.QueryRow(fmt.Sprintf("SELECT COUNT(1) FROM %s", shape.Id))
+
+	err := row.Scan(&count)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pub.Count{
+		Kind:  pub.Count_EXACT,
+		Value: int32(count),
+	}, nil
+}
+
+func (s *Server) readRecords(ctx context.Context, req *pub.PublishRequest, out chan<- *pub.Record) error {
+
+	defer close(out)
+
+	var err error
+
+	query := req.Shape.Query
+	if req.Shape.Query == "" {
+		query, err = buildQuery(req)
+		if err != nil {
+			return fmt.Errorf("could not build query: %s", err)
+		}
+	}
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return err
+	}
+
+	properties := req.Shape.Properties
+	valueBuffer := make([]interface{}, len(properties))
+	mapBuffer := make(map[string]interface{}, len(properties))
+
+	for rows.Next() {
+		for i := range valueBuffer {
+			valueBuffer[i] = &valueBuffer[i]
+		}
+		err = rows.Scan(valueBuffer...)
+		if err != nil {
+			return err
+		}
+
+		for i, p := range properties {
+			value := valueBuffer[i]
+			mapBuffer[p.Id] = value
+		}
+
+		var record *pub.Record
+		record, err = pub.NewRecord(pub.Record_UPSERT, mapBuffer)
+		if err != nil {
+			return err
+		}
+		out <-record
+	}
+
+	return err
+}
+
+func buildQuery(req *pub.PublishRequest) (string, error) {
+
+	w := new(strings.Builder)
+	w.WriteString("select ")
+	if req.Limit > 0 {
+		fmt.Fprintf(w, "top(%d) ", req.Limit)
+	}
+	var columnIDs []string
+	for _, p := range req.Shape.Properties {
+		columnIDs = append(columnIDs, p.Id)
+	}
+	columns := strings.Join(columnIDs, ", ")
+	w.WriteString(columns)
+	w.WriteString("from ")
+	w.WriteString(req.Shape.Id)
+
+	return w.String(), nil
 }
 
 func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_PublishStreamServer) error {
@@ -149,219 +345,63 @@ func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_Pub
 }
 
 func (s *Server) Disconnect(context.Context, *pub.DisconnectRequest) (*pub.DisconnectResponse, error) {
-	s.disconnected = true
+	if s.db != nil {
+		s.db.Close()
+	}
+
+	s.connected = false
+	s.settings = nil
+	s.db = nil
+
 	return new(pub.DisconnectResponse), nil
-}
-
-// NewServer creates a new publisher Server.
-func NewServer() pub.PublisherServer {
-	return &Server{
-		mu: &sync.Mutex{},
-		log: hclog.New(&hclog.LoggerOptions{
-			Level:      hclog.Trace,
-			Output:     os.Stderr,
-			JSONFormat: true,
-		}),
-	}
-}
-
-func (s *Server) publishRecordsFromFile(path string, shape *pub.Shape, stream pub.Publisher_PublishStreamServer) (error) {
-	var (
-		i      int
-		row    []string
-		record *pub.Record
-		err    error
-		file   *os.File
-	)
-
-	file, err = os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	//
-	// if s.settings.HasHeader {
-	// 	_, err = reader.Read()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	i++
-	// }
-
-	for !s.disconnected {
-
-		row, err = reader.Read()
-		i++
-		if err == io.EOF {
-			break
-		}
-
-		if err != nil {
-			return err
-		}
-
-		dataMap := make(map[string]string)
-		for c := 0; c < len(shape.Properties); c++ {
-			dataMap[shape.Properties[c].Id] = row[c]
-		}
-		record, err = pub.NewRecord(pub.Record_UPSERT, dataMap)
-		if err != nil {
-			return fmt.Errorf("error creating record at line %d: %s", i, err)
-		}
-
-		stream.Send(record)
-	}
-
-	return nil
-}
-
-func (s *Server) buildShapeFromFile(path string, sampleSize int) (*pub.Shape, error) {
-
-	file, err := os.Open(path)
-	if file != nil {
-		defer file.Close()
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	shape := &pub.Shape{
-		Description: path,
-	}
-
-	// reader := csv.NewReader(file)
-	// reader.Comma = rune(s.settings.Delimiter[0])
-	// var sample [][]string
-	// var row []string
-	// sampleSize += 1
-	// for i := 0; i < sampleSize; i++ {
-	// 	row, err = reader.Read()
-	// 	if err == io.EOF {
-	// 		break
-	// 	}
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("error sampling file %q: %s", path, err)
-	// 	}
-	// 	sample = append(sample, row)
-	// }
-	//
-	// if len(sample) == 0 {
-	// 	return nil, nil
-	// }
-	//
-	// hasHeader := s.settings.HasHeader
-	// row = sample[0]
-	// var columnIDs []string
-	// for i, r := range row {
-	// 	property := &pub.Property{
-	// 		Type: pub.PropertyType_STRING,
-	// 	}
-	// 	if hasHeader {
-	// 		property.Id = r
-	// 		property.Name = r
-	// 	} else {
-	// 		property.Id = fmt.Sprintf("Column%d", i+1)
-	// 		property.Name = property.Id
-	// 	}
-	// 	shape.Properties = append(shape.Properties, property)
-	// 	columnIDs = append(columnIDs, property.Id)
-	// }
-	//
-	// sampleStart := 0
-	// if hasHeader {
-	// 	sampleStart = 1
-	// }
-	//
-	// for i := sampleStart; i < len(sample); i++ {
-	// 	row = sample[i]
-	// 	dataMap := make(map[string]string)
-	// 	for c := 0; c < len(shape.Properties); c++ {
-	// 		dataMap[shape.Properties[c].Id] = row[c]
-	// 	}
-	// 	var record *pub.Record
-	// 	record, err = pub.NewRecord(pub.Record_UPSERT, dataMap)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("error serializing row %d of sample from %q: %s", i, path, err)
-	// 	}
-	// 	shape.Sample = append(shape.Sample, record)
-	// }
-	//
-	// shape.Query = strings.Join(columnIDs, "|")
-	//
-	// shape.Count, err = calculateCount(file)
-	// if hasHeader {
-	// 	shape.Count.Value -= 1
-	// }
-	//
-	// if err != nil {
-	// 	return shape, err
-	// }
-
-	return shape, nil
-}
-
-func calculateCount(file *os.File) (*pub.Count, error) {
-	file.Seek(0, 0)
-
-	buf := make([]byte, 32*1024)
-	count := 0
-	lineSep := []byte{'\n'}
-	var err error
-	c := 0
-	out := &pub.Count{
-		Kind:pub.Count_EXACT,
-		Value:int32(count),
-	}
-
-	for {
-		c, err = file.Read(buf)
-		count += bytes.Count(buf[:c], lineSep)
-		if count >= math.MaxInt32 {
-			out.Kind = pub.Count_ESTIMATE
-			break
-		}
-		if err == io.EOF {
-			// last row doesn't end with \n
-			if !bytes.Contains(buf, []byte{'\n',0}) {
-				count += 1
-			}
-		}
-		if err != nil {
-			break
-		}
-	}
-
-	out.Value = int32(count)
-
-	if err == io.EOF {
-		err = nil
-	}
-
-	return out, err
-}
-
-func (s *Server) findFiles() ([]string, error) {
-	if s.settings == nil {
-		return nil, errNotConnected
-	}
-
-	var files []string
-
-	// filepath.Walk(s.settings.RootPath, func(path string, info os.FileInfo, err error) error {
-	// 	var matched = false
-	// 	for _, f := range s.settings.Filters {
-	// 		if matched, _ = regexp.MatchString(f, path); matched {
-	// 			files = append(files, path)
-	// 			break
-	// 		}
-	// 	}
-	// 	return nil
-	// })
-
-	return files, nil
 }
 
 var errNotConnected = errors.New("not connected")
 
+func convertSQLType(t string, maxLength int) pub.PropertyType {
+	text := strings.ToLower(strings.Split(t, "(")[0])
+
+	switch text {
+	case "datetime", "datetime2", "smalldatetime":
+		return pub.PropertyType_DATETIME
+	case "date":
+		return pub.PropertyType_DATE
+	case "time":
+		return pub.PropertyType_TIME
+	case "bigint", "int", "smallint", "tinyint", "decimal", "float", "money", "smallmoney", "real", "numeric":
+		return pub.PropertyType_NUMBER
+	case "bit":
+		return pub.PropertyType_BOOL
+	case "binary", "varbinary", "image":
+		return pub.PropertyType_BLOB
+	case "char", "varchar", "nchar", "nvarchar", "text":
+		if maxLength == -1 || maxLength >= 1024 {
+			return pub.PropertyType_TEXT
+		}
+		return pub.PropertyType_STRING
+	default:
+		return pub.PropertyType_STRING
+	}
+}
+
+func formatTypeAtSource(t string, maxLength, precision, scale int) string {
+	var maxLengthString string
+	if maxLength < 0 {
+		maxLengthString = "MAX"
+	} else {
+		maxLengthString = fmt.Sprintf("%d", maxLength)
+	}
+
+	switch t {
+	case "char", "varchar", "nvarchar", "nchar", "binary", "varbinary", "text", "ntext":
+		return fmt.Sprintf("%s(%s)", t, maxLengthString)
+	case "decimal", "numeric":
+		return fmt.Sprintf("%s(%d,%d)", t, precision, scale)
+	case "float", "real":
+		return fmt.Sprintf("%s(%d)", t, precision)
+	case "datetime2":
+		return fmt.Sprintf("%s(%d)", t, scale)
+	default:
+		return t
+	}
+}
