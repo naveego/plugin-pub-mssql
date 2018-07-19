@@ -95,6 +95,7 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
     col.max_length           MaxLength,
   	col.precision            [Precision],
   	col.scale                [Scale],
+	col.is_nullable          nullable,
 	CASE 
 	  WHEN EXISTS (SELECT 1 
 				   FROM   sys.indexes ind 
@@ -130,6 +131,7 @@ ORDER  BY Schema_name(o.schema_id),
 	var maxLength int
 	var precision int
 	var scale int
+	var isNullable bool
 	var isPrimaryKey bool
 
 	shapes := map[string]*pub.Shape{}
@@ -140,7 +142,7 @@ ORDER  BY Schema_name(o.schema_id),
 	}
 
 	for rows.Next() {
-		err = rows.Scan(&schemaName, &tableName, &columnName, &columnType, &maxLength, &precision, &scale, &isPrimaryKey)
+		err = rows.Scan(&schemaName, &tableName, &columnName, &columnType, &maxLength, &precision, &scale, &isNullable, &isPrimaryKey)
 		if err != nil {
 			return nil, err
 		}
@@ -179,6 +181,7 @@ ORDER  BY Schema_name(o.schema_id),
 			Type:         convertSQLType(columnType, maxLength),
 			TypeAtSource: formatTypeAtSource(columnType, maxLength, precision, scale),
 			IsKey:        isPrimaryKey,
+			IsNullable:   isNullable,
 		}
 
 		shape.Properties = append(shape.Properties, property)
@@ -201,7 +204,7 @@ ORDER  BY Schema_name(o.schema_id),
 			}
 			records := make(chan *pub.Record)
 
-			go func(){
+			go func() {
 				err = s.readRecords(ctx, publishReq, records)
 			}()
 
@@ -264,8 +267,24 @@ func (s *Server) readRecords(ctx context.Context, req *pub.PublishRequest, out c
 	mapBuffer := make(map[string]interface{}, len(properties))
 
 	for rows.Next() {
-		for i := range valueBuffer {
-			valueBuffer[i] = &valueBuffer[i]
+		if ctx.Err() != nil || !s.connected {
+			return nil
+		}
+
+		for i, p := range properties {
+			switch p.Type {
+			case pub.PropertyType_FLOAT:
+				var x float64
+				valueBuffer[i] = &x
+			case pub.PropertyType_INTEGER:
+				var x int64
+				valueBuffer[i] = &x
+			case pub.PropertyType_DECIMAL:
+				var x string
+				valueBuffer[i] = &x
+			default:
+				valueBuffer[i] = &valueBuffer[i]
+			}
 		}
 		err = rows.Scan(valueBuffer...)
 		if err != nil {
@@ -282,7 +301,7 @@ func (s *Server) readRecords(ctx context.Context, req *pub.PublishRequest, out c
 		if err != nil {
 			return err
 		}
-		out <-record
+		out <- record
 	}
 
 	return err
@@ -309,39 +328,22 @@ func buildQuery(req *pub.PublishRequest) (string, error) {
 
 func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_PublishStreamServer) error {
 
-	// files, err := s.findFiles()
-	// if err != nil {
-	// 	return err
-	// }
+	if !s.connected {
+		return errNotConnected
+	}
 
-	// for _, file := range files {
-	// 	err := s.publishRecordsFromFile(file, req.Shape, stream)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	switch s.settings.CleanupAction {
-	// 	case CleanupDelete:
-	// 		err := os.Remove(file)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	case CleanupArchive:
-	// 		rel, err := filepath.Rel(s.settings.RootPath, file)
-	// 		if err != nil {
-	// 			return fmt.Errorf("could not move file to archiveFilePath: %s",err)
-	// 		}
-	// 		archiveFilePath := filepath.Join(s.settings.ArchivePath, rel)
-	// 		archiveContainer := filepath.Dir(archiveFilePath)
-	// 		if err := os.MkdirAll(archiveContainer, 0777); err != nil {
-	// 			return fmt.Errorf("could not create archive location for file %q: %s", file, err)
-	// 		}
-	// 		if err := os.Rename(file, archiveFilePath); err != nil {
-	// 			return fmt.Errorf("could not move file %q to archive location: %s", file, err)
-	// 		}
-	// 	}
-	// }
+	var err error
+	records := make(chan *pub.Record)
 
-	return nil
+	go func() {
+		err = s.readRecords(context.Background(), req, records)
+	}()
+
+	for record := range records {
+		stream.Send(record)
+	}
+
+	return err
 }
 
 func (s *Server) Disconnect(context.Context, *pub.DisconnectRequest) (*pub.DisconnectResponse, error) {
@@ -368,8 +370,12 @@ func convertSQLType(t string, maxLength int) pub.PropertyType {
 		return pub.PropertyType_DATE
 	case "time":
 		return pub.PropertyType_TIME
-	case "bigint", "int", "smallint", "tinyint", "decimal", "float", "money", "smallmoney", "real", "numeric":
-		return pub.PropertyType_NUMBER
+	case "int", "smallint", "tinyint":
+		return pub.PropertyType_INTEGER
+	case "bigint",  "decimal", "money", "smallmoney", "numeric":
+		return pub.PropertyType_DECIMAL
+	case "float", "real":
+		return pub.PropertyType_FLOAT
 	case "bit":
 		return pub.PropertyType_BOOL
 	case "binary", "varbinary", "image":

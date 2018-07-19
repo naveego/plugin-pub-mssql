@@ -7,6 +7,8 @@ import (
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"context"
 	"google.golang.org/grpc/metadata"
+	"encoding/json"
+	"encoding/base64"
 )
 
 var _ = Describe("Server", func() {
@@ -98,20 +100,21 @@ var _ = Describe("Server", func() {
 				for _, s := range shapes {
 					ids = append(ids, s.Id)
 				}
+				Expect(ids).To(ContainElement("[Types]"), "dbo schema should be stripped")
 				Expect(ids).To(ContainElement("[Agents]"), "dbo schema should be stripped")
 				Expect(ids).To(ContainElement("[Customers]"), "dbo schema should be stripped")
 				Expect(ids).To(ContainElement("[fact].[Orders]"), "schema should be included if not dbo")
 				Expect(ids).To(ContainElement("[Agents per Working Area]"), "views should be included")
 
-				Expect(shapes).To(HaveLen(4), "only tables and views should be returned")
+				Expect(shapes).To(HaveLen(5), "only tables and views should be returned")
 			})
 
-			Describe("shape details", func(){
+			Describe("shape details", func() {
 				var agents *pub.Shape
-				BeforeEach(func(){
+				BeforeEach(func() {
 					response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-						Mode: pub.DiscoverShapesRequest_ALL,
-						SampleSize:2,
+						Mode:       pub.DiscoverShapesRequest_ALL,
+						SampleSize: 2,
 					})
 					Expect(err).ToNot(HaveOccurred())
 					for _, s := range response.Shapes {
@@ -129,27 +132,30 @@ var _ = Describe("Server", func() {
 						Id:           "[AGENT_CODE]",
 						Name:         "AGENT_CODE",
 						Type:         pub.PropertyType_STRING,
-						TypeAtSource: "char(6)",
+						TypeAtSource: "char(4)",
 						IsKey:        true,
+						IsNullable:   false,
 					}))
 					Expect(properties).To(ContainElement(&pub.Property{
 						Id:           "[COMMISSION]",
 						Name:         "COMMISSION",
-						Type:         pub.PropertyType_NUMBER,
+						Type:         pub.PropertyType_DECIMAL,
 						TypeAtSource: "numeric(10,2)",
+						IsNullable:   true,
 					}))
 					Expect(properties).To(ContainElement(&pub.Property{
 						Id:           "[BIOGRAPHY]",
 						Name:         "BIOGRAPHY",
 						Type:         pub.PropertyType_TEXT,
 						TypeAtSource: "varchar(MAX)",
+						IsNullable:   true,
 					}))
 				})
 
 				It("should include count", func() {
 					Expect(agents.Count).To(Equal(&pub.Count{
-						Kind:pub.Count_EXACT,
-						Value:12,
+						Kind:  pub.Count_EXACT,
+						Value: 12,
 					}))
 				})
 
@@ -157,7 +163,6 @@ var _ = Describe("Server", func() {
 					Expect(agents.Sample).To(HaveLen(2))
 				})
 			})
-
 
 		})
 
@@ -174,6 +179,7 @@ var _ = Describe("Server", func() {
 							Name:         "COUNT",
 							Type:         pub.PropertyType_STRING,
 							TypeAtSource: "int",
+							IsNullable:   true,
 						},
 					},
 				}
@@ -192,30 +198,153 @@ var _ = Describe("Server", func() {
 					Id:           "[WORKING_AREA]",
 					Name:         "WORKING_AREA",
 					Type:         pub.PropertyType_STRING,
-					TypeAtSource: "char(35)",
+					TypeAtSource: "varchar(35)",
+					IsNullable:   true,
 				}))
 				Expect(properties).To(ContainElement(&pub.Property{
 					Id:           "[COUNT]",
 					Name:         "COUNT",
-					Type:         pub.PropertyType_NUMBER,
+					Type:         pub.PropertyType_INTEGER,
 					TypeAtSource: "int",
+					IsNullable:   true,
 				}))
 			})
 		})
 
 		Describe("PublishStream", func() {
+			Describe("filtering", func() {
 
-			// record := agents.Sample[0]
-			// var data map[string]interface{}
-			// Expect(json.Unmarshal([]byte(record.DataJson), &data)).To(Succeed())
-			// Expect(data).To(BeEquivalentTo(map[]))
+				var req *pub.PublishRequest
+				BeforeEach(func() {
+					var agents *pub.Shape
 
+					response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
+						Mode:       pub.DiscoverShapesRequest_ALL,
+						SampleSize: 2,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					for _, s := range response.Shapes {
+						if s.Id == "[Agents]" {
+							agents = s
+						}
+					}
+					Expect(agents).ToNot(BeNil())
+					req = &pub.PublishRequest{
+						Shape: agents,
+					}
+				})
+
+				It("should publish all when unfiltered", func() {
+					stream := new(publisherStream)
+					Expect(sut.PublishStream(req, stream)).To(Succeed())
+					Expect(stream.err).ToNot(HaveOccurred())
+					Expect(stream.records).To(HaveLen(12))
+
+					var alex map[string]interface{}
+					var data []map[string]interface{}
+					for _, record := range stream.records {
+						var d map[string]interface{}
+						Expect(json.Unmarshal([]byte(record.DataJson), &d)).To(Succeed())
+						data = append(data, d)
+						if d["[AGENT_NAME]"] == "Alex" {
+							alex = d
+						}
+					}
+					Expect(alex).ToNot(BeNil(), "should find Alex (code==A003)")
+
+					Expect(alex).To(And(
+						HaveKeyWithValue("[AGENT_CODE]", "A003"),
+						HaveKeyWithValue("[AGENT_NAME]", "Alex"),
+						HaveKeyWithValue("[WORKING_AREA]", "London"),
+						HaveKeyWithValue("[COMMISSION]", "0.13"),
+						HaveKeyWithValue("[PHONE_NO]", "075-12458969"),
+						HaveKeyWithValue("[UPDATED_AT]", "1970-01-02T00:00:00Z"),
+						HaveKeyWithValue("[BIOGRAPHY]", ""),
+					))
+				})
+
+				It("should filter on equality", func() {
+					stream := new(publisherStream)
+					req.Filters = []*pub.PublishFilter{
+						{
+							Kind:pub.PublishFilter_EQUALS,
+							PropertyId: "[AGENT_CODE]",
+							PropertyValue: "A003",
+						},
+					}
+					Expect(sut.PublishStream(req, stream)).To(Succeed())
+					Expect(stream.err).ToNot(HaveOccurred())
+					Expect(stream.records).To(HaveLen(1))
+					Expect(stream.records[0].DataJson).To(ContainSubstring("Alex"))
+				})
+			})
+			Describe("typing", func() {
+
+				var req *pub.PublishRequest
+				BeforeEach(func() {
+					var types *pub.Shape
+
+					response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
+						Mode:       pub.DiscoverShapesRequest_ALL,
+						SampleSize: 2,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					for _, s := range response.Shapes {
+						if s.Id == "[Types]" {
+							types = s
+						}
+					}
+					Expect(types).ToNot(BeNil())
+					req = &pub.PublishRequest{
+						Shape: types,
+					}
+				})
+
+				It("should publish record with all data in correct format", func() {
+					stream := new(publisherStream)
+					Expect(sut.PublishStream(req, stream)).To(Succeed())
+					Expect(stream.err).ToNot(HaveOccurred())
+					Expect(stream.records).To(HaveLen(1))
+					record := stream.records[0]
+					var data map[string]interface{}
+					Expect(json.Unmarshal([]byte(record.DataJson), &data)).To(Succeed())
+
+					Expect(data).To(And(
+						HaveKeyWithValue("[int]", BeNumerically("==",42)),
+						HaveKeyWithValue("[bigint]", Equal("9223372036854775807")),
+						HaveKeyWithValue("[numeric]", Equal("1234.56780")),
+						HaveKeyWithValue("[smallint]", BeNumerically("==",123)),
+						HaveKeyWithValue("[decimal]", Equal("1234.5678")),
+						HaveKeyWithValue("[smallmoney]",  Equal("12.5600")),
+						HaveKeyWithValue("[tinyint]", BeNumerically("==",12)),
+						HaveKeyWithValue("[money]", Equal("1234.5600")),
+						HaveKeyWithValue("[float]", BeNumerically("~",123456.789, 1E8)),
+						HaveKeyWithValue("[real]", BeNumerically("~",123456.789, 1E8)),
+						HaveKeyWithValue("[bit]", true),
+						HaveKeyWithValue("[date]", "1970-01-01T00:00:00Z"),
+						HaveKeyWithValue("[datetimeoffset]", "2007-05-08T12:35:29.1234567+12:15", ),
+						HaveKeyWithValue("[datetime2]", "2007-05-08T12:35:29.1234567Z", ),
+						HaveKeyWithValue("[smalldatetime]", "2007-05-08T12:35:00Z"),
+						HaveKeyWithValue("[datetime]", "2007-05-08T12:35:29.123Z"),
+						HaveKeyWithValue("[time]", "0001-01-01T12:35:29.123Z"),
+						HaveKeyWithValue("[char]", "char  "),
+						HaveKeyWithValue("[varchar]", "abc"),
+						HaveKeyWithValue("[text]", "abc"),
+						HaveKeyWithValue("[nchar]", "nchar "),
+						HaveKeyWithValue("[nvarchar]", "nvarchar"),
+						HaveKeyWithValue("[ntext]", "ntext"),
+						HaveKeyWithValue("[binary]", base64.StdEncoding.EncodeToString([]byte("abc"))),
+						HaveKeyWithValue("[varbinary]", base64.StdEncoding.EncodeToString([]byte("cde"))),
+					))
+
+				})
+
+				Describe("Disconnect", func() {
+
+				})
+
+			})
 		})
-
-		Describe("Disconnect", func() {
-
-		})
-
 	})
 })
 
