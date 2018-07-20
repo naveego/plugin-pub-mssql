@@ -159,10 +159,10 @@
   revision = "c0644e20022dc468e49c8d99f101aae31ed2464d"
 
 [[projects]]
-  branch = "master"
   name = "github.com/naveego/dataflow-contracts"
   packages = ["plugins"]
-  revision = "5ae5510607e6913b02e3dd7d09d198a3e435c06d"
+  revision = "065df73460f9893f52b5a477f4c6a8745dc0de9f"
+  version = "0.0.1"
 
 [[projects]]
   branch = "master"
