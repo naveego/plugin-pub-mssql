@@ -42,9 +42,17 @@ var _ = BeforeSuite(func(){
 func connectToSQL() error {
 	var err error
 	connectionString := "sqlserver://sa:n5o_ADMIN@127.0.0.1"
+	if db != nil {
+		db.Close()
+	}
 	db, err = sql.Open("sqlserver", connectionString)
 	if err != nil {
 		log.Printf("Error connecting to SQL Server: %s", err)
+		return err
+	}
+	err = db.Ping()
+	if err != nil {
+		log.Printf("Error pinging SQL Server: %s", err)
 		return err
 	}
 
