@@ -11,6 +11,8 @@ type Settings struct {
 	Auth AuthType `json:"auth"`
 	Username string `json:"username"`
 	Password string `json:"password"`
+	PrePublishQuery string `json:"prePublishQuery"`
+	PostPublishQuery string `json:"postPublishQuery"`
 }
 
 type AuthType string

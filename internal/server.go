@@ -119,7 +119,7 @@ ORDER  BY Schema_name(o.schema_id),
 	   col.column_id`)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not get database schema: %s", err)
 	}
 
 	defer rows.Close()
@@ -224,6 +224,63 @@ ORDER  BY Schema_name(o.schema_id),
 
 	return resp, nil
 
+}
+
+func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_PublishStreamServer) error {
+
+	if !s.connected {
+		return errNotConnected
+	}
+
+	if s.settings.PrePublishQuery != "" {
+		_, err := s.db.Exec(s.settings.PrePublishQuery)
+		if err != nil {
+			return fmt.Errorf("error running pre-publish query: %s", err)
+		}
+	}
+
+	var err error
+	records := make(chan *pub.Record)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		err = s.readRecords(ctx, req, records)
+	}()
+
+	for record := range records {
+		sendErr := stream.Send(record)
+		if sendErr != nil {
+			cancel()
+			err = sendErr
+			break
+		}
+	}
+
+	if s.settings.PostPublishQuery != "" {
+		_, postPublishErr := s.db.Exec(s.settings.PostPublishQuery)
+		if postPublishErr != nil {
+			if err != nil {
+				postPublishErr = fmt.Errorf("%s (publish had already stopped with error: %s)", postPublishErr, err)
+			}
+
+			return fmt.Errorf("error running post-publish query: %s", postPublishErr)
+		}
+	}
+
+	return err
+}
+
+func (s *Server) Disconnect(context.Context, *pub.DisconnectRequest) (*pub.DisconnectResponse, error) {
+	if s.db != nil {
+		s.db.Close()
+	}
+
+	s.connected = false
+	s.settings = nil
+	s.db = nil
+
+	return new(pub.DisconnectResponse), nil
 }
 
 func (s *Server) getCount(shape *pub.Shape) (*pub.Count, error) {
@@ -339,7 +396,6 @@ func buildQuery(req *pub.PublishRequest) (string, error) {
 
 			wf := new(strings.Builder)
 
-
 			fmt.Fprintf(wf, "  %s ", f.PropertyId)
 			switch f.Kind {
 			case pub.PublishFilter_EQUALS:
@@ -367,38 +423,6 @@ func buildQuery(req *pub.PublishRequest) (string, error) {
 	}
 
 	return w.String(), nil
-}
-
-func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_PublishStreamServer) error {
-
-	if !s.connected {
-		return errNotConnected
-	}
-
-	var err error
-	records := make(chan *pub.Record)
-
-	go func() {
-		err = s.readRecords(context.Background(), req, records)
-	}()
-
-	for record := range records {
-		stream.Send(record)
-	}
-
-	return err
-}
-
-func (s *Server) Disconnect(context.Context, *pub.DisconnectRequest) (*pub.DisconnectResponse, error) {
-	if s.db != nil {
-		s.db.Close()
-	}
-
-	s.connected = false
-	s.settings = nil
-	s.db = nil
-
-	return new(pub.DisconnectResponse), nil
 }
 
 var errNotConnected = errors.New("not connected")
