@@ -1,5 +1,9 @@
 IF NOT EXISTS (SELECT name FROM master.dbo.sysdatabases WHERE name = N'w3')
-CREATE DATABASE w3
+BEGIN
+  CREATE DATABASE w3
+END
+
+USE w3
 
 GO;
 IF NOT EXISTS (
