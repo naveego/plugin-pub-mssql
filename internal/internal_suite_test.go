@@ -24,7 +24,7 @@ func TestCsv(t *testing.T) {
 var _ = BeforeSuite(func(){
 	var err error
 
-	Eventually(connectToSQL, time.Second * 20, time.Second).Should(Succeed())
+	Eventually(connectToSQL, time.Second * 60, time.Second).Should(Succeed())
 
 	testDataPath := os.ExpandEnv("$GOPATH/src/github.com/naveego/plugin-pub-mssql/test/test_data.sql")
 	testDataBytes, err := ioutil.ReadFile(testDataPath)
@@ -41,10 +41,8 @@ var _ = BeforeSuite(func(){
 
 func connectToSQL() error {
 	var err error
-	connectionString := "sqlserver://sa:n5o_ADMIN@127.0.0.1"
-	if db != nil {
-		db.Close()
-	}
+	connectionString := "sqlserver://sa:n5o_ADMIN@localhost:1433"
+
 	db, err = sql.Open("sqlserver", connectionString)
 	if err != nil {
 		log.Printf("Error connecting to SQL Server: %s", err)
@@ -66,9 +64,10 @@ func connectToSQL() error {
 	}
 
 	connectionString += "?database=w3"
-	db, err = sql.Open("sqlserver", connectionString)
+	db, _ = sql.Open("sqlserver", connectionString)
+	err = db.Ping()
 	if err != nil {
-		log.Printf("Error connecting to w3 database: %s", err)
+		log.Printf("Error pinging w3 database: %s", err)
 		return err
 	}
 
