@@ -145,36 +145,15 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/naveego/api"
-  packages = [
-    "types/pipeline",
-    "utils"
-  ]
-  revision = "fd51577daf0f22478e1a3cdc69cef7f02159419b"
-
-[[projects]]
-  branch = "master"
   name = "github.com/naveego/ci"
   packages = ["go/build"]
-  revision = "c0644e20022dc468e49c8d99f101aae31ed2464d"
+  revision = "486948a3ab7fe860bdf32b004e6b8193e35aaf93"
 
 [[projects]]
   name = "github.com/naveego/dataflow-contracts"
   packages = ["plugins"]
   revision = "065df73460f9893f52b5a477f4c6a8745dc0de9f"
   version = "0.0.1"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/naveego/errors"
-  packages = ["."]
-  revision = "31819ff2f0c0c4e7a729100bc7334d1962b75150"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/naveego/navigator-go"
-  packages = ["publishers/protocol"]
-  revision = "ad3809d70877b1a0b1229cac2caa8c5cc286b293"
 
 [[projects]]
   name = "github.com/oklog/run"
@@ -237,12 +216,6 @@
   name = "github.com/rancher/go-rancher"
   packages = ["v2"]
   revision = "5d4e55e3f5de872bd5136d538139fffad238ad3a"
-
-[[projects]]
-  name = "github.com/satori/go.uuid"
-  packages = ["."]
-  revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
-  version = "v1.2.0"
 
 [[projects]]
   name = "github.com/sirupsen/logrus"
@@ -392,6 +365,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0c7268f2c4a4c3f3e24c697785cc1d326c98d063f69313c1c8fa46888435ac9f"
+  inputs-digest = "11a948c814677c486dcb07a4ef83a97f595ca1257a0c87825e1e3b1a7d34c4c1"
   solver-name = "gps-cdcl"
   solver-version = 1

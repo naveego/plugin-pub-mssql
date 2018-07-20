@@ -23,10 +23,6 @@
 ignored = ["bitbucket.org/naveego/ci/build"]
 
 [[constraint]]
-  branch = "master"
-  name = "github.com/naveego/navigator-go"
-
-[[constraint]]
   name = "github.com/onsi/ginkgo"
   version = "1.4.0"
 

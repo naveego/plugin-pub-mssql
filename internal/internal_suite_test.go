@@ -12,13 +12,14 @@ import (
 	"strings"
 	"log"
 	"time"
+	"github.com/naveego/ci/go/build"
 )
 
 var db *sql.DB
 
 func TestCsv(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "MSSQL Suite")
+	build.RunSpecsWithReporting(t, "MSSQL Suite")
 }
 
 var _ = BeforeSuite(func(){
