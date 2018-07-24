@@ -2,40 +2,60 @@
     "name": "pub-mssql",
     "displayName": "Microsoft SQL Server Publisher",
     "description": "Publisher which pulls data from an MS SQL Server instance.",
-    "versionDescription": "Version 1",
-    "version": "1.0.0",
+    "versionDescription": "Version 2",
+    "version": "2.0.0",
     "iconFile": "icon.png",
     "executable": "plugin-pub-mssql",
     "kind": "publisher",
-    "configSchema": [
-        {
-           "name": "server",
-           "label": "Server",
-           "type": "string"
+  "configSchema": {
+    "ui": {
+      "password": {
+        "ui:widget": "password"
+      }
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "title": "Server"
         },
-        {
-           "name": "database",
-           "label": "Database Name",
-           "type": "string"
+        "database": {
+          "type": "string",
+          "title": "Database"
         },
-        {
-           "name": "auth",
-           "label": "Authentication Type",
-           "type": "enum",
-           "items": [
-              "sql",
-              "windows"
-           ]
+        "auth": {
+          "type": "string",
+          "title": "Authentication",
+          "enum": [
+            "sql",
+            "windows"
+          ]
         },
-        {
-           "name": "username",
-           "label": "Username",
-           "type": "string"
+        "username": {
+          "type": "string",
+          "title": "Username"
         },
-        {
-           "name": "password",
-           "label": "Password",
-           "type": "password"
+        "password": {
+          "type": "string",
+          "title": "Password"
+        },
+        "prePublishQuery": {
+          "title": "Pre-publish Query",
+          "description": "Optional query to be run before a publish begins.",
+          "type": "string"
+        },
+        "postPublishQuery": {
+          "title": "Post-publish Query",
+          "description": "Optional query to be run after a publish completes.",
+          "type": "string"
         }
-     ]
+      },
+      "required":[
+        "server",
+        "database",
+        "auth"
+      ]
+    }
+  }
 }

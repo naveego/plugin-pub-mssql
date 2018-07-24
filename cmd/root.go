@@ -6,41 +6,42 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sirupsen/logrus"
-	"github.com/naveego/navigator-go/publishers/server"
+	"github.com/naveego/plugin-pub-mssql/internal"
+	"github.com/naveego/plugin-pub-mssql/version"
 	"github.com/spf13/cobra"
+	"log"
+	"github.com/hashicorp/go-plugin"
+	"github.com/naveego/dataflow-contracts/plugins"
+	"github.com/naveego/plugin-pub-mssql/internal/pub"
 )
 
 var verbose *bool
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "mssql",
-	Short: "A publisher that pulls data from MS SQL Server",
+	Use:   "plugin-pub-mssql",
+	Short: "A publisher that pulls data from a CSV file.",
 	Args:  cobra.ExactArgs(1),
-	Long:  ``,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Long: fmt.Sprintf(`Version %s
+Runs the publisher in externally controlled mode.`, version.Version.String()),
+	Run: func(cmd *cobra.Command, args []string)  {
 
-		logrus.SetOutput(os.Stdout)
+		log.Print("Starting CSV Publisher Plugin.")
+		plugin.Serve(&plugin.ServeConfig{
+			HandshakeConfig: plugin.HandshakeConfig{
+				ProtocolVersion: plugins.PublisherProtocolVersion,
+				MagicCookieKey:plugins.PublisherMagicCookieKey,
+				MagicCookieValue:plugins.PublisherMagicCookieValue,
+			},
+			Plugins: map[string]plugin.Plugin{
+				"publisher": pub.NewServerPlugin(internal.NewServer()),
+			},
 
-		addr := args[0]
-
-		if *verbose {
-			fmt.Println("Verbose logging")
-			logrus.SetLevel(logrus.DebugLevel)
-		}
-
-		publisher := NewClient()
-
-		srv := server.NewPublisherServer(addr, publisher)
-
-		err := srv.ListenAndServe()
-
-		return err
+			// A non-nil value here enables gRPC serving for this plugin...
+			GRPCServer: plugin.DefaultGRPCServer,
+		})
 	}}
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
