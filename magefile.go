@@ -9,6 +9,11 @@ import (
 	"github.com/naveego/dataflow-contracts/plugins"
 
 	"github.com/naveego/ci/go/build"
+	"github.com/naveego/plugin-pub-mssql/version"
+	"io/ioutil"
+	"encoding/json"
+	"path/filepath"
+	"encoding/base64"
 )
 
 var oses = []string{
@@ -21,7 +26,6 @@ var oses = []string{
 // If not set, running mage will list available targets
 // var Default = Build
 
-// A build step that requires additional params, or platform specific steps for example
 func Build() error {
 	fmt.Println("Building...")
 	for _, os := range oses {
@@ -34,9 +38,52 @@ func Build() error {
 
 func buildForOS(os string) error {
 	fmt.Println("Building for OS", os)
-	return sh.RunWith(map[string]string{
+
+	manifestBytes, err := ioutil.ReadFile("manifest.json")
+	if err != nil {
+		return err
+	}
+	var manifest map[string]interface{}
+	err = json.Unmarshal(manifestBytes, &manifest)
+	if err != nil {
+		return err
+	}
+
+
+	v := version.Version
+	manifest["version"] = v
+
+	exe := "pub-mssql"
+	if os == "windows" {
+		exe += ".exe"
+	}
+	manifest["executable"] = exe
+
+	outDir := fmt.Sprintf("build/outputs/%s/pub-mssql/%s", os, v)
+	out := filepath.Join(outDir, exe)
+
+	err = sh.RunWith(map[string]string{
 		"GOOS": os,
-	}, "go", "build", "-o", "bin/"+os+"/plugin-pub-mssql", ".")
+	}, "go", "build", "-o", out, ".")
+
+	if err != nil {
+		return err
+	}
+
+	if iconFile, ok := manifest["iconFile"].(string); ok {
+		iconBytes, _ := ioutil.ReadFile(iconFile)
+		iconBytes64 := base64.StdEncoding.EncodeToString(iconBytes)
+		ext := filepath.Ext(iconFile)
+		icon64 := fmt.Sprintf("data:image/%s;base64,%s",ext, iconBytes64)
+		manifest["icon"] = icon64
+	}
+
+	outManifest := filepath.Join(outDir, "manifest.json")
+
+	manifestBytes, _ = json.Marshal(manifest)
+	ioutil.WriteFile(outManifest, manifestBytes, 0777)
+
+	return nil
 }
 
 func PublishToNavget() error {
