@@ -9,6 +9,8 @@ services:
     environment:
       ACCEPT_EULA: Y
       SA_PASSWORD: n5o_ADMIN
+    logging:
+      driver: json-file
 
 
 
