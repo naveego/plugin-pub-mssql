@@ -113,14 +113,14 @@ var _ = Describe("Server", func() {
 						Id:           "[COMMISSION]",
 						Name:         "COMMISSION",
 						Type:         pub.PropertyType_FLOAT,
-						TypeAtSource: "float(53)",
+						TypeAtSource: "float",
 						IsNullable:   true,
 					}))
 					Expect(properties).To(ContainElement(&pub.Property{
 						Id:           "[BIOGRAPHY]",
 						Name:         "BIOGRAPHY",
 						Type:         pub.PropertyType_TEXT,
-						TypeAtSource: "varchar(MAX)",
+						TypeAtSource: "varchar(max)",
 						IsNullable:   true,
 					}))
 				})
