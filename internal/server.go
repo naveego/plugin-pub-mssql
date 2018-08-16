@@ -88,106 +88,29 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 		return nil, errNotConnected
 	}
 
-	rows, err := s.db.Query(`SELECT Schema_name(o.schema_id) SchemaName, 
-	o.NAME                   TableName, 
-	col.NAME                 ColumnName, 
-	ty.NAME                  TypeName, 
-    col.max_length           MaxLength,
-  	col.precision            [Precision],
-  	col.scale                [Scale],
-	col.is_nullable          nullable,
-	CASE 
-	  WHEN EXISTS (SELECT 1 
-				   FROM   sys.indexes ind 
-						  INNER JOIN sys.index_columns indcol 
-								  ON indcol.object_id = o.object_id 
-									 AND indcol.index_id = ind.index_id 
-									 AND col.column_id = indcol.column_id 
-				   WHERE  ind.object_id = o.object_id 
-						  AND ind.is_primary_key = 1) THEN 1 
-	  ELSE 0 
-	END                      AS IsPrimaryKey 
+	var shapes []*pub.Shape
+	var err error
 
-FROM   sys.objects o 
-	INNER JOIN sys.columns col 
-			ON col.object_id = o.object_id 
-	INNER JOIN sys.types ty 
-			ON ( col.system_type_id = ty.system_type_id ) 
-WHERE  o.type IN ( 'U', 'V' ) 
-ORDER  BY Schema_name(o.schema_id), 
-	   o.NAME, 
-	   col.column_id`)
-
-	if err != nil {
-		return nil, fmt.Errorf("could not get database schema: %s", err)
-	}
-
-	defer rows.Close()
-
-	var schemaName string
-	var tableName string
-	var columnName string
-	var columnType string
-	var maxLength int
-	var precision int
-	var scale int
-	var isNullable bool
-	var isPrimaryKey bool
-
-	shapes := map[string]*pub.Shape{}
-
-	for _, shape := range req.ToRefresh {
-		shapes[shape.Id] = shape
-		shape.Properties = nil
-	}
-
-	for rows.Next() {
-		err = rows.Scan(&schemaName, &tableName, &columnName, &columnType, &maxLength, &precision, &scale, &isNullable, &isPrimaryKey)
+	if req.Mode == pub.DiscoverShapesRequest_ALL {
+		shapes, err = s.getAllShapesFromSchema()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not load shapes from SQL: %s", err)
 		}
-
-		var (
-			shapeID   string
-			shapeName string
-		)
-		if schemaName == "dbo" {
-			shapeID = fmt.Sprintf("[%s]", tableName)
-			shapeName = tableName
-		} else {
-			shapeID = fmt.Sprintf("[%s].[%s]", schemaName, tableName)
-			shapeName = fmt.Sprintf("%s.%s", schemaName, tableName)
+	} else {
+		for _, s := range req.ToRefresh {
+			shapes = append(shapes, s)
 		}
-
-		// in refresh mode, only refresh requested shapes
-		if req.Mode == pub.DiscoverShapesRequest_REFRESH {
-			if _, ok := shapes[shapeID]; !ok {
-				continue
-			}
-		}
-
-		shape, ok := shapes[shapeID]
-		if !ok {
-			shape = &pub.Shape{
-				Id:   shapeID,
-				Name: shapeName,
-			}
-			shapes[shapeID] = shape
-		}
-
-		property := &pub.Property{
-			Id:           fmt.Sprintf("[%s]", columnName),
-			Name:         columnName,
-			Type:         convertSQLType(columnType, maxLength),
-			TypeAtSource: formatTypeAtSource(columnType, maxLength, precision, scale),
-			IsKey:        isPrimaryKey,
-			IsNullable:   isNullable,
-		}
-
-		shape.Properties = append(shape.Properties, property)
 	}
 
 	resp := &pub.DiscoverShapesResponse{}
+
+	for _, shape := range shapes {
+
+		err := s.populateShapeColumns(shape)
+		if err != nil {
+			return resp, fmt.Errorf("could not populate columns for shape %q: %s", shape.Id, err)
+		}
+	}
 
 	for _, shape := range shapes {
 		sort.Sort(pub.SortableProperties(shape.Properties))
@@ -224,6 +147,127 @@ ORDER  BY Schema_name(o.schema_id),
 
 	return resp, nil
 
+}
+
+func (s *Server) getAllShapesFromSchema() ([]*pub.Shape, error) {
+
+	rows, err := s.db.Query(`SELECT Schema_name(o.schema_id) SchemaName, o.NAME TableName
+FROM   sys.objects o 
+WHERE  o.type IN ( 'U', 'V' )`)
+
+	if err != nil {
+		return nil, fmt.Errorf("could not list tables: %s", err)
+	}
+
+	var shapes []*pub.Shape
+
+	for rows.Next() {
+		shape := new(pub.Shape)
+
+		var (
+			schemaName string
+			tableName string
+		)
+		err = rows.Scan(&schemaName, &tableName)
+		if err != nil {
+			return nil, err
+		}
+
+		if schemaName == "dbo" {
+			shape.Id = fmt.Sprintf("[%s]", tableName)
+			shape.Name = tableName
+		} else {
+			shape.Id = fmt.Sprintf("[%s].[%s]", schemaName, tableName)
+			shape.Name = fmt.Sprintf("%s.%s", schemaName, tableName)
+		}
+
+		shapes = append(shapes, shape)
+	}
+
+	return shapes, nil
+}
+
+func (s *Server) populateShapeColumns(shape *pub.Shape) (error) {
+
+	query := shape.Query
+	if query == "" {
+		query = fmt.Sprintf("SELECT * FROM %s", shape.Id)
+	}
+
+	query = strings.Replace(query, "'", "''", -1)
+
+	metaQuery := fmt.Sprintf("sp_describe_first_result_set N'%s', @params= N'', @browse_information_mode=1", query)
+
+	rows, err := s.db.Query(metaQuery)
+
+	if err != nil {
+		return err
+	}
+
+	columnNames, err := rows.Columns()
+	if err != nil {
+		return err
+	}
+
+
+	unnamedColumnIndex := 1
+
+	for rows.Next() {
+
+		columns := make([]interface{}, len(columnNames))
+		columnPointers := make([]interface{}, len(columnNames))
+		columnMap := make(map[string]interface{}, len(columnNames))
+		for i := 0; i < len(columnNames); i++ {
+			columnPointers[i] = &columns[i]
+		}
+		if err := rows.Scan(columnPointers...); err != nil {
+			return err
+		}
+		for i, name := range columnNames {
+			columnMap[name] = columns[i]
+		}
+
+		var property *pub.Property
+		var propertyName string
+		var propertyID string
+		var ok bool
+		if propertyName, ok = columnMap["name"].(string); !ok {
+			propertyName = fmt.Sprintf("UNKNOWN_%d", unnamedColumnIndex)
+			unnamedColumnIndex++
+		}
+		propertyID = fmt.Sprintf("[%s]", propertyName)
+
+		for _, p := range shape.Properties {
+			if p.Id == propertyID {
+				property = p
+				break
+			}
+		}
+		if property == nil {
+			property = &pub.Property{
+				Id:propertyID,
+				Name:propertyName,
+			}
+			shape.Properties = append(shape.Properties, property)
+		}
+
+		if property.TypeAtSource, ok = columnMap["system_type_name"].(string); !ok {
+			property.TypeAtSource = "binary"
+		}
+
+		maxLength := columnMap["max_length"].(int64)
+		property.Type = convertSQLType(property.TypeAtSource, int(maxLength))
+
+		if property.IsNullable, ok = columnMap["is_nullable"].(bool); !ok {
+			property.IsNullable = true
+		}
+
+		if property.IsKey, ok = columnMap["is_part_of_unique_key"].(bool); !ok {
+			property.IsKey = false
+		}
+	}
+
+	return nil
 }
 
 func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_PublishStreamServer) error {
