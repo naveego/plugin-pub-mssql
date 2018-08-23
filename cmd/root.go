@@ -20,8 +20,7 @@ var verbose *bool
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "plugin-pub-mssql",
-	Short: "A publisher that pulls data from a CSV file.",
-	Args:  cobra.ExactArgs(1),
+	Short: "A publisher that pulls data from SQL.",
 	Long: fmt.Sprintf(`Version %s
 Runs the publisher in externally controlled mode.`, version.Version.String()),
 	Run: func(cmd *cobra.Command, args []string)  {

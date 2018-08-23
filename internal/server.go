@@ -44,11 +44,11 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 
 	settings := new(Settings)
 	if err := json.Unmarshal([]byte(req.SettingsJson), settings); err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	if err := settings.Validate(); err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	u := &url.URL{
@@ -65,13 +65,13 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 	var err error
 	s.db, err = sql.Open("sqlserver", u.String())
 	if err != nil {
-		return nil, fmt.Errorf("could not open connection: %s", err)
+		return nil, errors.Errorf("could not open connection: %s", err)
 	}
 
 	_, err = s.db.Query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES ")
 
 	if err != nil {
-		return nil, fmt.Errorf("could not read database schema: %s", err)
+		return nil, errors.Errorf("could not read database schema: %s", err)
 	}
 
 	// connection made and tested
@@ -94,7 +94,7 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 	if req.Mode == pub.DiscoverShapesRequest_ALL {
 		shapes, err = s.getAllShapesFromSchema()
 		if err != nil {
-			return nil, fmt.Errorf("could not load shapes from SQL: %s", err)
+			return nil, errors.Errorf("could not load shapes from SQL: %s", err)
 		}
 	} else {
 		for _, s := range req.ToRefresh {
@@ -108,7 +108,7 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 
 		err := s.populateShapeColumns(shape)
 		if err != nil {
-			return resp, fmt.Errorf("could not populate columns for shape %q: %s", shape.Id, err)
+			return resp, errors.Errorf("could not populate columns for shape %q: %s", shape.Id, err)
 		}
 	}
 
@@ -117,7 +117,7 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 
 		shape.Count, err = s.getCount(shape)
 		if err != nil {
-			return nil, fmt.Errorf("could not get row count for shape %q: %s", shape.Id, err)
+			return nil, errors.Errorf("could not get row count for shape %q: %s", shape.Id, err)
 		}
 
 		if req.SampleSize > 0 {
@@ -136,7 +136,7 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 			}
 
 			if err != nil {
-				return nil, fmt.Errorf("error while collecting sample: %s", err)
+				return nil, errors.Errorf("error while collecting sample: %v", err)
 			}
 		}
 
@@ -156,7 +156,7 @@ FROM   sys.objects o
 WHERE  o.type IN ( 'U', 'V' )`)
 
 	if err != nil {
-		return nil, fmt.Errorf("could not list tables: %s", err)
+		return nil, errors.Errorf("could not list tables: %s", err)
 	}
 
 	var shapes []*pub.Shape
@@ -166,11 +166,11 @@ WHERE  o.type IN ( 'U', 'V' )`)
 
 		var (
 			schemaName string
-			tableName string
+			tableName  string
 		)
 		err = rows.Scan(&schemaName, &tableName)
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 
 		if schemaName == "dbo" {
@@ -201,14 +201,13 @@ func (s *Server) populateShapeColumns(shape *pub.Shape) (error) {
 	rows, err := s.db.Query(metaQuery)
 
 	if err != nil {
-		return err
+		return errors.Errorf("error executing query %q: %v", metaQuery, err)
 	}
 
 	columnNames, err := rows.Columns()
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
-
 
 	unnamedColumnIndex := 1
 
@@ -221,7 +220,7 @@ func (s *Server) populateShapeColumns(shape *pub.Shape) (error) {
 			columnPointers[i] = &columns[i]
 		}
 		if err := rows.Scan(columnPointers...); err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 		for i, name := range columnNames {
 			columnMap[name] = columns[i]
@@ -245,8 +244,8 @@ func (s *Server) populateShapeColumns(shape *pub.Shape) (error) {
 		}
 		if property == nil {
 			property = &pub.Property{
-				Id:propertyID,
-				Name:propertyName,
+				Id:   propertyID,
+				Name: propertyName,
 			}
 			shape.Properties = append(shape.Properties, property)
 		}
@@ -272,6 +271,10 @@ func (s *Server) populateShapeColumns(shape *pub.Shape) (error) {
 
 func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_PublishStreamServer) error {
 
+	jsonReq, _ := json.Marshal(req)
+
+	s.log.With("req", string(jsonReq)).Debug("Got PublishStream request.")
+
 	if !s.connected {
 		return errNotConnected
 	}
@@ -279,7 +282,7 @@ func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_Pub
 	if s.settings.PrePublishQuery != "" {
 		_, err := s.db.Exec(s.settings.PrePublishQuery)
 		if err != nil {
-			return fmt.Errorf("error running pre-publish query: %s", err)
+			return errors.Errorf("error running pre-publish query: %s", err)
 		}
 	}
 
@@ -305,10 +308,10 @@ func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_Pub
 		_, postPublishErr := s.db.Exec(s.settings.PostPublishQuery)
 		if postPublishErr != nil {
 			if err != nil {
-				postPublishErr = fmt.Errorf("%s (publish had already stopped with error: %s)", postPublishErr, err)
+				postPublishErr = errors.Errorf("%s (publish had already stopped with error: %s)", postPublishErr, err)
 			}
 
-			return fmt.Errorf("error running post-publish query: %s", postPublishErr)
+			return errors.Errorf("error running post-publish query: %s", postPublishErr)
 		}
 	}
 
@@ -331,11 +334,20 @@ func (s *Server) getCount(shape *pub.Shape) (*pub.Count, error) {
 
 	var count int
 
-	row := s.db.QueryRow(fmt.Sprintf("SELECT COUNT(1) FROM %s", shape.Id))
-
-	err := row.Scan(&count)
+	query, err := buildQuery(&pub.PublishRequest{
+		Shape:shape,
+	})
 	if err != nil {
 		return nil, err
+	}
+
+	query = fmt.Sprintf("SELECT COUNT(1) FROM (%s) as Q", query)
+
+	row := s.db.QueryRow(query)
+
+	err = row.Scan(&count)
+	if err != nil {
+		return nil, fmt.Errorf("error from query %q: %s", query,  err)
 	}
 
 	return &pub.Count{
@@ -349,18 +361,16 @@ func (s *Server) readRecords(ctx context.Context, req *pub.PublishRequest, out c
 	defer close(out)
 
 	var err error
+	var query string
 
-	query := req.Shape.Query
-	if req.Shape.Query == "" {
-		query, err = buildQuery(req)
-		if err != nil {
-			return fmt.Errorf("could not build query: %s", err)
-		}
+	query, err = buildQuery(req)
+	if err != nil {
+		return errors.Errorf("could not build query: %v", err)
 	}
 
 	rows, err := s.db.Query(query)
 	if err != nil {
-		return err
+		return errors.Errorf("error executing query %q: %v", query, err)
 	}
 
 	properties := req.Shape.Properties
@@ -389,7 +399,7 @@ func (s *Server) readRecords(ctx context.Context, req *pub.PublishRequest, out c
 		}
 		err = rows.Scan(valueBuffer...)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 
 		for i, p := range properties {
@@ -400,7 +410,7 @@ func (s *Server) readRecords(ctx context.Context, req *pub.PublishRequest, out c
 		var record *pub.Record
 		record, err = pub.NewRecord(pub.Record_UPSERT, mapBuffer)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 		out <- record
 	}
@@ -409,6 +419,10 @@ func (s *Server) readRecords(ctx context.Context, req *pub.PublishRequest, out c
 }
 
 func buildQuery(req *pub.PublishRequest) (string, error) {
+
+	if req.Shape.Query != "" {
+		return req.Shape.Query, nil
+	}
 
 	w := new(strings.Builder)
 	w.WriteString("select ")

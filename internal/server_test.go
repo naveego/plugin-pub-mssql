@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"encoding/base64"
 	"github.com/pkg/errors"
+	"fmt"
 )
 
 var _ = Describe("Server", func() {
@@ -96,6 +97,9 @@ var _ = Describe("Server", func() {
 						}
 					}
 					Expect(agents).ToNot(BeNil())
+
+					agentsJSON, _ := json.Marshal(agents)
+					fmt.Println("Agents JSON:", string(agentsJSON))
 				})
 
 				It("should include properties", func() {
@@ -182,6 +186,44 @@ var _ = Describe("Server", func() {
 					IsNullable:   true,
 				}))
 			})
+
+			Describe("when shape has query defined", func(){
+				It("should update shape", func() {
+
+					refreshShape := &pub.Shape{
+						Id:   "agent_names",
+						Name: "Agent Names",
+						Query: "SELECT AGENT_CODE, AGENT_NAME AS Name FROM Agents",
+					}
+
+					response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
+						Mode:      pub.DiscoverShapesRequest_REFRESH,
+						ToRefresh: []*pub.Shape{refreshShape},
+					})
+					Expect(err).ToNot(HaveOccurred())
+					shapes := response.Shapes
+					Expect(shapes).To(HaveLen(1), "only requested shape should be returned")
+
+					shape := shapes[0]
+					properties := shape.Properties
+					Expect(properties).To(ContainElement(&pub.Property{
+						Id:           "[AGENT_CODE]",
+						Name:         "AGENT_CODE",
+						Type:         pub.PropertyType_STRING,
+						TypeAtSource: "char(4)",
+						IsKey:true,
+					}))
+					Expect(properties).To(ContainElement(&pub.Property{
+						Id:           "[Name]",
+						Name:         "Name",
+						Type:         pub.PropertyType_STRING,
+						TypeAtSource: "varchar(40)",
+						IsNullable:   true,
+					}))
+				})
+			})
+
+
 		})
 
 		Describe("PublishStream", func() {
