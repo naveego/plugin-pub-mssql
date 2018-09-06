@@ -9,8 +9,15 @@
     "kind": "publisher",
   "configSchema": {
     "ui": {
+      "ui:order": ["server","database","auth","username","password","prePublishQuery","postPublishQuery"],
       "password": {
         "ui:widget": "password"
+      },
+      "prePublishQuery": {
+        "ui:widget": "textarea"
+      },
+      "postPublishQuery": {
+        "ui:widget": "textarea"
       }
     },
     "schema": {

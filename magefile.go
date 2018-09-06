@@ -64,6 +64,7 @@ func buildForOS(os string) error {
 
 	err = sh.RunWith(map[string]string{
 		"GOOS": os,
+		"CGO_ENABLED": "0",
 	}, "go", "build", "-o", out, ".")
 
 	if err != nil {
