@@ -7,6 +7,19 @@
     "iconFile": "icon.png",
     "executable": "plugin-pub-mssql",
     "kind": "publisher",
+  "canProduceMultipleSchemas": true,
+  "canAcceptQueryBasedSchemas": true,
+  "querySchema": {
+    "ui": {
+      "ui:widget": "code",
+      "ui:options": {
+        "language": "sql"
+      }
+    },
+    "schema": {
+      "type":"string"
+    }
+  },
   "configSchema": {
     "ui": {
       "ui:order": ["server","database","auth","username","password","prePublishQuery","postPublishQuery"],
