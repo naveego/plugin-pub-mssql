@@ -52,6 +52,8 @@ func buildForOS(os string) error {
 
 	v := version.Version
 	manifest["version"] = v
+	manifest["os"] = os
+	manifest["arch"] = "amd64"
 
 	exe := "pub-mssql"
 	if os == "windows" {
@@ -64,6 +66,7 @@ func buildForOS(os string) error {
 
 	err = sh.RunWith(map[string]string{
 		"GOOS": os,
+		"GOARCH": "amd64",
 		"CGO_ENABLED": "0",
 	}, "go", "build", "-o", out, ".")
 
@@ -83,6 +86,13 @@ func buildForOS(os string) error {
 
 	manifestBytes, _ = json.Marshal(manifest)
 	ioutil.WriteFile(outManifest, manifestBytes, 0777)
+
+	zipFile := filepath.Join(outDir, "package.zip")
+
+	sh.Run("zip",
+		zipFile,
+		out,
+		outManifest)
 
 	return nil
 }

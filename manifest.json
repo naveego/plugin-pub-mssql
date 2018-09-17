@@ -1,5 +1,5 @@
 {
-    "name": "pub-mssql",
+    "id": "pub-mssql",
     "displayName": "Microsoft SQL Server Publisher",
     "description": "Publisher which pulls data from an MS SQL Server instance.",
     "versionDescription": "Version 2",
@@ -7,6 +7,8 @@
     "iconFile": "icon.png",
     "executable": "plugin-pub-mssql",
     "kind": "publisher",
+  "os": "$GOOS",
+  "arch": "$GOARCH",
   "canProduceMultipleSchemas": true,
   "canAcceptQueryBasedSchemas": true,
   "querySchema": {
