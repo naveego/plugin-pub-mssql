@@ -4,15 +4,15 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/hashicorp/go-hclog"
 	"os"
 
-	"github.com/naveego/plugin-pub-mssql/internal"
-	"github.com/naveego/plugin-pub-mssql/version"
-	"github.com/spf13/cobra"
-	"log"
 	"github.com/hashicorp/go-plugin"
 	"github.com/naveego/dataflow-contracts/plugins"
+	"github.com/naveego/plugin-pub-mssql/internal"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
+	"github.com/naveego/plugin-pub-mssql/version"
+	"github.com/spf13/cobra"
 )
 
 var verbose *bool
@@ -25,7 +25,12 @@ var RootCmd = &cobra.Command{
 Runs the publisher in externally controlled mode.`, version.Version.String()),
 	Run: func(cmd *cobra.Command, args []string)  {
 
-		log.Print("Starting CSV Publisher Plugin.")
+		log := hclog.New(&hclog.LoggerOptions{
+			Level:      hclog.Trace,
+			Output:     os.Stderr,
+			JSONFormat: true,
+		})
+
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: plugin.HandshakeConfig{
 				ProtocolVersion: plugins.PublisherProtocolVersion,
@@ -33,8 +38,9 @@ Runs the publisher in externally controlled mode.`, version.Version.String()),
 				MagicCookieValue:plugins.PublisherMagicCookieValue,
 			},
 			Plugins: map[string]plugin.Plugin{
-				"publisher": pub.NewServerPlugin(internal.NewServer()),
+				"publisher": pub.NewServerPlugin(internal.NewServer(log)),
 			},
+			Logger: log,
 
 			// A non-nil value here enables gRPC serving for this plugin...
 			GRPCServer: plugin.DefaultGRPCServer,

@@ -1,20 +1,21 @@
 package internal
 
 import (
-	"os"
+	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
 	"sync"
+	"time"
 
 	"context"
 
-	"github.com/naveego/plugin-pub-mssql/internal/pub"
-	"github.com/hashicorp/go-hclog"
-	"encoding/json"
-	"github.com/pkg/errors"
-	"fmt"
 	"database/sql"
+	"encoding/json"
+	"fmt"
+	"github.com/hashicorp/go-hclog"
+	"github.com/naveego/plugin-pub-mssql/internal/pub"
+	"github.com/pkg/errors"
 	"net/url"
-	"strings"
 	"sort"
+	"strings"
 )
 
 type Server struct {
@@ -27,18 +28,15 @@ type Server struct {
 }
 
 // NewServer creates a new publisher Server.
-func NewServer() pub.PublisherServer {
+func NewServer(logger hclog.Logger) pub.PublisherServer {
 	return &Server{
-		mu: &sync.Mutex{},
-		log: hclog.New(&hclog.LoggerOptions{
-			Level:      hclog.Trace,
-			Output:     os.Stderr,
-			JSONFormat: true,
-		}),
+		mu:  &sync.Mutex{},
+		log: logger,
 	}
 }
 
 func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.ConnectResponse, error) {
+	s.log.Debug("Connecting...")
 	s.settings = nil
 	s.connected = false
 
@@ -79,24 +77,33 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 	s.connected = true
 	s.settings = settings
 
+	s.log.Debug("Connect completed successfully.")
+
 	return new(pub.ConnectResponse), err
 }
 
 func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequest) (*pub.DiscoverShapesResponse, error) {
+
+	s.log.Debug("Handling DiscoverShapesRequest...")
 
 	if !s.connected {
 		return nil, errNotConnected
 	}
 
 	var shapes []*pub.Shape
+	shapeErrors := map[string][]string{}
 	var err error
 
 	if req.Mode == pub.DiscoverShapesRequest_ALL {
+		s.log.Debug("Discovering all tables and views...")
 		shapes, err = s.getAllShapesFromSchema()
+		s.log.Debug("Discovered tables and views.", "count", len(shapes))
+
 		if err != nil {
-			return nil, errors.Errorf("could not load shapes from SQL: %s", err)
+			return nil, errors.Errorf("could not load tables and views from SQL: %s", err)
 		}
 	} else {
+		s.log.Debug("Refreshing schemas from request.", "count", len(req.ToRefresh))
 		for _, s := range req.ToRefresh {
 			shapes = append(shapes, s)
 		}
@@ -105,19 +112,19 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 	resp := &pub.DiscoverShapesResponse{}
 
 	for _, shape := range shapes {
-
+		s.log.Debug("Getting details for discovered schema...", "id", shape.Id)
 		err := s.populateShapeColumns(shape)
+		s.log.Debug("Found columns for discovered schema.", "id", shape.Id, "count", len(shape.Properties))
 		if err != nil {
-			return resp, errors.Errorf("could not populate columns for shape %q: %s", shape.Id, err)
+			shapeErrors[shape.Id] = append(shapeErrors[shape.Id], fmt.Sprintf("\nERROR: Could not discover columns: %s", err))
 		}
 	}
 
 	for _, shape := range shapes {
-		sort.Sort(pub.SortableProperties(shape.Properties))
 
 		shape.Count, err = s.getCount(shape)
 		if err != nil {
-			return nil, errors.Errorf("could not get row count for shape %q: %s", shape.Id, err)
+			shapeErrors[shape.Id] = append(shapeErrors[shape.Id], fmt.Sprintf("\nERROR: Could not get row count for shape: %s", err))
 		}
 
 		if req.SampleSize > 0 {
@@ -136,8 +143,13 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 			}
 
 			if err != nil {
-				return nil, errors.Errorf("error while collecting sample: %v", err)
+				shapeErrors[shape.Id] = append(shapeErrors[shape.Id], fmt.Sprintf("\nERROR: Could not collect sample: %v", err))
 			}
+		}
+
+		if errList, ok := shapeErrors[shape.Id]; ok {
+			shape.Name += " ERROR"
+			shape.Description += "\n" + strings.Join(errList, "\n")
 		}
 
 		resp.Shapes = append(resp.Shapes, shape)
@@ -187,6 +199,15 @@ WHERE  o.type IN ( 'U', 'V' )`)
 	return shapes, nil
 }
 
+type describeResult struct {
+	IsHidden          bool   `sql:"is_hidden"`
+	Name              string `sql:"name"`
+	SystemTypeName    string `sql:"system_type_name"`
+	IsNullable        bool   `sql:"is_nullable"`
+	IsPartOfUniqueKey bool   `sql:"is_part_of_unique_key"`
+	MaxLength         int64  `sql:"max_length"`
+}
+
 func (s *Server) populateShapeColumns(shape *pub.Shape) (error) {
 
 	query := shape.Query
@@ -204,36 +225,34 @@ func (s *Server) populateShapeColumns(shape *pub.Shape) (error) {
 		return errors.Errorf("error executing query %q: %v", metaQuery, err)
 	}
 
-	columnNames, err := rows.Columns()
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
-	unnamedColumnIndex := 1
+	metadata := make([]describeResult, 0, 0)
 
-	for rows.Next() {
+	err = sqlstructs.UnmarshalRows(rows, &metadata)
+	if err != nil {
+		return err
+	}
 
-		columns := make([]interface{}, len(columnNames))
-		columnPointers := make([]interface{}, len(columnNames))
-		columnMap := make(map[string]interface{}, len(columnNames))
-		for i := 0; i < len(columnNames); i++ {
-			columnPointers[i] = &columns[i]
-		}
-		if err := rows.Scan(columnPointers...); err != nil {
-			return errors.WithStack(err)
-		}
-		for i, name := range columnNames {
-			columnMap[name] = columns[i]
+	unnamedColumnIndex := 0
+
+	for _, m := range metadata {
+
+		if m.IsHidden {
+			continue
 		}
 
 		var property *pub.Property
-		var propertyName string
 		var propertyID string
-		var ok bool
-		if propertyName, ok = columnMap["name"].(string); !ok {
+
+		propertyName := m.Name
+		if propertyName == "" {
 			propertyName = fmt.Sprintf("UNKNOWN_%d", unnamedColumnIndex)
 			unnamedColumnIndex++
 		}
+
 		propertyID = fmt.Sprintf("[%s]", propertyName)
 
 		for _, p := range shape.Properties {
@@ -250,20 +269,13 @@ func (s *Server) populateShapeColumns(shape *pub.Shape) (error) {
 			shape.Properties = append(shape.Properties, property)
 		}
 
-		if property.TypeAtSource, ok = columnMap["system_type_name"].(string); !ok {
-			property.TypeAtSource = "binary"
-		}
+		property.TypeAtSource = m.SystemTypeName
 
-		maxLength := columnMap["max_length"].(int64)
+		maxLength := m.MaxLength
 		property.Type = convertSQLType(property.TypeAtSource, int(maxLength))
 
-		if property.IsNullable, ok = columnMap["is_nullable"].(bool); !ok {
-			property.IsNullable = true
-		}
-
-		if property.IsKey, ok = columnMap["is_part_of_unique_key"].(bool); !ok {
-			property.IsKey = false
-		}
+		property.IsNullable = m.IsNullable
+		property.IsKey = m.IsPartOfUniqueKey
 	}
 
 	return nil
@@ -273,7 +285,7 @@ func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_Pub
 
 	jsonReq, _ := json.Marshal(req)
 
-	s.log.With("req", string(jsonReq)).Debug("Got PublishStream request.")
+	s.log.Debug("Got PublishStream request.", "req", string(jsonReq))
 
 	if !s.connected {
 		return errNotConnected
@@ -332,28 +344,47 @@ func (s *Server) Disconnect(context.Context, *pub.DisconnectRequest) (*pub.Disco
 
 func (s *Server) getCount(shape *pub.Shape) (*pub.Count, error) {
 
-	var count int
+	cErr := make(chan error)
+	cCount := make(chan int)
 
-	query, err := buildQuery(&pub.PublishRequest{
-		Shape:shape,
-	})
-	if err != nil {
+	go func() {
+		defer close(cErr)
+		defer close(cCount)
+
+		query, err := buildQuery(&pub.PublishRequest{
+			Shape: shape,
+		})
+		if err != nil {
+			cErr <- err
+			return
+		}
+
+		query = fmt.Sprintf("SELECT COUNT(1) FROM (%s) as Q", query)
+
+		row := s.db.QueryRow(query)
+		var count int
+		err = row.Scan(&count)
+		if err != nil {
+			cErr <- fmt.Errorf("error from query %q: %s", query, err)
+			return
+		}
+
+		cCount <- count
+	}()
+
+	select {
+	case err := <-cErr:
 		return nil, err
+	case count := <-cCount:
+		return &pub.Count{
+			Kind:  pub.Count_EXACT,
+			Value: int32(count),
+		}, nil
+	case <-time.After(time.Second):
+		return &pub.Count{
+			Kind: pub.Count_UNAVAILABLE,
+		}, nil
 	}
-
-	query = fmt.Sprintf("SELECT COUNT(1) FROM (%s) as Q", query)
-
-	row := s.db.QueryRow(query)
-
-	err = row.Scan(&count)
-	if err != nil {
-		return nil, fmt.Errorf("error from query %q: %s", query,  err)
-	}
-
-	return &pub.Count{
-		Kind:  pub.Count_EXACT,
-		Value: int32(count),
-	}, nil
 }
 
 func (s *Server) readRecords(ctx context.Context, req *pub.PublishRequest, out chan<- *pub.Record) error {
