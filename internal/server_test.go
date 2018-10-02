@@ -1,6 +1,7 @@
 package internal_test
 
 import (
+	"github.com/hashicorp/go-hclog"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/naveego/plugin-pub-mssql/internal"
@@ -11,6 +12,7 @@ import (
 	"encoding/base64"
 	"github.com/pkg/errors"
 	"fmt"
+	"os"
 )
 
 var _ = Describe("Server", func() {
@@ -21,7 +23,14 @@ var _ = Describe("Server", func() {
 	)
 
 	BeforeEach(func() {
-		sut = NewServer()
+
+		log := hclog.New(&hclog.LoggerOptions{
+			Level:      hclog.Trace,
+			Output:     os.Stderr,
+			JSONFormat: true,
+		})
+
+		sut = NewServer(log)
 
 		settings = Settings{
 			Server:   "localhost:1433",

@@ -20,11 +20,11 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
-ignored = ["github.com/naveego/ci/go/build"]
+# ignored = ["github.com/naveego/ci/go/build"]
 
 [[constraint]]
   name = "github.com/onsi/ginkgo"
-  version = "1.4.0"
+  version = "1.6.0"
 
 [[constraint]]
   name = "github.com/onsi/gomega"
@@ -42,3 +42,7 @@ ignored = ["github.com/naveego/ci/go/build"]
 [[override]]
 name = "gopkg.in/fsnotify.v1"
 source = "https://github.com/fsnotify/fsnotify.git"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/naveego/ci"
