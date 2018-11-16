@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/naveego/dataflow-contracts/plugins"
+	"os"
 
 	"github.com/naveego/ci/go/build"
 	"github.com/naveego/plugin-pub-mssql/version"
@@ -26,6 +27,12 @@ func Build() error {
 
 	err := build.BuildPlugin(cfg)
 	return err
+}
+
+
+func PublishBlue() error {
+	os.Setenv("UPLOAD", "blue")
+	return Build()
 }
 
 

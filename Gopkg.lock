@@ -140,7 +140,7 @@
   branch = "master"
   name = "github.com/naveego/ci"
   packages = ["go/build"]
-  revision = "8694d26fd7ad24b56c81f1672401d08771e67de5"
+  revision = "7ae6fce4428c2c5b1d08a2f2ee0ca3caa8e7fd70"
 
 [[projects]]
   name = "github.com/naveego/dataflow-contracts"
