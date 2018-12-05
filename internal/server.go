@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/pkg/errors"
-	"net/url"
 	"sort"
 	"strings"
 )
@@ -35,6 +34,7 @@ func NewServer(logger hclog.Logger) pub.PublisherServer {
 	}
 }
 
+// Connect connects to the data base and validates the connections
 func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.ConnectResponse, error) {
 	s.log.Debug("Connecting...")
 	s.settings = nil
@@ -49,19 +49,12 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 		return nil, errors.WithStack(err)
 	}
 
-	u := &url.URL{
-		Scheme: "sqlserver",
-		Host:   settings.Server,
-		// Path:  instance, // if connecting to an instance instead of a port
-		RawQuery: fmt.Sprintf("database=%s", settings.Database),
-	}
-	switch settings.Auth {
-	case AuthTypeSQL:
-		u.User = url.UserPassword(settings.Username, settings.Password)
+	connectionString, err := settings.GetConnectionString()
+	if err != nil {
+		return nil, err
 	}
 
-	var err error
-	s.db, err = sql.Open("sqlserver", u.String())
+	s.db, err = sql.Open("sqlserver", connectionString)
 	if err != nil {
 		return nil, errors.Errorf("could not open connection: %s", err)
 	}
@@ -82,6 +75,7 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 	return new(pub.ConnectResponse), err
 }
 
+// DiscoverShapes discovers shapes present in the database
 func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequest) (*pub.DiscoverShapesResponse, error) {
 
 	s.log.Debug("Handling DiscoverShapesRequest...")

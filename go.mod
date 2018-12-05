@@ -4,6 +4,7 @@ require (
 	cloud.google.com/go v0.25.0
 	github.com/aws/aws-sdk-go v1.15.44
 	github.com/coreos/go-semver v0.2.0
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denisenkom/go-mssqldb v0.0.0-20180707235734-242fa5aa1b45
 	github.com/go-ini/ini v1.38.2
 	github.com/golang/protobuf v1.1.0
@@ -18,12 +19,14 @@ require (
 	github.com/naveego/ci v0.0.0-20181018203920-7ae6fce4428c
 	github.com/naveego/dataflow-contracts v0.0.0-20180720141209-065df73460f9
 	github.com/oklog/run v1.0.0
-	github.com/onsi/ginkgo v1.6.0
+	github.com/onsi/ginkgo v1.7.0
 	github.com/onsi/gomega v1.4.1
 	github.com/pkg/errors v0.8.0
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.0.5
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.1
+	github.com/stretchr/testify v1.2.2 // indirect
 	golang.org/x/crypto v0.0.0-20180718160520-a2144134853f
 	golang.org/x/net v0.0.0-20180718182112-8887df42c721
 	golang.org/x/sys v0.0.0-20180715085529-ac767d655b30

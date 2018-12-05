@@ -1,11 +1,9 @@
 package internal_test
 
 import (
+	. "github.com/naveego/plugin-pub-mssql/internal"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	. "github.com/naveego/plugin-pub-mssql/internal"
-
-
 )
 
 var _ = Describe("Settings", func() {
@@ -16,7 +14,7 @@ var _ = Describe("Settings", func() {
 
 	BeforeEach(func() {
 		settings = Settings{
-			Server:   "localhost:1433",
+			Host:     "localhost:1433",
 			Database: "w3",
 			Auth:     AuthTypeSQL,
 			Username: "sa",
@@ -26,8 +24,8 @@ var _ = Describe("Settings", func() {
 
 	Describe("Validate", func() {
 
-		It("Should error if server is not set", func() {
-			settings.Server = ""
+		It("Should error if host is not set", func() {
+			settings.Host = ""
 			Expect(settings.Validate()).ToNot(Succeed())
 		})
 
@@ -69,6 +67,5 @@ var _ = Describe("Settings", func() {
 			settings.Password = ""
 			Expect(settings.Validate()).To(Succeed())
 		})
-
 	})
 })
