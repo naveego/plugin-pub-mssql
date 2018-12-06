@@ -9,7 +9,8 @@ import (
 // Settings object for plugin
 // Contains connection information and pre/post queries
 type Settings struct {
-	Host             string   `json:"server"`
+	Host             string   `json:"host"`
+	Port             int      `json:"port"`
 	Instance         string   `json:"instance"`
 	Database         string   `json:"database"`
 	Auth             AuthType `json:"auth"`
@@ -59,14 +60,21 @@ func (s *Settings) Validate() error {
 
 // GetConnectionString builds a connection string from a settings object
 func (s *Settings) GetConnectionString() (string, error) {
+	var host string
 	err := s.Validate()
 	if err != nil {
 		return "", err
 	}
 
+	if s.Port != 0 {
+		host = fmt.Sprintf("%s:%d", s.Host, s.Port)
+	} else {
+		host = fmt.Sprintf("%s:%d", s.Host, 1433)
+	}
+
 	u := &url.URL{
 		Scheme:   "sqlserver",
-		Host:     s.Host,
+		Host:     host,
 		Path:     s.Instance, // if connecting to an instance instead of a port
 		RawQuery: fmt.Sprintf("database=%s", s.Database),
 	}

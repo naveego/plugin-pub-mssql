@@ -27,7 +27,8 @@ func TestCsv(t *testing.T) {
 
 func GetTestSettings() *Settings {
 	return &Settings{
-		Host:     "localhost:1433",
+		Host:     "localhost",
+		Port:     1433,
 		Auth:     AuthTypeSQL,
 		Username: "sa",
 		Password: "n5o_ADMIN",

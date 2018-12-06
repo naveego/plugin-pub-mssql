@@ -13,13 +13,7 @@ var _ = Describe("Settings", func() {
 	)
 
 	BeforeEach(func() {
-		settings = Settings{
-			Host:     "localhost:1433",
-			Database: "w3",
-			Auth:     AuthTypeSQL,
-			Username: "sa",
-			Password: "n5o_ADMIN",
-		}
+		settings = *GetTestSettings()
 	})
 
 	Describe("Validate", func() {
