@@ -1,12 +1,12 @@
 {
-    "id": "pub-mssql",
-    "displayName": "Microsoft SQL Server Publisher",
-    "description": "Publisher which pulls data from an MS SQL Server instance.",
-    "versionDescription": "Version 2",
-    "version": "2.0.0",
-    "iconFile": "icon.png",
-    "executable": "plugin-pub-mssql",
-    "kind": "publisher",
+  "id": "pub-mssql",
+  "displayName": "Microsoft SQL Server Publisher",
+  "description": "Publisher which pulls data from an MS SQL Server instance.",
+  "versionDescription": "Version 2",
+  "version": "2.0.0",
+  "iconFile": "icon.png",
+  "executable": "plugin-pub-mssql",
+  "kind": "publisher",
   "os": "$GOOS",
   "arch": "$GOARCH",
   "canProduceMultipleSchemas": true,
@@ -19,12 +19,22 @@
       }
     },
     "schema": {
-      "type":"string"
+      "type": "string"
     }
   },
   "configSchema": {
     "ui": {
-      "ui:order": ["server","database","auth","username","password","prePublishQuery","postPublishQuery"],
+      "ui:order": [
+        "host",
+        "port",
+        "instance",
+        "database",
+        "auth",
+        "username",
+        "password",
+        "prePublishQuery",
+        "postPublishQuery"
+      ],
       "password": {
         "ui:widget": "password"
       },
@@ -38,9 +48,20 @@
     "schema": {
       "type": "object",
       "properties": {
-        "server": {
+        "host": {
           "type": "string",
-          "title": "Server"
+          "title": "Host",
+          "description": "The hostname of the server"
+        },
+        "port": {
+          "type": "string",
+          "title": "Port",
+          "description": "The port of the SQL Server instance on the server (optional)"
+        },
+        "instance": {
+          "type": "string",
+          "title": "Instance",
+          "description": "The SQL Server instance on the server (optional)"
         },
         "database": {
           "type": "string",
@@ -73,8 +94,8 @@
           "type": "string"
         }
       },
-      "required":[
-        "server",
+      "required": [
+        "host",
         "database",
         "auth"
       ]

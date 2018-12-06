@@ -1,18 +1,21 @@
 package internal_test
 
 import (
+	"path/filepath"
+	"runtime"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	_ "github.com/denisenkom/go-mssqldb"
 	"database/sql"
 	"io/ioutil"
-	"os"
-	"strings"
 	"log"
+	"strings"
 	"time"
+
+	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/naveego/ci/go/build"
+	. "github.com/naveego/plugin-pub-mssql/internal"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var db *sql.DB
@@ -22,12 +25,24 @@ func TestCsv(t *testing.T) {
 	build.RunSpecsWithReporting(t, "MSSQL Suite")
 }
 
-var _ = BeforeSuite(func(){
+func GetTestSettings() *Settings {
+	return &Settings{
+		Host:     "localhost",
+		Port:     1433,
+		Auth:     AuthTypeSQL,
+		Username: "sa",
+		Password: "n5o_ADMIN",
+		Database: "w3",
+	}
+}
+
+var _ = BeforeSuite(func() {
 	var err error
 
-	Eventually(connectToSQL, time.Second * 60, time.Second).Should(Succeed())
+	Eventually(connectToSQL, 60*time.Second, time.Second).Should(Succeed())
 
-	testDataPath := os.ExpandEnv("$GOPATH/src/github.com/naveego/plugin-pub-mssql/test/test_data.sql")
+	_, thisPath, _, _ := runtime.Caller(0)
+	testDataPath := filepath.Join(thisPath, "../../test/test_data.sql")
 	testDataBytes, err := ioutil.ReadFile(testDataPath)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -36,13 +51,22 @@ var _ = BeforeSuite(func(){
 	cmds := strings.Split(cmdText, "GO;")
 
 	for _, cmd := range cmds {
-		Expect(db.Exec(cmd)).ToNot(BeNil(), "should execute command " + cmd)
+		Expect(db.Exec(cmd)).ToNot(BeNil(), "should execute command "+cmd)
 	}
 })
 
 func connectToSQL() error {
 	var err error
-	connectionString := "sqlserver://sa:n5o_ADMIN@localhost:1433"
+	var connectionString string
+	settings := GetTestSettings()
+
+	// initially set Database to master to validate or create test db w3
+	settings.Database = "master"
+
+	connectionString, err = settings.GetConnectionString()
+	if err != nil {
+		return err
+	}
 
 	db, err = sql.Open("sqlserver", connectionString)
 	if err != nil {
@@ -64,7 +88,14 @@ func connectToSQL() error {
 		return err
 	}
 
-	connectionString += "?database=w3"
+	// change db context to w3
+	settings.Database = "w3"
+
+	connectionString, err = settings.GetConnectionString()
+	if err != nil {
+		return err
+	}
+
 	db, _ = sql.Open("sqlserver", connectionString)
 	err = db.Ping()
 	if err != nil {
@@ -75,6 +106,6 @@ func connectToSQL() error {
 	return err
 }
 
-var _ = AfterSuite(func(){
+var _ = AfterSuite(func() {
 	db.Close()
 })

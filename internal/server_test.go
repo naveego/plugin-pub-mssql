@@ -32,13 +32,7 @@ var _ = Describe("Server", func() {
 
 		sut = NewServer(log)
 
-		settings = Settings{
-			Server:   "localhost:1433",
-			Database: "w3",
-			Auth:     AuthTypeSQL,
-			Username: "sa",
-			Password: "n5o_ADMIN",
-		}
+		settings = *GetTestSettings()
 	})
 
 	Describe("Connect", func() {

@@ -13,11 +13,11 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/pkg/errors"
-	"net/url"
 	"sort"
 	"strings"
 )
 
+// Server type to describe a server
 type Server struct {
 	mu         *sync.Mutex
 	log        hclog.Logger
@@ -35,6 +35,7 @@ func NewServer(logger hclog.Logger) pub.PublisherServer {
 	}
 }
 
+// Connect connects to the data base and validates the connections
 func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.ConnectResponse, error) {
 	s.log.Debug("Connecting...")
 	s.settings = nil
@@ -49,19 +50,12 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 		return nil, errors.WithStack(err)
 	}
 
-	u := &url.URL{
-		Scheme: "sqlserver",
-		Host:   settings.Server,
-		// Path:  instance, // if connecting to an instance instead of a port
-		RawQuery: fmt.Sprintf("database=%s", settings.Database),
-	}
-	switch settings.Auth {
-	case AuthTypeSQL:
-		u.User = url.UserPassword(settings.Username, settings.Password)
+	connectionString, err := settings.GetConnectionString()
+	if err != nil {
+		return nil, err
 	}
 
-	var err error
-	s.db, err = sql.Open("sqlserver", u.String())
+	s.db, err = sql.Open("sqlserver", connectionString)
 	if err != nil {
 		return nil, errors.Errorf("could not open connection: %s", err)
 	}
@@ -82,6 +76,7 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 	return new(pub.ConnectResponse), err
 }
 
+// DiscoverShapes discovers shapes present in the database
 func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequest) (*pub.DiscoverShapesResponse, error) {
 
 	s.log.Debug("Handling DiscoverShapesRequest...")
@@ -91,7 +86,6 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 	}
 
 	var shapes []*pub.Shape
-	shapeErrors := map[string][]string{}
 	var err error
 
 	if req.Mode == pub.DiscoverShapesRequest_ALL {
@@ -111,54 +105,71 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 
 	resp := &pub.DiscoverShapesResponse{}
 
-	for _, shape := range shapes {
-		s.log.Debug("Getting details for discovered schema...", "id", shape.Id)
-		err := s.populateShapeColumns(shape)
-		s.log.Debug("Found columns for discovered schema.", "id", shape.Id, "count", len(shape.Properties))
-		if err != nil {
-			shapeErrors[shape.Id] = append(shapeErrors[shape.Id], fmt.Sprintf("\nERROR: Could not discover columns: %s", err))
-		}
+	wait := new(sync.WaitGroup)
+
+	for i := range shapes {
+		shape := shapes[i]
+		// include this shape in wait group
+		wait.Add(1)
+
+		// concurrently get details for shape
+		go func() {
+			s.log.Debug("Getting details for discovered schema...", "id", shape.Id)
+			err := s.populateShapeColumns(shape)
+			if err != nil {
+				s.log.With("shape", shape.Id).With("err", err).Error("Error discovering columns.")
+				shape.Errors = append(shape.Errors, fmt.Sprintf("Could not discover columns: %s", err))
+				goto Done
+			}
+			s.log.Debug("Got details for discovered schema.", "id", shape.Id)
+
+			s.log.Debug("Getting count for discovered schema...", "id", shape.Id)
+			shape.Count, err = s.getCount(shape)
+			if err != nil {
+				s.log.With("shape", shape.Id).With("err", err).Error("Error getting row count.")
+				shape.Errors = append(shape.Errors, fmt.Sprintf("Could not get row count for shape: %s", err))
+				goto Done
+			}
+			s.log.Debug("Got count for discovered schema.", "id", shape.Id, "count", shape.Count.String())
+
+			if req.SampleSize > 0 {
+				s.log.Debug("Getting sample for discovered schema...", "id", shape.Id, "size", req.SampleSize)
+				publishReq := &pub.PublishRequest{
+					Shape: shape,
+					Limit: req.SampleSize,
+				}
+				records := make(chan *pub.Record)
+
+				go func() {
+					err = s.readRecords(ctx, publishReq, records)
+				}()
+
+				for record := range records {
+					shape.Sample = append(shape.Sample, record)
+				}
+
+				if err != nil {
+					s.log.With("shape", shape.Id).With("err", err).Error("Error collecting sample.")
+					shape.Errors = append(shape.Errors, fmt.Sprintf("Could not collect sample: %s", err))
+					goto Done
+				}
+				s.log.Debug("Got sample for discovered schema.", "id", shape.Id, "size", len(shape.Sample))
+			}
+		Done:
+			wait.Done()
+		}()
 	}
 
+	// wait until all concurrent shape details have been loaded
+	wait.Wait()
+
 	for _, shape := range shapes {
-
-		shape.Count, err = s.getCount(shape)
-		if err != nil {
-			shapeErrors[shape.Id] = append(shapeErrors[shape.Id], fmt.Sprintf("\nERROR: Could not get row count for shape: %s", err))
-		}
-
-		if req.SampleSize > 0 {
-			publishReq := &pub.PublishRequest{
-				Shape: shape,
-				Limit: req.SampleSize,
-			}
-			records := make(chan *pub.Record)
-
-			go func() {
-				err = s.readRecords(ctx, publishReq, records)
-			}()
-
-			for record := range records {
-				shape.Sample = append(shape.Sample, record)
-			}
-
-			if err != nil {
-				shapeErrors[shape.Id] = append(shapeErrors[shape.Id], fmt.Sprintf("\nERROR: Could not collect sample: %v", err))
-			}
-		}
-
-		if errList, ok := shapeErrors[shape.Id]; ok {
-			shape.Name += " ERROR"
-			shape.Description += "\n" + strings.Join(errList, "\n")
-		}
-
 		resp.Shapes = append(resp.Shapes, shape)
 	}
 
 	sort.Sort(pub.SortableShapes(resp.Shapes))
 
 	return resp, nil
-
 }
 
 func (s *Server) getAllShapesFromSchema() ([]*pub.Shape, error) {
@@ -281,6 +292,7 @@ func (s *Server) populateShapeColumns(shape *pub.Shape) (error) {
 	return nil
 }
 
+// PublishStream sends records read in request to the agent
 func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_PublishStreamServer) error {
 
 	jsonReq, _ := json.Marshal(req)
@@ -323,13 +335,16 @@ func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_Pub
 				postPublishErr = errors.Errorf("%s (publish had already stopped with error: %s)", postPublishErr, err)
 			}
 
+			cancel()
 			return errors.Errorf("error running post-publish query: %s", postPublishErr)
 		}
 	}
 
+	cancel()
 	return err
 }
 
+// Disconnect disconnects from the server
 func (s *Server) Disconnect(context.Context, *pub.DisconnectRequest) (*pub.DisconnectResponse, error) {
 	if s.db != nil {
 		s.db.Close()
