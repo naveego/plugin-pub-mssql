@@ -17,6 +17,7 @@ import (
 	"strings"
 )
 
+// Server type to describe a server
 type Server struct {
 	mu         *sync.Mutex
 	log        hclog.Logger
@@ -275,6 +276,7 @@ func (s *Server) populateShapeColumns(shape *pub.Shape) (error) {
 	return nil
 }
 
+// PublishStream sends records read in request to the agent
 func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_PublishStreamServer) error {
 
 	jsonReq, _ := json.Marshal(req)
@@ -317,13 +319,16 @@ func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_Pub
 				postPublishErr = errors.Errorf("%s (publish had already stopped with error: %s)", postPublishErr, err)
 			}
 
+			cancel()
 			return errors.Errorf("error running post-publish query: %s", postPublishErr)
 		}
 	}
 
+	cancel()
 	return err
 }
 
+// Disconnect disconnects from the server
 func (s *Server) Disconnect(context.Context, *pub.DisconnectRequest) (*pub.DisconnectResponse, error) {
 	if s.db != nil {
 		s.db.Close()
