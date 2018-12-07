@@ -10,7 +10,7 @@ var (
 	// VersionPatch is for backwards-compatible bug fixes.
 	VersionPatch int64 = 3
 	// VersionPre indicates prerelease.
-	VersionPre string
+	VersionPre string = "beta3"
 	// VersionDev indicates development branch. Releases will be empty string.
 	VersionDev string
 )

@@ -51,10 +51,10 @@
         "host": {
           "type": "string",
           "title": "Host",
-          "description": "The hostname of the server"
+          "description": "The name of the server"
         },
         "port": {
-          "type": "string",
+          "type": "number",
           "title": "Port",
           "description": "The port of the SQL Server instance on the server (optional)"
         },
