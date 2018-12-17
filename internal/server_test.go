@@ -12,7 +12,6 @@ import (
 	"encoding/base64"
 	"github.com/pkg/errors"
 	"fmt"
-	"os"
 )
 
 var _ = Describe("Server", func() {
@@ -26,7 +25,7 @@ var _ = Describe("Server", func() {
 
 		log := hclog.New(&hclog.LoggerOptions{
 			Level:      hclog.Trace,
-			Output:     os.Stderr,
+			Output:     GinkgoWriter,
 			JSONFormat: true,
 		})
 
@@ -143,7 +142,6 @@ var _ = Describe("Server", func() {
 					Expect(agents.Sample).To(HaveLen(2))
 				})
 			})
-
 		})
 
 		Describe("when mode is REFRESH", func() {
@@ -214,7 +212,7 @@ var _ = Describe("Server", func() {
 						Name:         "AGENT_CODE",
 						Type:         pub.PropertyType_STRING,
 						TypeAtSource: "char(4)",
-						IsKey:true,
+						IsKey:		  true,
 					}))
 					Expect(properties).To(ContainElement(&pub.Property{
 						Id:           "[Name]",
@@ -222,6 +220,11 @@ var _ = Describe("Server", func() {
 						Type:         pub.PropertyType_STRING,
 						TypeAtSource: "varchar(40)",
 						IsNullable:   true,
+					}))
+
+					Expect(shape.Count).To(Equal(&pub.Count{
+						Kind:  pub.Count_EXACT,
+						Value: 12,
 					}))
 				})
 			})
