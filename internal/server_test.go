@@ -200,6 +200,7 @@ var _ = Describe("Server", func() {
 					response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
 						Mode:      pub.DiscoverShapesRequest_REFRESH,
 						ToRefresh: []*pub.Shape{refreshShape},
+						SampleSize: 5,
 					})
 					Expect(err).ToNot(HaveOccurred())
 					shapes := response.Shapes
@@ -226,6 +227,8 @@ var _ = Describe("Server", func() {
 						Kind:  pub.Count_EXACT,
 						Value: 12,
 					}))
+
+					Expect(shape.Sample).To(HaveLen(5))
 				})
 			})
 

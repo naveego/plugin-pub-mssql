@@ -370,7 +370,7 @@ func (s *Server) getCount(shape *pub.Shape) (*pub.Count, error) {
 		var query string
 		var err error
 
-		if (shape.Query != "") {
+		if shape.Query != "" {
 			query = fmt.Sprintf("SELECT COUNT(1) FROM (%s) as Q", shape.Query)
 		} else {
 			r, err := regexp.Compile(`\[.*?\]`)
@@ -440,6 +440,10 @@ func (s *Server) readRecords(ctx context.Context, req *pub.PublishRequest, out c
 		return errors.Errorf("could not build query: %v", err)
 	}
 
+	if req.Limit > 0 {
+		query = fmt.Sprintf("select top(%d) * from (%s) as q", req.Limit, query)
+	}
+
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return errors.Errorf("error executing query %q: %v", query, err)
@@ -498,9 +502,6 @@ func buildQuery(req *pub.PublishRequest) (string, error) {
 
 	w := new(strings.Builder)
 	w.WriteString("select ")
-	if req.Limit > 0 {
-		fmt.Fprintf(w, "top(%d) ", req.Limit)
-	}
 	var columnIDs []string
 	for _, p := range req.Shape.Properties {
 		columnIDs = append(columnIDs, p.Id)
