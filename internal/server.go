@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/pkg/errors"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -366,15 +367,40 @@ func (s *Server) getCount(shape *pub.Shape) (*pub.Count, error) {
 		defer close(cErr)
 		defer close(cCount)
 
-		query, err := buildQuery(&pub.PublishRequest{
-			Shape: shape,
-		})
-		if err != nil {
-			cErr <- err
-			return
-		}
+		var query string
+		var err error
 
-		query = fmt.Sprintf("SELECT COUNT(1) FROM (%s) as Q", query)
+		if (shape.Query != "") {
+			query = fmt.Sprintf("SELECT COUNT(1) FROM (%s) as Q", shape.Query)
+		} else {
+			r, err := regexp.Compile(`\[.*?\]`)
+			if err != nil {
+				cErr <- fmt.Errorf("error from regexp: %s", err)
+				return
+			}
+
+			args := r.FindAllString(shape.Id, -1)
+			
+			if (len(args) == 1) {
+				args = append(args, args[0])
+				args[0] = "[dbo]"
+			}
+
+			args[0] = strings.TrimPrefix(args[0], "[")
+			args[0] = strings.TrimSuffix(args[0], "]")
+			args[1] = strings.TrimPrefix(args[1], "[")
+			args[1] = strings.TrimSuffix(args[1], "]")
+
+			query = fmt.Sprintf(`
+			SELECT SUM(p.rows) FROM sys.partitions AS p
+			INNER JOIN sys.tables AS t
+			ON p.[object_id] = t.[object_id]
+			INNER JOIN sys.schemas AS s
+			ON s.[schema_id] = t.[schema_id]
+			WHERE t.name = N'%s'
+			AND s.name = N'%s'
+			AND p.index_id IN (0,1);`, args[1], args[0])
+		}
 
 		row := s.db.QueryRow(query)
 		var count int

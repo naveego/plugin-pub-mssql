@@ -20,7 +20,7 @@ import (
 
 var db *sql.DB
 
-func TestCsv(t *testing.T) {
+func TestMSSQL(t *testing.T) {
 	RegisterFailHandler(Fail)
 	build.RunSpecsWithReporting(t, "MSSQL Suite")
 }
