@@ -5,7 +5,16 @@
       <driver-ref>sqlserver.ms</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>com.microsoft.sqlserver.jdbc.SQLServerDriver</jdbc-driver>
-      <jdbc-url>jdbc:sqlserver://localhost\SQLEXPRESS</jdbc-url>
+      <jdbc-url>jdbc:sqlserver://localhost:1433</jdbc-url>
+      <driver-properties>
+        <property name="applicationName" value="DataGrip" />
+      </driver-properties>
+    </data-source>
+    <data-source source="LOCAL" name="AdventureWorks2012@35.172.3.167" uuid="f4f6de57-6a63-452f-a344-0ee35c11d33f">
+      <driver-ref>sqlserver.ms</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>com.microsoft.sqlserver.jdbc.SQLServerDriver</jdbc-driver>
+      <jdbc-url>jdbc:sqlserver://35.172.3.167:14333;database=AdventureWorks2012</jdbc-url>
       <driver-properties>
         <property name="applicationName" value="DataGrip" />
       </driver-properties>

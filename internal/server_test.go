@@ -1,17 +1,17 @@
 package internal_test
 
 import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"github.com/hashicorp/go-hclog"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	. "github.com/naveego/plugin-pub-mssql/internal"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
-	"context"
-	"google.golang.org/grpc/metadata"
-	"encoding/json"
-	"encoding/base64"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
-	"fmt"
+	"google.golang.org/grpc/metadata"
+	"log"
 )
 
 var _ = Describe("Server", func() {
@@ -101,7 +101,7 @@ var _ = Describe("Server", func() {
 					Expect(agents).ToNot(BeNil())
 
 					agentsJSON, _ := json.Marshal(agents)
-					fmt.Println("Agents JSON:", string(agentsJSON))
+					log.Println("Agents JSON:", string(agentsJSON))
 				})
 
 				It("should include properties", func() {

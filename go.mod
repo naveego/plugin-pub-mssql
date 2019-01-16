@@ -17,7 +17,7 @@ require (
 	github.com/magefile/mage v1.7.1
 	github.com/mitchellh/go-testing-interface v0.0.0-20171004221916-a61a99592b77
 	github.com/naveego/ci v0.0.0-20181018203920-7ae6fce4428c
-	github.com/naveego/dataflow-contracts v0.0.0-20181115164155-edbee8830fe8
+	github.com/naveego/dataflow-contracts v0.1.0
 	github.com/oklog/run v1.0.0
 	github.com/onsi/ginkgo v1.7.0
 	github.com/onsi/gomega v1.4.1

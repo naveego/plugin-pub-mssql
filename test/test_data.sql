@@ -1,18 +1,15 @@
 IF NOT EXISTS (SELECT name FROM master.dbo.sysdatabases WHERE name = N'w3')
 BEGIN
-  CREATE DATABASE w3
+ CREATE DATABASE w3
+
+ ALTER DATABASE [w3] SET change_tracking = ON (change_retention = 14 days)
+
+ EXEC sp_executesql N'CREATE SCHEMA fact'
 END
+GO;
 
 USE w3
 
-GO;
-IF NOT EXISTS (
-    SELECT  schema_name
-    FROM    information_schema.schemata
-    WHERE   schema_name = 'fact' )
-BEGIN
-  EXEC sp_executesql N'CREATE SCHEMA fact'
-END
 GO;
 
 
@@ -59,6 +56,7 @@ CREATE TABLE  w3.dbo.Types
   "varbinary" varbinary(100),
 )
 
+
 GO;
 
 INSERT INTO w3.dbo.Types
@@ -102,6 +100,8 @@ CREATE TABLE  w3.dbo.Agents
   "UPDATED_AT" DATETIMEOFFSET,
   "BIOGRAPHY" VARCHAR(MAX)
 )
+
+ALTER TABLE  w3.dbo.Agents ENABLE change_tracking WITH (track_columns_updated = ON)
 
 GO;
 

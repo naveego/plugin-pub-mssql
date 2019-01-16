@@ -1,6 +1,7 @@
 package internal_test
 
 import (
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -22,6 +23,8 @@ var db *sql.DB
 
 func TestMSSQL(t *testing.T) {
 	RegisterFailHandler(Fail)
+
+	log.SetOutput(GinkgoWriter)
 	build.RunSpecsWithReporting(t, "MSSQL Suite")
 }
 
@@ -32,7 +35,7 @@ func GetTestSettings() *Settings {
 		Auth:     AuthTypeSQL,
 		Username: "sa",
 		Password: "n5o_ADMIN",
-		Database: "w3",
+		 Database: "w3",
 	}
 }
 
@@ -46,6 +49,11 @@ var _ = BeforeSuite(func() {
 	testDataBytes, err := ioutil.ReadFile(testDataPath)
 	Expect(err).ToNot(HaveOccurred())
 
+	manifestFilePath := filepath.Join(thisPath, "../../manifest.json")
+	manifest, err := ioutil.ReadFile(manifestFilePath)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(ioutil.WriteFile("manifest.json", manifest, 0700)).To(Succeed())
+
 	cmdText := string(testDataBytes)
 
 	cmds := strings.Split(cmdText, "GO;")
@@ -54,6 +62,13 @@ var _ = BeforeSuite(func() {
 		Expect(db.Exec(cmd)).ToNot(BeNil(), "should execute command "+cmd)
 	}
 })
+
+
+var _ = AfterSuite(func(){
+	db.Close()
+	os.Remove("manifest.json")
+})
+
 
 func connectToSQL() error {
 	var err error
@@ -79,33 +94,5 @@ func connectToSQL() error {
 		return err
 	}
 
-	_, err = db.Exec(`IF NOT EXISTS (SELECT name FROM master.dbo.sysdatabases WHERE name = N'w3')
-	BEGIN
-	CREATE DATABASE w3
-	END`)
-	if err != nil {
-		log.Printf("Error ensuring that w3 database exists: %s", err)
-		return err
-	}
-
-	// change db context to w3
-	settings.Database = "w3"
-
-	connectionString, err = settings.GetConnectionString()
-	if err != nil {
-		return err
-	}
-
-	db, _ = sql.Open("sqlserver", connectionString)
-	err = db.Ping()
-	if err != nil {
-		log.Printf("Error pinging w3 database: %s", err)
-		return err
-	}
-
 	return err
 }
-
-var _ = AfterSuite(func() {
-	db.Close()
-})

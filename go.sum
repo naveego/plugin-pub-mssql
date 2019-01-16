@@ -48,6 +48,8 @@ github.com/naveego/dataflow-contracts v0.0.0-20180720141209-065df73460f9 h1:NXr1
 github.com/naveego/dataflow-contracts v0.0.0-20180720141209-065df73460f9/go.mod h1:jPutQKPCUfouzeS2/TzsJoyPrkZPb6k6p6xjvr/tF7c=
 github.com/naveego/dataflow-contracts v0.0.0-20181115164155-edbee8830fe8 h1:+fFOVSFxCS/jzSK+SebcHRQ+vyOZ3DB+3I7whFBW7f8=
 github.com/naveego/dataflow-contracts v0.0.0-20181115164155-edbee8830fe8/go.mod h1:jPutQKPCUfouzeS2/TzsJoyPrkZPb6k6p6xjvr/tF7c=
+github.com/naveego/dataflow-contracts v0.1.0 h1:ddSL6WJ+w7aHsu3owjj7bnMkPORYrK06dZOaA7DS3Cg=
+github.com/naveego/dataflow-contracts v0.1.0/go.mod h1:jPutQKPCUfouzeS2/TzsJoyPrkZPb6k6p6xjvr/tF7c=
 github.com/oklog/run v1.0.0 h1:Ru7dDtJNOyC66gQ5dQmaCa0qIsAUFY3sFpK1Xk8igrw=
 github.com/oklog/run v1.0.0/go.mod h1:dlhp/R75TPv97u0XWUtDeV/lRKWPKSdTuV0TZvrmrQA=
 github.com/onsi/ginkgo v1.6.0 h1:Ix8l273rp3QzYgXSR+c8d1fTG7UPgYkOSELPhiY/YGw=

@@ -28,6 +28,30 @@ type Server struct {
 	connected  bool
 }
 
+func (s *Server) ConnectSession(*pub.ConnectRequest, pub.Publisher_ConnectSessionServer) error {
+	panic("not supported")
+}
+
+func (s *Server) ConfigureConnection(context.Context, *pub.ConfigureConnectionRequest) (*pub.ConfigureConnectionResponse, error) {
+	panic("implement me")
+}
+
+func (s *Server) ConfigureQuery(context.Context, *pub.ConfigureQueryRequest) (*pub.ConfigureQueryResponse, error) {
+	panic("implement me")
+}
+
+func (s *Server) ConfigureRealTime(context.Context, *pub.ConfigureRealTimeRequest) (*pub.ConfigureRealTimeResponse, error) {
+	panic("implement me")
+}
+
+func (s *Server) BeginOAuthFlow(context.Context, *pub.BeginOAuthFlowRequest) (*pub.BeginOAuthFlowResponse, error) {
+	panic("implement me")
+}
+
+func (s *Server) CompleteOAuthFlow(context.Context, *pub.CompleteOAuthFlowRequest) (*pub.CompleteOAuthFlowResponse, error) {
+	panic("implement me")
+}
+
 // NewServer creates a new publisher Server.
 func NewServer(logger hclog.Logger) pub.PublisherServer {
 	return &Server{
@@ -380,7 +404,7 @@ func (s *Server) getCount(shape *pub.Shape) (*pub.Count, error) {
 			}
 
 			args := r.FindAllString(shape.Id, -1)
-			
+
 			if (len(args) == 1) {
 				args = append(args, args[0])
 				args[0] = "[dbo]"
