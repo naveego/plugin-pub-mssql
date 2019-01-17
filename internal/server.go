@@ -461,13 +461,13 @@ func (s *Server) readRecords(ctx context.Context, req *pub.PublishRequest, out c
 		for i, p := range properties {
 			switch p.Type {
 			case pub.PropertyType_FLOAT:
-				var x float64
+				var x *float64
 				valueBuffer[i] = &x
 			case pub.PropertyType_INTEGER:
-				var x int64
+				var x *int64
 				valueBuffer[i] = &x
 			case pub.PropertyType_DECIMAL:
-				var x string
+				var x *string
 				valueBuffer[i] = &x
 			default:
 				valueBuffer[i] = &valueBuffer[i]
