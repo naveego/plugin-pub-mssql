@@ -1,8 +1,10 @@
 package internal
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/naveego/go-json-schema"
 	"net/url"
 )
 
@@ -85,4 +87,47 @@ func (s *Settings) GetConnectionString() (string, error) {
 	}
 
 	return u.String(), nil
+}
+
+type SchemaMap map[string]interface{}
+
+func (s SchemaMap) String() string {
+	b, _ := json.MarshalIndent(s, "", "  ")
+	return string(b)
+}
+
+type RealTimeState struct {
+	Tables []RealTimeTableState `json:"tables"`
+}
+
+type RealTimeTableState struct {
+	Offset int `json:"offset"`
+}
+
+type RealTimeSettings struct {
+	Tables []RealTimeSettings `json:"tables"`
+}
+
+type RealTimeTableSettings struct {
+	TableName              string `json:"tableName"`
+	TranslateKeyUsingQuery bool   `json:"translateKeyUsingQuery"`
+	Query                  string `json:"query,omitempty"`
+}
+
+func GetRealTimeSchemas() (form *jsonschema.JSONSchema, ui SchemaMap) {
+
+	form = jsonschema.NewGenerator().WithRoot(RealTimeSettings{}).MustGenerate()
+
+	ui = SchemaMap{
+		"ui:order": []string{"tableName", "translateKeyUsingQuery", "query"},
+	}
+
+	return
+}
+
+func getMapFromJSONSchema(js jsonschema.JSONSchema) SchemaMap {
+	b, _ := json.Marshal(js)
+	var out SchemaMap
+	json.Unmarshal(b, &out)
+	return out
 }
