@@ -2,6 +2,7 @@ package internal
 
 import (
 	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
+	"io/ioutil"
 	"sync"
 	"time"
 
@@ -28,12 +29,47 @@ type Server struct {
 	connected  bool
 }
 
+
+// NewServer creates a new publisher Server.
+func NewServer(logger hclog.Logger) pub.PublisherServer {
+
+	manifestBytes, err := ioutil.ReadFile("manifest.json")
+	if err != nil {
+		panic(errors.Wrap(err, "manifest.json must be in plugin directory"))
+	}
+	var manifest map[string]interface{}
+	err = json.Unmarshal(manifestBytes, &manifest)
+	if err != nil {
+		panic(errors.Wrap(err, "manifest.json was invalid"))
+	}
+
+	configSchema := manifest["configSchema"].(map[string]interface{})
+	configSchemaSchema = configSchema["schema"].(map[string]interface{})
+	configSchemaUI = configSchema["ui"].(map[string]interface{})
+	b, _ := json.Marshal(configSchemaSchema)
+	configSchemaSchemaJSON = string(b)
+	b, _ = json.Marshal(configSchemaUI)
+	configSchemaUIJSON = string(b)
+
+	return &Server{
+		mu:  &sync.Mutex{},
+		log: logger,
+	}
+}
+
+
+var configSchemaUI map[string]interface{}
+var configSchemaUIJSON string
+var configSchemaSchema map[string]interface{}
+var configSchemaSchemaJSON string
+
+
 func (s *Server) ConnectSession(*pub.ConnectRequest, pub.Publisher_ConnectSessionServer) error {
 	panic("not supported")
 }
 
 func (s *Server) ConfigureConnection(context.Context, *pub.ConfigureConnectionRequest) (*pub.ConfigureConnectionResponse, error) {
-	panic("implement me")
+	return &pub.ConfigureConnectionResponse{}
 }
 
 func (s *Server) ConfigureQuery(context.Context, *pub.ConfigureQueryRequest) (*pub.ConfigureQueryResponse, error) {
@@ -50,14 +86,6 @@ func (s *Server) BeginOAuthFlow(context.Context, *pub.BeginOAuthFlowRequest) (*p
 
 func (s *Server) CompleteOAuthFlow(context.Context, *pub.CompleteOAuthFlowRequest) (*pub.CompleteOAuthFlowResponse, error) {
 	panic("implement me")
-}
-
-// NewServer creates a new publisher Server.
-func NewServer(logger hclog.Logger) pub.PublisherServer {
-	return &Server{
-		mu:  &sync.Mutex{},
-		log: logger,
-	}
 }
 
 // Connect connects to the data base and validates the connections
