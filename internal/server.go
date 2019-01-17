@@ -29,7 +29,6 @@ type Server struct {
 	connected  bool
 }
 
-
 // NewServer creates a new publisher Server.
 func NewServer(logger hclog.Logger) pub.PublisherServer {
 
@@ -57,19 +56,24 @@ func NewServer(logger hclog.Logger) pub.PublisherServer {
 	}
 }
 
-
 var configSchemaUI map[string]interface{}
 var configSchemaUIJSON string
 var configSchemaSchema map[string]interface{}
 var configSchemaSchemaJSON string
 
-
 func (s *Server) ConnectSession(*pub.ConnectRequest, pub.Publisher_ConnectSessionServer) error {
 	panic("not supported")
 }
 
-func (s *Server) ConfigureConnection(context.Context, *pub.ConfigureConnectionRequest) (*pub.ConfigureConnectionResponse, error) {
-	return &pub.ConfigureConnectionResponse{}
+func (s *Server) ConfigureConnection(ctx context.Context, req *pub.ConfigureConnectionRequest) (*pub.ConfigureConnectionResponse, error) {
+	return &pub.ConfigureConnectionResponse{
+		Form: &pub.ConfigurationFormResponse{
+			DataJson:   req.Form.DataJson,
+			StateJson:  req.Form.StateJson,
+			SchemaJson: configSchemaSchemaJSON,
+			UiJson:     configSchemaUIJSON,
+		},
+	}, nil
 }
 
 func (s *Server) ConfigureQuery(context.Context, *pub.ConfigureQueryRequest) (*pub.ConfigureQueryResponse, error) {
@@ -513,13 +517,13 @@ func (s *Server) readRecords(ctx context.Context, req *pub.PublishRequest, out c
 		for i, p := range properties {
 			switch p.Type {
 			case pub.PropertyType_FLOAT:
-				var x float64
+				var x *float64
 				valueBuffer[i] = &x
 			case pub.PropertyType_INTEGER:
-				var x int64
+				var x *int64
 				valueBuffer[i] = &x
 			case pub.PropertyType_DECIMAL:
-				var x string
+				var x *string
 				valueBuffer[i] = &x
 			default:
 				valueBuffer[i] = &valueBuffer[i]

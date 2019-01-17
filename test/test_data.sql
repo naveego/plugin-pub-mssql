@@ -105,7 +105,7 @@ ALTER TABLE  w3.dbo.Agents ENABLE change_tracking WITH (track_columns_updated = 
 
 GO;
 
-INSERT INTO w3.dbo.Agents VALUES ('A007', 'Ramasundar', 'Bangalore', '0.15', '077-25814763', '1969-01-02T00:00:00Z', '');
+INSERT INTO w3.dbo.Agents VALUES ('A007', 'Ramasundar', 'Bangalore', null, '077-25814763', '1969-01-02T00:00:00Z', '');
 INSERT INTO w3.dbo.Agents VALUES ('A003', 'Alex', 'London', '0.13', '075-12458969', '1970-01-02T00:00:00Z', '');
 INSERT INTO w3.dbo.Agents VALUES ('A008', 'Alford', 'New York', '0.12', '044-25874365', '1970-01-02T00:00:00Z', '');
 INSERT INTO w3.dbo.Agents VALUES ('A011', 'Ravi Kumar', 'Bangalore', '0.15', '077-45625874', '1970-01-02T00:00:00Z', '');
@@ -170,7 +170,7 @@ CREATE TABLE w3.fact.Orders
 (
   "ORD_NUM" NUMERIC(6,0) NOT NULL PRIMARY KEY,
   "ORD_AMOUNT" NUMERIC(12,2) NOT NULL,
-  "ADVANCE_AMOUNT" NUMERIC(12,2) NOT NULL,
+  "ADVANCE_AMOUNT" NUMERIC(12,2) NULL,
   "ORD_DATE" DATE NOT NULL,
   "CUST_CODE" VARCHAR(6) NOT NULL REFERENCES w3.dbo.Customers,
   "AGENT_CODE" CHAR(4) NOT NULL REFERENCES w3.dbo.Agents,
@@ -179,7 +179,7 @@ CREATE TABLE w3.fact.Orders
 
 GO;
 
-INSERT INTO w3.fact.Orders VALUES('200100', '1000.00', '600.00', '08/01/2008', 'C00013', 'A003', 'SOD');
+INSERT INTO w3.fact.Orders VALUES('200100', '1000.00', NULL, '08/01/2008', 'C00013', 'A003', 'SOD');
 INSERT INTO w3.fact.Orders VALUES('200110', '3000.00', '500.00', '04/15/2008', 'C00019', 'A010', 'SOD');
 INSERT INTO w3.fact.Orders VALUES('200107', '4500.00', '900.00', '08/30/2008', 'C00007', 'A010', 'SOD');
 INSERT INTO w3.fact.Orders VALUES('200112', '2000.00', '400.00', '05/30/2008', 'C00016', 'A007', 'SOD');
