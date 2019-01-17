@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"github.com/pkg/errors"
 	"fmt"
+	"log"
 )
 
 var _ = Describe("Server", func() {
@@ -348,13 +349,18 @@ var _ = Describe("Server", func() {
 					Expect(stream.records).To(HaveLen(12))
 
 					var alex map[string]interface{}
+					var ramasundar map[string]interface{}
 					var data []map[string]interface{}
 					for _, record := range stream.records {
 						var d map[string]interface{}
 						Expect(json.Unmarshal([]byte(record.DataJson), &d)).To(Succeed())
 						data = append(data, d)
-						if d["[AGENT_NAME]"] == "Alex" {
+						switch d["[AGENT_NAME]"] {
+						case "Alex":
+						log.Printf("found alex: %+v", d)
 							alex = d
+						case "Ramasundar":
+							ramasundar = d
 						}
 					}
 					Expect(alex).ToNot(BeNil(), "should find Alex (code==A003)")
@@ -367,6 +373,11 @@ var _ = Describe("Server", func() {
 						HaveKeyWithValue("[PHONE_NO]", "075-12458969"),
 						HaveKeyWithValue("[UPDATED_AT]", "1970-01-02T00:00:00Z"),
 						HaveKeyWithValue("[BIOGRAPHY]", ""),
+					))
+
+					Expect(ramasundar).ToNot(BeNil(), "should find ramusander even though it has a null value")
+					Expect(ramasundar).To(And(
+						HaveKeyWithValue("[COMMISSION]", BeNil()),
 					))
 				})
 
