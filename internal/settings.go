@@ -2,9 +2,9 @@ package internal
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/naveego/go-json-schema"
+	"github.com/pkg/errors"
 	"net/url"
 )
 
@@ -97,7 +97,12 @@ func (s SchemaMap) String() string {
 }
 
 type RealTimeState struct {
-	Tables []RealTimeTableState `json:"tables"`
+	Version int `json:"version"`
+}
+
+func (r RealTimeState) String() string{
+	b, _ := json.MarshalIndent(r, "", "  ")
+	return string(b)
 }
 
 type RealTimeTableState struct {
@@ -105,29 +110,120 @@ type RealTimeTableState struct {
 }
 
 type RealTimeSettings struct {
-	Tables []RealTimeSettings `json:"tables"`
+	meta string `title:"Real Time Settings" description:"Configure the tables to monitor for changes."`
+	Tables []RealTimeTableSettings `json:"tables" title:"Tables"`
+	PollingInterval string `json:"pollingInterval" title:"Polling Interval" default="5s" description:"Interval between checking for changes. Provide a number and a unit (s = second, m = minute, h = hour). Defaults to 5s." pattern:"\\d+(ms|s|m|h)"`
+}
+
+func (r RealTimeSettings) String() string {
+	b, _ := json.MarshalIndent(r, "", "  ")
+	return string(b)
 }
 
 type RealTimeTableSettings struct {
-	TableName              string `json:"tableName"`
-	TranslateKeyUsingQuery bool   `json:"translateKeyUsingQuery"`
-	Query                  string `json:"query,omitempty"`
+	TableName              string `json:"tableName" title:"Table" description:"The table to monitor for changes."`
+	TranslateKeyUsingQuery bool   `json:"translateKeyUsingQuery" title:"Dependency" description:"Check here if this table is used to make the view you're publishing data from."`
+	Query                  string `json:"query,omitempty" title:"Query" description:"This query will be run with the parameter @ID set to the ID of the record which changed. The query must return the unique identifiers for the rows in the view that need to be republished because of the observed change." `
 }
 
 func GetRealTimeSchemas() (form *jsonschema.JSONSchema, ui SchemaMap) {
 
 	form = jsonschema.NewGenerator().WithRoot(RealTimeSettings{}).MustGenerate()
 
+	updateProperty(&form.Property, func(p *jsonschema.Property) {
+
+	})
+
 	ui = SchemaMap{
-		"ui:order": []string{"tableName", "translateKeyUsingQuery", "query"},
+		"tables": SchemaMap{
+			"items": SchemaMap{
+				"ui:order": []string{"tableName", "translateKeyUsingQuery", "query"},
+				"query":SchemaMap{
+					"ui:widget":"textarea",
+					"ui:options": SchemaMap{
+						"rows":3,
+					},
+				},
+			},
+		},
 	}
 
 	return
 }
 
-func getMapFromJSONSchema(js jsonschema.JSONSchema) SchemaMap {
+func GetMapFromJSONSchema(js *jsonschema.JSONSchema) SchemaMap {
 	b, _ := json.Marshal(js)
 	var out SchemaMap
 	json.Unmarshal(b, &out)
 	return out
+}
+
+func setInMap(m map[string]interface{}, value interface{}, path ...string) error {
+	if m == nil {
+		return errors.New("nil map")
+	}
+	if len(path) == 0 {
+		return errors.New("ran out of path")
+	}
+
+	key := path[0]
+
+	if len(path) == 1 {
+		m[key] = value
+		return nil
+	}
+
+	var child map[string]interface{}
+	c, ok := m[key]
+	if !ok {
+		child = map[string]interface{}{}
+		m[key] = child
+	} else {
+		child, ok = c.(map[string]interface{})
+		if !ok {
+			return errors.Errorf("%s: non-map value %s (%T) at path", key, c, c)
+		}
+	}
+
+	err := setInMap(child, value, path[1:]...)
+	if err != nil {
+		return errors.Errorf("%s.%s", key, err)
+	}
+
+	return nil
+}
+
+func updateProperty(property *jsonschema.Property, fn func(property *jsonschema.Property), path ...string) error {
+	if property == nil {
+		return errors.New("no entry")
+	}
+
+	if len(path) == 0 {
+		fn(property)
+		return nil
+	}
+
+	if property.Type == "array"{
+		return updateProperty(property.Items, fn, path...)
+	}
+
+	if property.Properties == nil{
+		property.Properties = map[string]*jsonschema.Property{}
+	}
+
+	child, ok := property.Properties[path[0]]
+	if !ok {
+		child = &jsonschema.Property{
+			Type:"object",
+		}
+		property.Properties[path[0]] = child
+	}
+
+
+	err := updateProperty(child, fn, path[1:]...)
+	if err != nil {
+		return errors.Errorf("%s.%s", path[0], err)
+	}
+
+	return nil
 }

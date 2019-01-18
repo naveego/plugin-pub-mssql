@@ -3,13 +3,13 @@ package internal_test
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"testing"
 
 	"database/sql"
 	"io/ioutil"
 	"log"
-	"strings"
 	"time"
 
 	_ "github.com/denisenkom/go-mssqldb"
@@ -20,6 +20,12 @@ import (
 )
 
 var db *sql.DB
+
+var (
+	allSchemaIDs   []string
+	tableSchemaIDs []string
+	viewSchemaIDs  []string
+)
 
 func TestMSSQL(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -42,7 +48,7 @@ func GetTestSettings() *Settings {
 var _ = BeforeSuite(func() {
 	var err error
 
-	Eventually(connectToSQL, 60*time.Second, time.Second).Should(Succeed())
+	Eventually(func() error { return connectToSQL("master") }, 60*time.Second, time.Second).Should(Succeed())
 
 	_, thisPath, _, _ := runtime.Caller(0)
 	testDataPath := filepath.Join(thisPath, "../../test/test_data.sql")
@@ -56,13 +62,34 @@ var _ = BeforeSuite(func() {
 
 	cmdText := string(testDataBytes)
 
-	cmds := strings.Split(cmdText, "GO;")
+	cmds :=  splitScriptRE.Split(cmdText, -1)
 
 	for _, cmd := range cmds {
 		Expect(db.Exec(cmd)).ToNot(BeNil(), "should execute command "+cmd)
 	}
+
+	Expect(connectToSQL("w3")).To(Succeed())
+
+	rows, err := db.Query(`select TABLE_SCHEMA,TABLE_NAME,TABLE_TYPE
+from w3.INFORMATION_SCHEMA.TABLES
+order by TABLE_NAME`)
+
+	Expect(err).ToNot(HaveOccurred())
+
+	for rows.Next() {
+		var schema, name, typ string
+		Expect(rows.Scan(&schema, &name, &typ)).To(Succeed())
+		id := GetSchemaID(schema, name)
+		allSchemaIDs = append(allSchemaIDs, id)
+		if typ == "BASE TABLE" {
+			tableSchemaIDs = append(tableSchemaIDs, id)
+		} else {
+			viewSchemaIDs = append(viewSchemaIDs, id)
+		}
+	}
 })
 
+var splitScriptRE = regexp.MustCompile(`(?m:^GO;?\s*$)`)
 
 var _ = AfterSuite(func(){
 	db.Close()
@@ -70,13 +97,13 @@ var _ = AfterSuite(func(){
 })
 
 
-func connectToSQL() error {
+func connectToSQL(database string) error {
 	var err error
 	var connectionString string
 	settings := GetTestSettings()
 
 	// initially set Database to master to validate or create test db w3
-	settings.Database = "master"
+	settings.Database = database
 
 	connectionString, err = settings.GetConnectionString()
 	if err != nil {

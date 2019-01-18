@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"github.com/LK4D4/joincontext"
 	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
 	"io/ioutil"
 	"sync"
@@ -23,15 +24,43 @@ import (
 type Server struct {
 	mu         *sync.Mutex
 	log        hclog.Logger
-	session *session
+	session *Session
 }
 
-type session struct {
-	ctx context.Context
-	cancel func()
-	publishing bool
-	settings   *Settings
-	db         *sql.DB
+type Session struct {
+	Ctx        context.Context
+	Cancel     func()
+	Publishing bool
+	Log hclog.Logger
+	Settings   *Settings
+	// tables that were discovered during connect
+	SchemaInfo         map[string]SchemaInfo
+	RealTimeHelper *RealTimeHelper
+	DB             *sql.DB
+}
+
+type SchemaInfo struct {
+	IsView bool
+}
+
+type OpSession struct {
+	Session
+	// Cancel cancels the context in this operation.
+	Cancel func()
+	// Ctx is the context for this operation. It will
+	// be done when the context from gRPC call is done,
+	// the overall session context is cancelled (by a disconnect)
+	// or Cancel is called on this OpSession instance.
+	Ctx context.Context
+}
+
+func (s *Session) opSession(ctx context.Context) *OpSession {
+	ctx, cancel := joincontext.Join(s.Ctx, ctx)
+	return &OpSession{
+		Session: *s,
+		Cancel:cancel,
+		Ctx:     ctx,
+	}
 }
 
 // NewServer creates a new publisher Server.
@@ -66,12 +95,66 @@ var configSchemaUIJSON string
 var configSchemaSchema map[string]interface{}
 var configSchemaSchemaJSON string
 
-// language=json
-const realTimeSchemaJSON = `
-{
+// Connect connects to the data base and validates the connections
+func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.ConnectResponse, error) {
+	s.log.Debug("Connecting...")
+	s.disconnect()
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	session := &Session{
+		Log:s.log,
+		SchemaInfo: map[string]SchemaInfo{},
+	}
+
+	session.Ctx, session.Cancel = context.WithCancel(context.Background())
+
+	settings := new(Settings)
+	if err := json.Unmarshal([]byte(req.SettingsJson), settings); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if err := settings.Validate(); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	connectionString, err := settings.GetConnectionString()
+	if err != nil {
+		return nil, err
+	}
+
+	session.Settings = settings
+
+	session.DB, err = sql.Open("sqlserver", connectionString)
+	if err != nil {
+		return nil, errors.Errorf("could not open connection: %s", err)
+	}
+
+	rows, err := session.DB.Query(`select TABLE_SCHEMA, TABLE_NAME, TABLE_TYPE
+from INFORMATION_SCHEMA.TABLES
+order by TABLE_NAME`)
+	if err != nil {
+		return nil, errors.Errorf("could not read database schema: %s", err)
+	}
+
+	// Collect table names for display in UIs.
+	for rows.Next() {
+		var schema, table, typ string
+		err = rows.Scan(&schema, &table, &typ)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not read table schema")
+		}
+		id := GetSchemaID(schema, table)
+		session.SchemaInfo[id] = SchemaInfo{IsView:typ=="VIEW"}
+	}
+
+	s.session = session
+
+	s.log.Debug("Connect completed successfully.")
+
+	return new(pub.ConnectResponse), err
 }
-`
 
 func (s *Server) ConnectSession(*pub.ConnectRequest, pub.Publisher_ConnectSessionServer) error {
 	panic("not supported")
@@ -92,9 +175,26 @@ func (s *Server) ConfigureQuery(context.Context, *pub.ConfigureQueryRequest) (*p
 	panic("implement me")
 }
 
-func (s *Server) ConfigureRealTime(context.Context, *pub.ConfigureRealTimeRequest) (*pub.ConfigureRealTimeResponse, error) {
+func (s *Server) ConfigureRealTime(ctx context.Context, req *pub.ConfigureRealTimeRequest) (*pub.ConfigureRealTimeResponse, error) {
 
-	panic ("not implemented")
+	session, err := s.getOpSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Form == nil {
+		req.Form = &pub.ConfigurationFormRequest{}
+	}
+
+	if session.RealTimeHelper == nil {
+		session.RealTimeHelper = new(RealTimeHelper)
+	}
+
+	ctx, cancel := context.WithCancel(session.Ctx)
+	defer cancel()
+	resp, err := session.RealTimeHelper.ConfigureRealTime(session, req)
+
+	return resp, err
 }
 
 func (s *Server) BeginOAuthFlow(context.Context, *pub.BeginOAuthFlowRequest) (*pub.BeginOAuthFlowResponse, error) {
@@ -105,61 +205,13 @@ func (s *Server) CompleteOAuthFlow(context.Context, *pub.CompleteOAuthFlowReques
 	panic("implement me")
 }
 
-// Connect connects to the data base and validates the connections
-func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.ConnectResponse, error) {
-	s.log.Debug("Connecting...")
-	s.disconnect()
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	session := &session{}
-
-	session.ctx, session.cancel = context.WithCancel(context.Background())
-
-	settings := new(Settings)
-	if err := json.Unmarshal([]byte(req.SettingsJson), settings); err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	if err := settings.Validate(); err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	connectionString, err := settings.GetConnectionString()
-	if err != nil {
-		return nil, err
-	}
-
-	session.settings = settings
-
-	session.db, err = sql.Open("sqlserver", connectionString)
-	if err != nil {
-		return nil, errors.Errorf("could not open connection: %s", err)
-	}
-
-	_, err = session.db.Query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES ")
-
-	if err != nil {
-		return nil, errors.Errorf("could not read database schema: %s", err)
-	}
-
-	// connection made and tested
-
-
-	s.session = session
-
-	s.log.Debug("Connect completed successfully.")
-
-	return new(pub.ConnectResponse), err
-}
 
 // DiscoverShapes discovers shapes present in the database
 func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequest) (*pub.DiscoverShapesResponse, error) {
 
 	s.log.Debug("Handling DiscoverShapesRequest...")
 
-	session, err := s.getSession()
+	session, err := s.getOpSession(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -201,14 +253,16 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 			}
 			s.log.Debug("Got details for discovered schema.", "id", shape.Id)
 
+			if req.Mode == pub.DiscoverShapesRequest_REFRESH {
 			s.log.Debug("Getting count for discovered schema...", "id", shape.Id)
-			shape.Count, err = s.getCount(session, shape)
-			if err != nil {
-				s.log.With("shape", shape.Id).With("err", err).Error("Error getting row count.")
-				shape.Errors = append(shape.Errors, fmt.Sprintf("Could not get row count for shape: %s", err))
-				goto Done
+				shape.Count, err = s.getCount(session, shape)
+				if err != nil {
+					s.log.With("shape", shape.Id).With("err", err).Error("Error getting row count.")
+					shape.Errors = append(shape.Errors, fmt.Sprintf("Could not get row count for shape: %s", err))
+					goto Done
+				}
+				s.log.Debug("Got count for discovered schema.", "id", shape.Id, "count", shape.Count.String())
 			}
-			s.log.Debug("Got count for discovered schema.", "id", shape.Id, "count", shape.Count.String())
 
 			if req.SampleSize > 0 {
 				s.log.Debug("Getting sample for discovered schema...", "id", shape.Id, "size", req.SampleSize)
@@ -219,7 +273,7 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 				records := make(chan *pub.Record)
 
 				go func() {
-					err = s.readRecords(session, ctx, publishReq, records)
+					err = readRecords(session, publishReq, records)
 				}()
 
 				for record := range records {
@@ -250,10 +304,10 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 	return resp, nil
 }
 
-func (s *Server) getAllShapesFromSchema(session *session) ([]*pub.Shape, error) {
+func (s *Server) getAllShapesFromSchema(session *OpSession) ([]*pub.Shape, error) {
 
 
-	rows, err := session.db.Query(`SELECT Schema_name(o.schema_id) SchemaName, o.NAME TableName
+	rows, err := session.DB.Query(`SELECT Schema_name(o.schema_id) SchemaName, o.NAME TableName
 FROM   sys.objects o 
 WHERE  o.type IN ( 'U', 'V' )`)
 
@@ -276,10 +330,10 @@ WHERE  o.type IN ( 'U', 'V' )`)
 		}
 
 		if schemaName == "dbo" {
-			shape.Id = fmt.Sprintf("[%s]", tableName)
+			shape.Id = GetSchemaID(schemaName, tableName)
 			shape.Name = tableName
 		} else {
-			shape.Id = fmt.Sprintf("[%s].[%s]", schemaName, tableName)
+			shape.Id = GetSchemaID(schemaName, tableName)
 			shape.Name = fmt.Sprintf("%s.%s", schemaName, tableName)
 		}
 
@@ -287,6 +341,14 @@ WHERE  o.type IN ( 'U', 'V' )`)
 	}
 
 	return shapes, nil
+}
+
+func GetSchemaID(schemaName, tableName string) string {
+	if schemaName == "dbo" {
+		return fmt.Sprintf("[%s]", tableName)
+	} else {
+		return fmt.Sprintf("[%s].[%s]", schemaName, tableName)
+	}
 }
 
 type describeResult struct {
@@ -298,7 +360,7 @@ type describeResult struct {
 	MaxLength         int64  `sql:"max_length"`
 }
 
-func (s *Server) populateShapeColumns(session *session, shape *pub.Shape) (error) {
+func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Shape) (error) {
 
 	query := shape.Query
 	if query == "" {
@@ -309,7 +371,7 @@ func (s *Server) populateShapeColumns(session *session, shape *pub.Shape) (error
 
 	metaQuery := fmt.Sprintf("sp_describe_first_result_set N'%s', @params= N'', @browse_information_mode=1", query)
 
-	rows, err := session.db.Query(metaQuery)
+	rows, err := session.DB.Query(metaQuery)
 
 	if err != nil {
 		return errors.Errorf("error executing query %q: %v", metaQuery, err)
@@ -374,18 +436,20 @@ func (s *Server) populateShapeColumns(session *session, shape *pub.Shape) (error
 // PublishStream sends records read in request to the agent
 func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_PublishStreamServer) error {
 
-	session, err := s.getSession()
+	session, err := s.getOpSession(context.Background())
 	if err != nil {
 		return err
 	}
+
+	defer session.Cancel()
 
 	jsonReq, _ := json.Marshal(req)
 
 	s.log.Debug("Got PublishStream request.", "req", string(jsonReq))
 
 
-	if session.settings.PrePublishQuery != "" {
-		_, err := session.db.Exec(session.settings.PrePublishQuery)
+	if session.Settings.PrePublishQuery != "" {
+		_, err := session.DB.Exec(session.Settings.PrePublishQuery)
 		if err != nil {
 			return errors.Errorf("error running pre-publish query: %s", err)
 		}
@@ -393,34 +457,41 @@ func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_Pub
 
 	records := make(chan *pub.Record)
 
-	ctx, cancel := context.WithCancel(session.ctx)
-
-	go func() {
-		err = s.readRecords(session, ctx, req, records)
-	}()
+	if req.RealTimeSettingsJson == "" {
+		go func() {
+			defer close(records)
+			err = readRecords(session, req, records)
+		}()
+	} else {
+		if session.RealTimeHelper == nil {
+			session.RealTimeHelper = &RealTimeHelper{}
+		}
+		go func() {
+			defer close(records)
+			err = session.RealTimeHelper.PublishStream(session, req, records)
+		}()
+	}
 
 	for record := range records {
 		sendErr := stream.Send(record)
 		if sendErr != nil {
-			cancel()
+			session.Cancel()
 			err = sendErr
 			break
 		}
 	}
 
-	if session.settings.PostPublishQuery != "" {
-		_, postPublishErr := session.db.Exec(session.settings.PostPublishQuery)
+	if session.Settings.PostPublishQuery != "" {
+		_, postPublishErr := session.DB.Exec(session.Settings.PostPublishQuery)
 		if postPublishErr != nil {
 			if err != nil {
 				postPublishErr = errors.Errorf("%s (publish had already stopped with error: %s)", postPublishErr, err)
 			}
 
-			cancel()
 			return errors.Errorf("error running post-publish query: %s", postPublishErr)
 		}
 	}
 
-	cancel()
 	return err
 }
 
@@ -437,31 +508,32 @@ func (s *Server) disconnect(){
 	defer s.mu.Unlock()
 
 	if s.session != nil {
-		s.session.cancel()
-		if s.session.db != nil {
-			s.session.db.Close()
+		s.session.Cancel()
+		if s.session.DB != nil {
+			s.session.DB.Close()
 		}
 	}
 
 	s.session = nil
 }
 
-func (s *Server) getSession() (*session, error){
+func (s *Server) getOpSession(ctx context.Context) (*OpSession, error){
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 
 	if s.session == nil {
 		return nil, errors.New("not connected")
 	}
 
-	if s.session.ctx != nil && s.session.ctx.Err() != nil {
-		return nil, s.session.ctx.Err()
+	if s.session.Ctx != nil && s.session.Ctx.Err() != nil {
+		return nil, s.session.Ctx.Err()
 	}
 
-	return s.session, nil
+	return s.session.opSession(ctx), nil
 }
 
-func (s *Server) getCount(session *session, shape *pub.Shape) (*pub.Count, error) {
+func (s *Server) getCount(session *OpSession, shape *pub.Shape) (*pub.Count, error) {
 
 	cErr := make(chan error)
 	cCount := make(chan int)
@@ -484,7 +556,7 @@ func (s *Server) getCount(session *session, shape *pub.Shape) (*pub.Count, error
 
 			args := r.FindAllString(shape.Id, -1)
 
-			if (len(args) == 1) {
+			if len(args) == 1 {
 				args = append(args, args[0])
 				args[0] = "[dbo]"
 			}
@@ -505,7 +577,7 @@ func (s *Server) getCount(session *session, shape *pub.Shape) (*pub.Count, error
 			AND p.index_id IN (0,1);`, args[1], args[0])
 		}
 
-		row := session.db.QueryRow(query)
+		row := session.DB.QueryRow(query)
 		var count int
 		err = row.Scan(&count)
 		if err != nil {
@@ -531,12 +603,10 @@ func (s *Server) getCount(session *session, shape *pub.Shape) (*pub.Count, error
 	}
 }
 
-func (s *Server) readRecords(session *session, ctx context.Context, req *pub.PublishRequest, out chan<- *pub.Record) error {
+func readRecords(session *OpSession, req *pub.PublishRequest, out chan<- *pub.Record) error {
 
-	defer close(out)
-
-	var err error
 	var query string
+	var err error
 
 	query, err = buildQuery(req)
 	if err != nil {
@@ -547,17 +617,31 @@ func (s *Server) readRecords(session *session, ctx context.Context, req *pub.Pub
 		query = fmt.Sprintf("select top(%d) * from (%s) as q", req.Limit, query)
 	}
 
-	rows, err := session.db.Query(query)
+	stmt, err := session.DB.Prepare(query)
 	if err != nil {
-		return errors.Errorf("error executing query %q: %v", query, err)
+		return errors.Errorf("prepare query %q: %s", query, err)
+	}
+	session.Log.Debug("Prepared query for reading records.", "query", query)
+	defer stmt.Close()
+
+	return readRecordsUsingQuery(session, req.Shape, out, stmt)
+}
+
+func readRecordsUsingQuery(session *OpSession, shape *pub.Shape, out chan<- *pub.Record, stmt *sql.Stmt, args ...interface{}) error {
+
+
+	var err error
+	rows, err := stmt.Query(args...)
+	if err != nil {
+		return errors.Errorf("error executing query: %v", err)
 	}
 
-	properties := req.Shape.Properties
+	properties := shape.Properties
 	valueBuffer := make([]interface{}, len(properties))
 	mapBuffer := make(map[string]interface{}, len(properties))
 
 	for rows.Next() {
-		if ctx.Err() != nil {
+		if session.Ctx.Err() != nil {
 			return nil
 		}
 
