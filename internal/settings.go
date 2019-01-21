@@ -111,6 +111,7 @@ type RealTimeTableState struct {
 
 type RealTimeSettings struct {
 	meta string `title:"Real Time Settings" description:"Configure the tables to monitor for changes."`
+	KeyColumns []string `json:"keyColumns" title:"Key Columns" description:"The column(s) which uniquely identify the records being published."`
 	Tables []RealTimeTableSettings `json:"tables" title:"Tables"`
 	PollingInterval string `json:"pollingInterval" title:"Polling Interval" default="5s" description:"Interval between checking for changes. Provide a number and a unit (s = second, m = minute, h = hour). Defaults to 5s." pattern:"\\d+(ms|s|m|h)"`
 }

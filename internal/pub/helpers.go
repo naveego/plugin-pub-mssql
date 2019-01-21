@@ -335,3 +335,25 @@ func (l *hclLogAdapter) SetLevel(level hclog.Level) {
 func (l *hclLogAdapter) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Logger {
 	panic("not implemented")
 }
+
+
+type ResolvedRecord struct {
+	Action Record_Action
+	DataJson string
+	Data interface{}
+	RealTimeStateJson string
+	RealTimeState interface{}
+}
+
+func (r *Record) Resolve(data interface{}, realTimeState interface{}) (ResolvedRecord, error) {
+
+	switch r.Action {
+	case Record_REAL_TIME_STATE_COMMIT:
+	err := r.UnmarshalRealTimeState(&realTimeState)
+	return ResolvedRecord{RealTimeStateJson:r.RealTimeStateJson, DataJson:r.DataJson, Action:r.Action, RealTimeState:realTimeState}, err
+	default:
+		err := r.UnmarshalData(&data)
+		return ResolvedRecord{RealTimeStateJson:r.RealTimeStateJson, DataJson:r.DataJson, Action:r.Action,Data:data}, err
+	}
+}
+

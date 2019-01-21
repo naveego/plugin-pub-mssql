@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/metadata"
-	"log"
+
 )
 
 var _ = Describe("Server", func() {
@@ -25,14 +25,33 @@ var _ = Describe("Server", func() {
 
 		log := hclog.New(&hclog.LoggerOptions{
 			Level:      hclog.Trace,
-			Output:     GinkgoWriter,
-			JSONFormat: true,
+			Output:     testOutput,
+			JSONFormat: false,
 		})
 
 		sut = NewServer(log)
 
 		settings = *GetTestSettings()
 	})
+
+	var discoverShape = func(schema *pub.Shape) *pub.Shape {
+		response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
+			Mode:       pub.DiscoverShapesRequest_REFRESH,
+			SampleSize: 0,
+			ToRefresh: []*pub.Shape{
+				schema,
+			},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		var out *pub.Shape
+		for _, s := range response.Shapes {
+			if s.Id == schema.Id {
+				out = s
+			}
+		}
+		Expect(out).ToNot(BeNil(), "should have discovered requested schema %q in %+v", schema.Id, response.Shapes)
+		return out
+	}
 
 	Describe("Connect", func() {
 
@@ -57,8 +76,11 @@ var _ = Describe("Server", func() {
 	Describe("ConfigureRealTime", func() {
 
 		var configureRealTime = func(schemaID string, settings RealTimeSettings) *pub.ConfigureRealTimeResponse {
+			shape := discoverShape(&pub.Shape{
+				Id: schemaID,
+			})
 			req := (&pub.ConfigureRealTimeRequest{
-				SchemaID: schemaID,
+				Shape: shape,
 			}).WithData(settings)
 			resp, err := sut.ConfigureRealTime(context.Background(), req)
 			Expect(err).ToNot(HaveOccurred())
@@ -115,6 +137,24 @@ var _ = Describe("Server", func() {
 				Expect(actual).To(BeEquivalentTo(expectedSettings))
 			})
 
+			It("should include columns enum for the keyColumns property", func() {
+				resp := configureRealTime("RealTimeDirectView", RealTimeSettings{})
+				jsonSchemaForForm := resp.GetJSONSchemaForForm()
+				jsm := GetMapFromJSONSchema(jsonSchemaForForm)
+				Expect(jsm).To(And(
+					HaveKeyWithValue("properties",
+						HaveKeyWithValue("keyColumns",
+							HaveKeyWithValue("items",
+								And(
+									HaveKeyWithValue("type", "string"),
+									HaveKeyWithValue("enum", ConsistOf([]string{"[id]", "[ownValue]", "[data]"})),
+								),
+							),
+						),
+					),
+				))
+			})
+
 			It("should include tables as the enum for the table property", func() {
 				resp := configureRealTime("RealTimeDirectView", RealTimeSettings{})
 				jsonSchemaForForm := resp.GetJSONSchemaForForm()
@@ -126,7 +166,7 @@ var _ = Describe("Server", func() {
 								HaveKeyWithValue("properties",
 									HaveKeyWithValue("tableName",
 										And(
-											HaveKeyWithValue("enum", ConsistOf(tableSchemaIDs),
+											HaveKeyWithValue("enum", ConsistOf([]string{"[RealTime]", "[CompositeKey]"}),
 											),
 										),
 									),
@@ -185,9 +225,6 @@ var _ = Describe("Server", func() {
 						}
 					}
 					Expect(agents).ToNot(BeNil())
-
-					agentsJSON, _ := json.Marshal(agents)
-					log.Println("Agents JSON:", string(agentsJSON))
 				})
 
 				It("should include properties", func() {
@@ -217,10 +254,9 @@ var _ = Describe("Server", func() {
 					}))
 				})
 
-				It("should include count", func() {
+				It("should not include count", func() {
 					Expect(agents.Count).To(Equal(&pub.Count{
-						Kind:  pub.Count_EXACT,
-						Value: 12,
+						Kind: pub.Count_UNAVAILABLE,
 					}))
 				})
 
@@ -352,8 +388,8 @@ var _ = Describe("Server", func() {
 					Shape: prepost,
 				}
 
-				Expect(db.Exec("delete from w3.dbo.PrePost")).ToNot(BeNil())
-				Expect(db.Exec("insert into w3.dbo.PrePost values ('placeholder')")).ToNot(BeNil())
+				Expect(db.Exec("DELETE FROM w3.dbo.PrePost")).ToNot(BeNil())
+				Expect(db.Exec("INSERT INTO w3.dbo.PrePost VALUES ('placeholder')")).ToNot(BeNil())
 			}
 
 			It("should run pre-publish query", func() {
@@ -375,7 +411,7 @@ var _ = Describe("Server", func() {
 				stream := new(publisherStream)
 				Expect(sut.PublishStream(req, stream)).To(Succeed())
 
-				row := db.QueryRow("select * from w3.dbo.PrePost where Message = 'post'")
+				row := db.QueryRow("SELECT * FROM w3.dbo.PrePost WHERE Message = 'post'")
 				var msg string
 				Expect(row.Scan(&msg)).To(Succeed())
 				Expect(msg).To(Equal("post"))
@@ -389,7 +425,7 @@ var _ = Describe("Server", func() {
 
 				Expect(sut.PublishStream(req, stream)).To(MatchError(ContainSubstring("expected")))
 
-				row := db.QueryRow("select * from w3.dbo.PrePost where Message = 'post'")
+				row := db.QueryRow("SELECT * FROM w3.dbo.PrePost WHERE Message = 'post'")
 				var msg string
 				Expect(row.Scan(&msg)).To(Succeed())
 				Expect(msg).To(Equal("post"))
@@ -447,7 +483,6 @@ var _ = Describe("Server", func() {
 					data = append(data, d)
 					switch d["[AGENT_NAME]"] {
 					case "Alex":
-						log.Printf("found alex: %+v", d)
 						alex = d
 					case "Ramasundar":
 						ramasundar = d
@@ -595,7 +630,7 @@ var _ = Describe("Server", func() {
 
 type publisherStream struct {
 	records []*pub.Record
-	out chan *pub.Record
+	out     chan *pub.Record
 	err     error
 }
 

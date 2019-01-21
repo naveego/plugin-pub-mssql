@@ -22,8 +22,8 @@ import (
 
 // Server type to describe a server
 type Server struct {
-	mu         *sync.Mutex
-	log        hclog.Logger
+	mu      *sync.Mutex
+	log     hclog.Logger
 	session *Session
 }
 
@@ -31,16 +31,25 @@ type Session struct {
 	Ctx        context.Context
 	Cancel     func()
 	Publishing bool
-	Log hclog.Logger
+	Log        hclog.Logger
 	Settings   *Settings
 	// tables that were discovered during connect
-	SchemaInfo         map[string]SchemaInfo
+	SchemaInfo     map[string]*SchemaInfo
 	RealTimeHelper *RealTimeHelper
 	DB             *sql.DB
 }
 
 type SchemaInfo struct {
-	IsView bool
+	ID               string
+	IsTable          bool
+	IsChangeTracking bool
+	Columns          map[string]*SchemaColumnInfo
+	Keys             []string
+}
+
+type SchemaColumnInfo struct {
+	ID    string
+	IsKey bool
 }
 
 type OpSession struct {
@@ -58,7 +67,7 @@ func (s *Session) opSession(ctx context.Context) *OpSession {
 	ctx, cancel := joincontext.Join(s.Ctx, ctx)
 	return &OpSession{
 		Session: *s,
-		Cancel:cancel,
+		Cancel:  cancel,
 		Ctx:     ctx,
 	}
 }
@@ -104,8 +113,8 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 	defer s.mu.Unlock()
 
 	session := &Session{
-		Log:s.log,
-		SchemaInfo: map[string]SchemaInfo{},
+		Log:        s.log,
+		SchemaInfo: map[string]*SchemaInfo{},
 	}
 
 	session.Ctx, session.Cancel = context.WithCancel(context.Background())
@@ -131,22 +140,58 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 		return nil, errors.Errorf("could not open connection: %s", err)
 	}
 
-	rows, err := session.DB.Query(`select TABLE_SCHEMA, TABLE_NAME, TABLE_TYPE
-from INFORMATION_SCHEMA.TABLES
-order by TABLE_NAME`)
+	rows, err := session.DB.Query(`SELECT t.TABLE_NAME
+     , t.TABLE_SCHEMA
+     , t.TABLE_TYPE
+     , c.COLUMN_NAME
+     , tc.CONSTRAINT_TYPE
+, CASE
+  WHEN exists (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID(t.TABLE_SCHEMA + '.' + t.TABLE_NAME))
+  THEN 1
+  ELSE 0
+  END AS CHANGE_TRACKING
+FROM INFORMATION_SCHEMA.TABLES AS t
+       INNER JOIN INFORMATION_SCHEMA.COLUMNS AS c ON c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME
+       LEFT OUTER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS ccu
+                       ON ccu.COLUMN_NAME = c.COLUMN_NAME AND ccu.TABLE_NAME = t.TABLE_NAME AND
+                          ccu.TABLE_SCHEMA = t.TABLE_SCHEMA
+       LEFT OUTER JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS tc
+                       ON tc.CONSTRAINT_NAME = ccu.CONSTRAINT_NAME AND tc.CONSTRAINT_SCHEMA = ccu.CONSTRAINT_SCHEMA
+
+ORDER BY TABLE_NAME`)
 	if err != nil {
 		return nil, errors.Errorf("could not read database schema: %s", err)
 	}
 
 	// Collect table names for display in UIs.
 	for rows.Next() {
-		var schema, table, typ string
-		err = rows.Scan(&schema, &table, &typ)
+		var (
+			schema, table, typ, columnName string
+			constraint                     *string
+			changeTracking                 bool
+		)
+		err = rows.Scan(&table, &schema, &typ, &columnName, &constraint, &changeTracking)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not read table schema")
 		}
 		id := GetSchemaID(schema, table)
-		session.SchemaInfo[id] = SchemaInfo{IsView:typ=="VIEW"}
+		info, ok := session.SchemaInfo[id]
+		if !ok {
+			info = &SchemaInfo{
+				ID:               id,
+				IsTable:          typ == "BASE TABLE",
+				IsChangeTracking: changeTracking,
+				Columns:          map[string]*SchemaColumnInfo{},
+			}
+			session.SchemaInfo[id] = info
+		}
+		columnName = fmt.Sprintf("[%s]", columnName)
+		columnInfo, ok := info.Columns[columnName]
+		if !ok {
+			columnInfo = &SchemaColumnInfo{ID: columnName}
+			info.Columns[columnName] = columnInfo
+		}
+		columnInfo.IsKey = constraint != nil && *constraint == "PRIMARY KEY"
 	}
 
 	s.session = session
@@ -205,7 +250,6 @@ func (s *Server) CompleteOAuthFlow(context.Context, *pub.CompleteOAuthFlowReques
 	panic("implement me")
 }
 
-
 // DiscoverShapes discovers shapes present in the database
 func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequest) (*pub.DiscoverShapesResponse, error) {
 
@@ -244,28 +288,30 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 
 		// concurrently get details for shape
 		go func() {
-			s.log.Debug("Getting details for discovered schema...", "id", shape.Id)
+			s.log.Debug("Getting details for discovered schema", "id", shape.Id)
 			err := s.populateShapeColumns(session, shape)
 			if err != nil {
 				s.log.With("shape", shape.Id).With("err", err).Error("Error discovering columns.")
 				shape.Errors = append(shape.Errors, fmt.Sprintf("Could not discover columns: %s", err))
 				goto Done
 			}
-			s.log.Debug("Got details for discovered schema.", "id", shape.Id)
+			s.log.Debug("Got details for discovered schema", "id", shape.Id)
 
 			if req.Mode == pub.DiscoverShapesRequest_REFRESH {
-			s.log.Debug("Getting count for discovered schema...", "id", shape.Id)
+				s.log.Debug("Getting count for discovered schema", "id", shape.Id)
 				shape.Count, err = s.getCount(session, shape)
 				if err != nil {
 					s.log.With("shape", shape.Id).With("err", err).Error("Error getting row count.")
 					shape.Errors = append(shape.Errors, fmt.Sprintf("Could not get row count for shape: %s", err))
 					goto Done
 				}
-				s.log.Debug("Got count for discovered schema.", "id", shape.Id, "count", shape.Count.String())
+				s.log.Debug("Got count for discovered schema", "id", shape.Id, "count", shape.Count.String())
+			} else {
+				shape.Count = &pub.Count{Kind: pub.Count_UNAVAILABLE}
 			}
 
 			if req.SampleSize > 0 {
-				s.log.Debug("Getting sample for discovered schema...", "id", shape.Id, "size", req.SampleSize)
+				s.log.Debug("Getting sample for discovered schema", "id", shape.Id, "size", req.SampleSize)
 				publishReq := &pub.PublishRequest{
 					Shape: shape,
 					Limit: req.SampleSize,
@@ -273,6 +319,7 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 				records := make(chan *pub.Record)
 
 				go func() {
+					defer close(records)
 					err = readRecords(session, publishReq, records)
 				}()
 
@@ -285,7 +332,7 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 					shape.Errors = append(shape.Errors, fmt.Sprintf("Could not collect sample: %s", err))
 					goto Done
 				}
-				s.log.Debug("Got sample for discovered schema.", "id", shape.Id, "size", len(shape.Sample))
+				s.log.Debug("Got sample for discovered schema", "id", shape.Id, "size", len(shape.Sample))
 			}
 		Done:
 			wait.Done()
@@ -305,7 +352,6 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 }
 
 func (s *Server) getAllShapesFromSchema(session *OpSession) ([]*pub.Shape, error) {
-
 
 	rows, err := session.DB.Query(`SELECT Schema_name(o.schema_id) SchemaName, o.NAME TableName
 FROM   sys.objects o 
@@ -447,7 +493,6 @@ func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_Pub
 
 	s.log.Debug("Got PublishStream request.", "req", string(jsonReq))
 
-
 	if session.Settings.PrePublishQuery != "" {
 		_, err := session.DB.Exec(session.Settings.PrePublishQuery)
 		if err != nil {
@@ -503,7 +548,7 @@ func (s *Server) Disconnect(context.Context, *pub.DisconnectRequest) (*pub.Disco
 	return new(pub.DisconnectResponse), nil
 }
 
-func (s *Server) disconnect(){
+func (s *Server) disconnect() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -517,10 +562,9 @@ func (s *Server) disconnect(){
 	s.session = nil
 }
 
-func (s *Server) getOpSession(ctx context.Context) (*OpSession, error){
+func (s *Server) getOpSession(ctx context.Context) (*OpSession, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 
 	if s.session == nil {
 		return nil, errors.New("not connected")
@@ -533,40 +577,31 @@ func (s *Server) getOpSession(ctx context.Context) (*OpSession, error){
 	return s.session.opSession(ctx), nil
 }
 
+var schemaIDParseRE = regexp.MustCompile(`(?:\[([^\]]+)\].)?(?:)(?:\[([^\]]+)\])`)
+
 func (s *Server) getCount(session *OpSession, shape *pub.Shape) (*pub.Count, error) {
 
-	cErr := make(chan error)
-	cCount := make(chan int)
+	var query string
+	var err error
 
-	go func() {
-		defer close(cErr)
-		defer close(cCount)
+	schemaInfo := session.SchemaInfo[shape.Id]
 
-		var query string
-		var err error
+	if shape.Query != "" {
+		query = fmt.Sprintf("SELECT COUNT(1) FROM (%s) as Q", shape.Query)
+	} else if !schemaInfo.IsTable {
+		return &pub.Count{Kind: pub.Count_UNAVAILABLE}, nil
+	} else {
+		segs := schemaIDParseRE.FindStringSubmatch(shape.Id)
+		if segs == nil {
+			return nil, fmt.Errorf("malformed schema ID %q", shape.Id)
+		}
 
-		if shape.Query != "" {
-			query = fmt.Sprintf("SELECT COUNT(1) FROM (%s) as Q", shape.Query)
-		} else {
-			r, err := regexp.Compile(`\[.*?\]`)
-			if err != nil {
-				cErr <- fmt.Errorf("error from regexp: %s", err)
-				return
-			}
+		schema, table := segs[1], segs[2]
+		if schema == "" {
+			schema = "dbo"
+		}
 
-			args := r.FindAllString(shape.Id, -1)
-
-			if len(args) == 1 {
-				args = append(args, args[0])
-				args[0] = "[dbo]"
-			}
-
-			args[0] = strings.TrimPrefix(args[0], "[")
-			args[0] = strings.TrimSuffix(args[0], "]")
-			args[1] = strings.TrimPrefix(args[1], "[")
-			args[1] = strings.TrimSuffix(args[1], "]")
-
-			query = fmt.Sprintf(`
+		query = fmt.Sprintf(`
 			SELECT SUM(p.rows) FROM sys.partitions AS p
 			INNER JOIN sys.tables AS t
 			ON p.[object_id] = t.[object_id]
@@ -574,33 +609,22 @@ func (s *Server) getCount(session *OpSession, shape *pub.Shape) (*pub.Count, err
 			ON s.[schema_id] = t.[schema_id]
 			WHERE t.name = N'%s'
 			AND s.name = N'%s'
-			AND p.index_id IN (0,1);`, args[1], args[0])
-		}
-
-		row := session.DB.QueryRow(query)
-		var count int
-		err = row.Scan(&count)
-		if err != nil {
-			cErr <- fmt.Errorf("error from query %q: %s", query, err)
-			return
-		}
-
-		cCount <- count
-	}()
-
-	select {
-	case err := <-cErr:
-		return nil, err
-	case count := <-cCount:
-		return &pub.Count{
-			Kind:  pub.Count_EXACT,
-			Value: int32(count),
-		}, nil
-	case <-time.After(time.Second):
-		return &pub.Count{
-			Kind: pub.Count_UNAVAILABLE,
-		}, nil
+			AND p.index_id IN (0,1);`, table, schema)
 	}
+
+	ctx, cancel := context.WithTimeout(session.Ctx, time.Second)
+	defer cancel()
+	row := session.DB.QueryRowContext(ctx, query)
+	var count int
+	err = row.Scan(&count)
+	if err != nil {
+		return nil, fmt.Errorf("error from query %q: %s", query, err)
+	}
+
+	return &pub.Count{
+		Kind:  pub.Count_EXACT,
+		Value: int32(count),
+	}, nil
 }
 
 func readRecords(session *OpSession, req *pub.PublishRequest, out chan<- *pub.Record) error {
@@ -629,34 +653,51 @@ func readRecords(session *OpSession, req *pub.PublishRequest, out chan<- *pub.Re
 
 func readRecordsUsingQuery(session *OpSession, shape *pub.Shape, out chan<- *pub.Record, stmt *sql.Stmt, args ...interface{}) error {
 
-
 	var err error
 	rows, err := stmt.Query(args...)
 	if err != nil {
 		return errors.Errorf("error executing query: %v", err)
 	}
+	columns, err := rows.ColumnTypes()
+	if err != nil {
+		return errors.Errorf("error getting columns from result set: %s", err)
+	}
 
-	properties := shape.Properties
-	valueBuffer := make([]interface{}, len(properties))
-	mapBuffer := make(map[string]interface{}, len(properties))
+	shapePropertiesMap := map[string]*pub.Property{}
+	for _, p := range shape.Properties {
+		shapePropertiesMap[p.Name] = p
+	}
+
+	metaMap := map[string]bool{
+		naveegoActionHint: true,
+	}
+
+	valueBuffer := make([]interface{}, len(columns))
+	mapBuffer := make(map[string]interface{}, len(columns))
 
 	for rows.Next() {
 		if session.Ctx.Err() != nil {
 			return nil
 		}
 
-		for i, p := range properties {
-			switch p.Type {
-			case pub.PropertyType_FLOAT:
-				var x *float64
-				valueBuffer[i] = &x
-			case pub.PropertyType_INTEGER:
-				var x *int64
-				valueBuffer[i] = &x
-			case pub.PropertyType_DECIMAL:
-				var x *string
-				valueBuffer[i] = &x
-			default:
+		for i, c := range columns {
+			if p, ok := shapePropertiesMap[c.Name()]; ok {
+				// this column contains a property defined on the shape
+				switch p.Type {
+				case pub.PropertyType_FLOAT:
+					var x *float64
+					valueBuffer[i] = &x
+				case pub.PropertyType_INTEGER:
+					var x *int64
+					valueBuffer[i] = &x
+				case pub.PropertyType_DECIMAL:
+					var x *string
+					valueBuffer[i] = &x
+				default:
+					valueBuffer[i] = &valueBuffer[i]
+				}
+			} else if ok := metaMap[c.Name()]; ok {
+				// this column contains a meta property added to the query by us
 				valueBuffer[i] = &valueBuffer[i]
 			}
 		}
@@ -665,13 +706,35 @@ func readRecordsUsingQuery(session *OpSession, shape *pub.Shape, out chan<- *pub
 			return errors.WithStack(err)
 		}
 
-		for i, p := range properties {
+		action := pub.Record_UPSERT
+
+		for i, c := range columns {
 			value := valueBuffer[i]
-			mapBuffer[p.Id] = value
+
+			if p, ok := shapePropertiesMap[c.Name()]; ok {
+				// this column contains a property defined on the shape
+				mapBuffer[p.Id] = value
+			} else if ok := metaMap[c.Name()]; ok {
+				// this column contains a meta property added to the query by us
+				switch c.Name() {
+				case naveegoActionHint:
+					// this column indicates the change operation for this record
+					switch value {
+					case "I":
+						action = pub.Record_INSERT
+					case "U":
+						action = pub.Record_UPDATE
+					case "D":
+						action = pub.Record_DELETE
+					}
+				}
+			}
 		}
 
+		session.Log.Trace("Publishing record", "action", action, "data", mapBuffer)
+
 		var record *pub.Record
-		record, err = pub.NewRecord(pub.Record_UPSERT, mapBuffer)
+		record, err = pub.NewRecord(action, mapBuffer)
 		if err != nil {
 			return errors.WithStack(err)
 		}
