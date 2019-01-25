@@ -4,12 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	. "github.com/naveego/plugin-pub-mssql/internal"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/types"
+	"os"
 	"reflect"
 	"sync"
 	"time"
@@ -22,11 +25,13 @@ type RealTimeRecord struct {
 	SpreadValue string `sql:"spreadValue" json:"[spreadValue]"`
 }
 
-type RealTimeDirectViewRecord struct {
-	ID       int    `sql:"id" json:"[id]"`
-	Data     string `sql:"data" json:"[data]"`
-	OwnValue string `sql:"ownValue" json:"[ownValue]"`
+type RealTimeDuplicateViewRecord struct {
+	ID          int    `sql:"id" json:"[id]"`
+	OwnValue    string `sql:"ownValue" json:"[ownValue]"`
+	MergeValue  string `sql:"mergeValue" json:"[mergeValue]"`
+	SpreadValue string `sql:"spreadValue" json:"[spreadValue]"`
 }
+
 type RealTimeDerivedViewRecord struct {
 	OwnValue  string `sql:"ownValue"`
 	IgnoredID int    `sql:"ignoredID"`
@@ -43,16 +48,18 @@ type RealTimeSpreadViewRecord struct {
 }
 
 var (
-	realTimeRecords            []RealTimeRecord
-	realTimeDirectViewRecords  []RealTimeDirectViewRecord
-	realTimeDerivedViewRecords []RealTimeDerivedViewRecord
-	realTimeMergeViewRecords   []RealTimeMergeViewRecord
-	realTimeSpreadViewRecords  []RealTimeSpreadViewRecord
+	realTimeRecords              []RealTimeRecord
+	realTimeDuplicateViewRecords []RealTimeDuplicateViewRecord
+	realTimeDerivedViewRecords   []RealTimeDerivedViewRecord
+	realTimeMergeViewRecords     []RealTimeMergeViewRecord
+	realTimeSpreadViewRecords    []RealTimeSpreadViewRecord
 )
+
+const jobID = "test-job-id"
 
 var loadRecords = new(sync.Once)
 
-var _ = FDescribe("PublishStream with Real Time", func() {
+var _ = Describe("PublishStream with Real Time", func() {
 
 	var (
 		sut      pub.PublisherServer
@@ -60,6 +67,12 @@ var _ = FDescribe("PublishStream with Real Time", func() {
 		stream   *publisherStream
 		timeout  = 1 * time.Second
 	)
+	envTimeout, ok := os.LookupEnv("TEST_TIMEOUT")
+	if ok {
+		if envTimeoutDuration, err := time.ParseDuration(envTimeout); err == nil {
+			timeout = envTimeoutDuration
+		}
+	}
 
 	BeforeEach(func() {
 
@@ -70,7 +83,7 @@ var _ = FDescribe("PublishStream with Real Time", func() {
 
 			rows, err = db.Query("SELECT * FROM w3.dbo.RealTimeDirectView")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(sqlstructs.UnmarshalRows(rows, &realTimeDirectViewRecords)).To(Succeed())
+			Expect(sqlstructs.UnmarshalRows(rows, &realTimeDuplicateViewRecords)).To(Succeed())
 
 			rows, err = db.Query("SELECT * FROM w3.dbo.RealTimeDerivedView")
 			Expect(err).ToNot(HaveOccurred())
@@ -95,6 +108,13 @@ var _ = FDescribe("PublishStream with Real Time", func() {
 	})
 
 	BeforeEach(func() {
+		Expect(os.RemoveAll("./data")).To(Succeed())
+		Expect(os.RemoveAll("./temp")).To(Succeed())
+		Expect(sut.Configure(context.Background(), &pub.ConfigureRequest{
+			LogLevel:           pub.LogLevel_Trace,
+			PermanentDirectory: "./data",
+			TemporaryDirectory: "./temp",
+		}))
 		Expect(sut.Connect(context.Background(), pub.NewConnectRequest(settings))).ToNot(BeNil())
 	})
 
@@ -127,12 +147,12 @@ var _ = FDescribe("PublishStream with Real Time", func() {
 		Expect(&pub.Record{
 			Action:   pub.Record_UPSERT,
 			DataJson: string(j),
-		}).To(RecordMatching(pub.Record_UPSERT, expected))
+		}).To(BeRecordMatching(pub.Record_UPSERT, expected))
 	})
 
-	It("should publish from a table", func() {
+	DescribeTable("simple real time", func(schemaID string, settings RealTimeSettings) {
 
-		schema := discoverShape(&pub.Shape{Id: "[RealTime]"})
+		schema := discoverShape(&pub.Shape{Id: schemaID})
 
 		var (
 			expectedInsertedRecord RealTimeRecord
@@ -144,8 +164,8 @@ var _ = FDescribe("PublishStream with Real Time", func() {
 
 		go func() {
 			defer GinkgoRecover()
-			settings := RealTimeSettings{PollingInterval: (100 * time.Millisecond).String()}
 			err := sut.PublishStream(&pub.PublishRequest{
+				JobId:                jobID,
 				Shape:                schema,
 				RealTimeSettingsJson: settings.String(),
 				RealTimeStateJson:    "",
@@ -153,15 +173,22 @@ var _ = FDescribe("PublishStream with Real Time", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}()
 
+		defer func() {
+			Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
+		}()
+
 		By("detecting that no state exists, all records should be loaded", func() {
 			for _, expected := range realTimeRecords {
-
-				Eventually(stream.out, timeout).Should(Receive(RecordMatching(pub.Record_UPSERT, expected)))
+				var actualRecord *pub.Record
+				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+				Expect(actualRecord).To(BeRecordMatching(pub.Record_INSERT, expected))
 			}
 		})
 
 		By("committing most recent version, the state should be stored", func() {
-			Eventually(stream.out).Should(Receive(ARealTimeStateCommit(RealTimeState{Version: expectedVersion})))
+			var actualRecord *pub.Record
+			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
 		})
 
 		var actualID int64
@@ -173,12 +200,17 @@ var _ = FDescribe("PublishStream with Real Time", func() {
 				ID:       int(actualID),
 				OwnValue: "inserted",
 			}
-			Eventually(stream.out, timeout).Should(Receive(RecordMatching(pub.Record_INSERT, expectedInsertedRecord)))
+			var actualRecord *pub.Record
+			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+			Expect(actualRecord).To(BeRecordMatching(pub.Record_INSERT, expectedInsertedRecord))
+			Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Insert in [RealTime] at [id]=%d", actualID)))
 		})
 
 		By("committing most recent version, the state should be stored", func() {
 			expectedVersion = getChangeTrackingVersion()
-			Eventually(stream.out, timeout).Should(Receive(ARealTimeStateCommit(RealTimeState{Version: expectedVersion})))
+			var actualRecord *pub.Record
+			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
 		})
 
 		By("running the publish periodically, a changed record should be detected when it is updated", func() {
@@ -196,11 +228,12 @@ var _ = FDescribe("PublishStream with Real Time", func() {
 			var actualRealTimeRecord RealTimeRecord
 			Expect(actualRecord.UnmarshalData(&actualRealTimeRecord)).To(Succeed())
 			Expect(actualRealTimeRecord).To(BeEquivalentTo(expectedUpdatedRecord))
+			Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Update in [RealTime] at [id]=%d", actualID)))
 		})
 
 		By("committing most recent version, the state should be stored", func() {
 			expectedVersion = getChangeTrackingVersion()
-			Eventually(stream.out, timeout).Should(Receive(ARealTimeStateCommit(RealTimeState{Version: expectedVersion})))
+			Eventually(stream.out, timeout).Should(Receive(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion})))
 		})
 
 		By("running the publish periodically, a deleted record should be detected when it is deleted", func() {
@@ -217,6 +250,7 @@ var _ = FDescribe("PublishStream with Real Time", func() {
 			var actualRealTimeRecord RealTimeRecord
 			Expect(actualRecord.UnmarshalData(&actualRealTimeRecord)).To(Succeed())
 			Expect(actualRealTimeRecord).To(BeEquivalentTo(expectedDeletedRecord))
+			Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Delete in [RealTime] at [id]=%d", actualID)))
 		})
 
 		By("storing commits correctly, each record should be published once", func() {
@@ -240,133 +274,150 @@ var _ = FDescribe("PublishStream with Real Time", func() {
 			Expect(actual).To(BeEquivalentTo(expected))
 		})
 
-	})
-
-	FIt("should publish from a view", func() {
-
-		schema := discoverShape(&pub.Shape{Id: "[RealTimeDirectView]"})
-
-		var (
-			expectedInsertedRecord RealTimeDirectViewRecord
-			expectedUpdatedRecord  RealTimeDirectViewRecord
-			expectedDeletedRecord  RealTimeDirectViewRecord
-		)
-
-		expectedVersion := getChangeTrackingVersion()
-
-		go func() {
-			defer GinkgoRecover()
-			settings := RealTimeSettings{
-				KeyColumns:      []string{"id"},
-				PollingInterval: (100 * time.Millisecond).String(),
-				Tables: []RealTimeTableSettings{
-					{
-						TableName: "[RealTime]",
-						Query:     "SELECT id FROM [RealTime] as Source",
-					},
+	},
+		Entry("when schema is table", "[RealTime]", RealTimeSettings{PollingInterval: "100ms"}),
+		Entry("when schema is view", "[RealTimeDuplicateView]", RealTimeSettings{
+			PollingInterval: "100ms",
+			Tables: []RealTimeTableSettings{
+				{
+					SchemaID: "[RealTime]",
+					Query: `SELECT [RealTimeDuplicateView].id as [Schema.id], [RealTime].id as [Dependency.id]
+FROM RealTimeDuplicateView
+JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
 				},
-			}
-			err := sut.PublishStream(&pub.PublishRequest{
-				Shape:                schema,
-				RealTimeSettingsJson: settings.String(),
-				RealTimeStateJson:    "",
-			}, stream)
-			Expect(err).ToNot(HaveOccurred())
-		}()
+			},
+		}),
+	)
 
-		By("detecting that no state exists, all records should be loaded", func() {
-			for _, expected := range realTimeDirectViewRecords {
-				var actualRecord *pub.Record
-				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
-				Expect(actualRecord).To(RecordMatching(pub.Record_UPSERT, expected))
-			}
-		})
-
-		By("committing most recent version, the state should be stored", func() {
-			Eventually(stream.out).Should(Receive(ARealTimeStateCommit(RealTimeState{Version: expectedVersion})))
-		})
-
-		var actualID int64
-		var auxID int64
-		By("running the publish periodically, a new record should be detected when it is written", func() {
-			row := db.QueryRow("INSERT INTO RealTime VALUES ('inserted', NULL, NULL); SELECT SCOPE_IDENTITY()")
-			Expect(row.Scan(&actualID)).To(Succeed())
-			row = db.QueryRow("INSERT INTO RealTimeAux VALUES (@realTimeID, 'ins-aux'); SELECT SCOPE_IDENTITY()", sql.Named("realTimeID", actualID))
-			Expect(row.Scan(&auxID)).To(Succeed())
-			expectedInsertedRecord = RealTimeDirectViewRecord{
-				ID:       int(actualID),
-				OwnValue: "inserted",
-				Data:     "ins-aux",
-			}
-			Eventually(stream.out, timeout).Should(Receive(RecordMatching(pub.Record_INSERT, expectedInsertedRecord)))
-		})
-
-		By("committing most recent version, the state should be stored", func() {
-			expectedVersion = getChangeTrackingVersion()
-			Eventually(stream.out, timeout).Should(Receive(ARealTimeStateCommit(RealTimeState{Version: expectedVersion})))
-		})
-
-		By("running the publish periodically, a changed record should be detected when it is updated", func() {
-
-			result, err := db.Exec("UPDATE RealTime SET ownValue = 'updated' WHERE id = @id", sql.Named("id", actualID))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result.RowsAffected()).To(BeNumerically("==", 1))
-			expectedUpdatedRecord = RealTimeDirectViewRecord{
-				ID:       int(actualID),
-				OwnValue: "updated",
-				Data:     "ins-aux",
-			}
-			var actualRecord *pub.Record
-			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
-			Expect(actualRecord.Action).To(Equal(pub.Record_UPDATE))
-			var actualRealTimeRecord RealTimeDirectViewRecord
-			Expect(actualRecord.UnmarshalData(&actualRealTimeRecord)).To(Succeed())
-			Expect(actualRealTimeRecord).To(BeEquivalentTo(expectedUpdatedRecord))
-		})
-
-		By("committing most recent version, the state should be stored", func() {
-			expectedVersion = getChangeTrackingVersion()
-			Eventually(stream.out, timeout).Should(Receive(ARealTimeStateCommit(RealTimeState{Version: expectedVersion})))
-		})
-
-		By("running the publish periodically, a deleted record should be detected when it is deleted", func() {
-
-			result, err := db.Exec("DELETE RealTimeAux WHERE id = @id", sql.Named("id", auxID))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result.RowsAffected()).To(BeNumerically("==", 1))
-			expectedDeletedRecord = RealTimeDirectViewRecord{
-				ID: int(actualID),
-			}
-			var actualRecord *pub.Record
-			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
-			Expect(actualRecord.Action).To(Equal(pub.Record_DELETE))
-			var actualRealTimeRecord RealTimeDirectViewRecord
-			Expect(actualRecord.UnmarshalData(&actualRealTimeRecord)).To(Succeed())
-			Expect(actualRealTimeRecord).To(BeEquivalentTo(expectedDeletedRecord))
-		})
-
-		By("storing commits correctly, each record should be published once", func() {
-			expected := map[RealTimeDirectViewRecord]int{
-				expectedInsertedRecord: 1,
-				expectedUpdatedRecord:  1,
-				expectedDeletedRecord:  1,
-			}
-			for _, r := range realTimeDirectViewRecords {
-				expected[r] = 1
-			}
-			actual := map[RealTimeRecord]int{}
-			for _, r := range stream.records {
-				if r.Action != pub.Record_REAL_TIME_STATE_COMMIT {
-					var a RealTimeRecord
-					_ = r.UnmarshalData(&a)
-
-					actual[a] = actual[a] + 1
-				}
-			}
-			Expect(actual).To(BeEquivalentTo(expected))
-		})
-
-	})
+	//
+	// XIt("should publish from a view", func() {
+	//
+	// 	schema := discoverShape(&pub.Shape{Id: "[RealTimeDirectView]"})
+	//
+	// 	var (
+	// 		expectedInsertedRecord RealTimeDuplicateViewRecord
+	// 		expectedUpdatedRecord  RealTimeDuplicateViewRecord
+	// 		expectedDeletedRecord  RealTimeDuplicateViewRecord
+	// 	)
+	//
+	// 	expectedVersion := getChangeTrackingVersion()
+	//
+	// 	go func() {
+	// 		defer GinkgoRecover()
+	// 		settings := RealTimeSettings{
+	// 			KeyColumns:      []string{"id"},
+	// 			PollingInterval: (100 * time.Millisecond).String(),
+	// 			Tables: []RealTimeTableSettings{
+	// 				{
+	// 					SchemaID: "[RealTime]",
+	// 					Query:    "SELECT id FROM [RealTime] as Source",
+	// 				},
+	// 			},
+	// 		}
+	// 		err := sut.PublishStream(&pub.PublishRequest{
+	// 			Shape:                schema,
+	// 			RealTimeSettingsJson: settings.String(),
+	// 			RealTimeStateJson:    "",
+	// 		}, stream)
+	// 		Expect(err).ToNot(HaveOccurred())
+	// 	}()
+	//
+	// 	By("detecting that no state exists, all records should be loaded", func() {
+	// 		for _, expected := range realTimeDuplicateViewRecords {
+	// 			var actualRecord *pub.Record
+	// 			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+	// 			Expect(actualRecord).To(BeRecordMatching(pub.Record_UPSERT, expected))
+	// 		}
+	// 	})
+	//
+	// 	By("committing most recent version, the state should be stored", func() {
+	// 		Eventually(stream.out).Should(Receive(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion})))
+	// 	})
+	//
+	// 	var actualID int64
+	// 	var auxID int64
+	// 	By("running the publish periodically, a new record should be detected when it is written", func() {
+	// 		row := db.QueryRow("INSERT INTO RealTime VALUES ('inserted', NULL, NULL); SELECT SCOPE_IDENTITY()")
+	// 		Expect(row.Scan(&actualID)).To(Succeed())
+	// 		row = db.QueryRow("INSERT INTO RealTimeAux VALUES (@realTimeID, 'ins-aux'); SELECT SCOPE_IDENTITY()", sql.Named("realTimeID", actualID))
+	// 		Expect(row.Scan(&auxID)).To(Succeed())
+	// 		expectedInsertedRecord = RealTimeDuplicateViewRecord{
+	// 			ID:       int(actualID),
+	// 			OwnValue: "inserted",
+	// 			Data:     "ins-aux",
+	// 		}
+	// 		Eventually(stream.out, timeout).Should(Receive(BeRecordMatching(pub.Record_INSERT, expectedInsertedRecord)))
+	// 	})
+	//
+	// 	By("committing most recent version, the state should be stored", func() {
+	// 		expectedVersion = getChangeTrackingVersion()
+	// 		Eventually(stream.out, timeout).Should(Receive(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion})))
+	// 	})
+	//
+	// 	By("running the publish periodically, a changed record should be detected when it is updated", func() {
+	//
+	// 		result, err := db.Exec("UPDATE RealTime SET ownValue = 'updated' WHERE id = @id", sql.Named("id", actualID))
+	// 		Expect(err).ToNot(HaveOccurred())
+	// 		Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+	// 		expectedUpdatedRecord = RealTimeDuplicateViewRecord{
+	// 			ID:       int(actualID),
+	// 			OwnValue: "updated",
+	// 			Data:     "ins-aux",
+	// 		}
+	// 		var actualRecord *pub.Record
+	// 		Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+	// 		Expect(actualRecord.Action).To(Equal(pub.Record_UPDATE))
+	// 		var actualRealTimeRecord RealTimeDuplicateViewRecord
+	// 		Expect(actualRecord.UnmarshalData(&actualRealTimeRecord)).To(Succeed())
+	// 		Expect(actualRealTimeRecord).To(BeEquivalentTo(expectedUpdatedRecord))
+	// 	})
+	//
+	// 	By("committing most recent version, the state should be stored", func() {
+	// 		expectedVersion = getChangeTrackingVersion()
+	// 		Eventually(stream.out, timeout).Should(Receive(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion})))
+	// 	})
+	//
+	// 	By("running the publish periodically, a deleted record should be detected when it is deleted", func() {
+	//
+	// 		result, err := db.Exec("DELETE RealTimeAux WHERE id = @id", sql.Named("id", auxID))
+	// 		Expect(err).ToNot(HaveOccurred())
+	// 		Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+	// 		expectedDeletedRecord = RealTimeDuplicateViewRecord{
+	// 			ID: int(actualID),
+	// 		}
+	// 		var actualRecord *pub.Record
+	// 		Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+	// 		Expect(actualRecord.Action).To(Equal(pub.Record_DELETE))
+	// 		var actualRealTimeRecord RealTimeDuplicateViewRecord
+	// 		Expect(actualRecord.UnmarshalData(&actualRealTimeRecord)).To(Succeed())
+	// 		Expect(actualRealTimeRecord).To(BeEquivalentTo(expectedDeletedRecord))
+	// 		Expect(actualRecord.Cause).To(ContainSubstring("[RealTime]"))
+	// 		Expect(actualRecord.Cause).To(ContainSubstring("delete"))
+	// 		Expect(actualRecord.Cause).To(ContainSubstring("7"))
+	// 	})
+	//
+	// 	By("storing commits correctly, each record should be published once", func() {
+	// 		expected := map[RealTimeDuplicateViewRecord]int{
+	// 			expectedInsertedRecord: 1,
+	// 			expectedUpdatedRecord:  1,
+	// 			expectedDeletedRecord:  1,
+	// 		}
+	// 		for _, r := range realTimeDuplicateViewRecords {
+	// 			expected[r] = 1
+	// 		}
+	// 		actual := map[RealTimeRecord]int{}
+	// 		for _, r := range stream.records {
+	// 			if r.Action != pub.Record_REAL_TIME_STATE_COMMIT {
+	// 				var a RealTimeRecord
+	// 				_ = r.UnmarshalData(&a)
+	//
+	// 				actual[a] = actual[a] + 1
+	// 			}
+	// 		}
+	// 		Expect(actual).To(BeEquivalentTo(expected))
+	// 	})
+	//
+	// })
 
 })
 
@@ -375,9 +426,9 @@ type recordExpectation struct {
 	Data   interface{}
 }
 
-func RecordMatching(action pub.Record_Action, data interface{}) GomegaMatcher {
+func BeRecordMatching(action pub.Record_Action, data interface{}) GomegaMatcher {
 
-	l := log.Named("RecordMatching")
+	l := log.Named("BeRecordMatching")
 
 	expectedValue := reflect.ValueOf(data)
 	expected := recordExpectation{
@@ -392,7 +443,7 @@ func RecordMatching(action pub.Record_Action, data interface{}) GomegaMatcher {
 		acv := reflect.ValueOf(actualData)
 		actualData = acv.Elem().Interface()
 		actual := recordExpectation{r.Action, actualData}
-		l.Trace("Checking equivalency", "expected", expected, "actual", actual)
+		l.Trace("Checking equivalency", "expected", expected, "actual", actual, "source", r)
 		return actual
 	}, BeEquivalentTo(expected))
 
@@ -404,7 +455,7 @@ func ResolveRecord(record *pub.Record, data interface{}, state interface{}) pub.
 	return r
 }
 
-func ARealTimeStateCommit(expected RealTimeState) GomegaMatcher {
+func BeARealTimeStateCommit(expected RealTimeState) GomegaMatcher {
 	return WithTransform(func(r *pub.Record) RealTimeState {
 		// Expect(r.Action).To(BeEquivalentTo(pub.Record_REAL_TIME_STATE_COMMIT),"expected a real time state commit, not %s", r.Action)
 		var actual RealTimeState

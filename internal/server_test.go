@@ -116,7 +116,7 @@ var _ = Describe("Server", func() {
 
 				resp := configureRealTime("RealTimeDirectView", RealTimeSettings{
 					Tables: []RealTimeTableSettings{
-						{TableName: "[Customers]"},
+						{SchemaID: "[Customers]"},
 					},
 				})
 				dataErrors := resp.GetDataErrorsJSONAsMap()
@@ -129,7 +129,7 @@ var _ = Describe("Server", func() {
 				var actual RealTimeSettings
 				expectedSettings := RealTimeSettings{
 					Tables: []RealTimeTableSettings{
-						{TableName: "[Customers]"},
+						{SchemaID: "[Customers]"},
 					},
 				}
 				resp := configureRealTime("RealTimeDirectView", expectedSettings)
@@ -164,9 +164,9 @@ var _ = Describe("Server", func() {
 						HaveKeyWithValue("tables",
 							HaveKeyWithValue("items",
 								HaveKeyWithValue("properties",
-									HaveKeyWithValue("tableName",
+									HaveKeyWithValue("schemaID",
 										And(
-											HaveKeyWithValue("enum", ConsistOf([]string{"[RealTime]", "[CompositeKey]"}),
+											HaveKeyWithValue("enum", ConsistOf([]string{"[CompositeKey]", "[RealTimeAux]", "[RealTime]"}),
 											),
 										),
 									),

@@ -2,8 +2,10 @@ package internal
 
 import (
 	"github.com/LK4D4/joincontext"
+	"github.com/naveego/plugin-pub-mssql/internal/meta"
 	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
 	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 
@@ -25,6 +27,17 @@ type Server struct {
 	mu      *sync.Mutex
 	log     hclog.Logger
 	session *Session
+	config  *Config
+}
+
+type Config struct {
+	LogLevel hclog.Level
+	// Directory where log files should be stored.
+	LogDirectory string
+	// Directory where the plugin can store data permanently.
+	PermanentDirectory string
+	// Directory where the plugin can store temporary information which may be deleted.
+	TemporaryDirectory string
 }
 
 type Session struct {
@@ -34,22 +47,10 @@ type Session struct {
 	Log        hclog.Logger
 	Settings   *Settings
 	// tables that were discovered during connect
-	SchemaInfo     map[string]*SchemaInfo
+	SchemaInfo     map[string]*meta.Schema
 	RealTimeHelper *RealTimeHelper
+	Config Config
 	DB             *sql.DB
-}
-
-type SchemaInfo struct {
-	ID               string
-	IsTable          bool
-	IsChangeTracking bool
-	Columns          map[string]*SchemaColumnInfo
-	Keys             []string
-}
-
-type SchemaColumnInfo struct {
-	ID    string
-	IsKey bool
 }
 
 type OpSession struct {
@@ -99,6 +100,48 @@ func NewServer(logger hclog.Logger) pub.PublisherServer {
 	}
 }
 
+func (s *Server) Configure(ctx context.Context, req *pub.ConfigureRequest) (*pub.ConfigureResponse, error) {
+
+	config := &Config{
+		LogLevel:           hclog.LevelFromString(req.LogLevel.String()),
+		TemporaryDirectory: req.TemporaryDirectory,
+		PermanentDirectory: req.PermanentDirectory,
+		LogDirectory:       req.LogDirectory,
+	}
+
+	s.log.SetLevel(config.LogLevel)
+
+	err := os.MkdirAll(config.PermanentDirectory, 0700)
+	if err != nil {
+		return nil, errors.Wrap(err, "ensure permanent directory available")
+	}
+
+	err = os.MkdirAll(config.TemporaryDirectory, 0700)
+	if err != nil {
+		return nil, errors.Wrap(err, "ensure temporary directory available")
+	}
+
+	s.config = config
+
+	return new(pub.ConfigureResponse), nil
+}
+
+func (s *Server) getConfig() (Config, error) {
+	if s.config == nil {
+		_, err := s.Configure(context.Background(), &pub.ConfigureRequest{
+			LogDirectory:       "",
+			LogLevel:           pub.LogLevel_Info,
+			PermanentDirectory: "./data",
+			TemporaryDirectory: "./temp",
+		})
+		if err != nil {
+			return Config{}, err
+		}
+	}
+
+	return *s.config, nil
+}
+
 var configSchemaUI map[string]interface{}
 var configSchemaUIJSON string
 var configSchemaSchema map[string]interface{}
@@ -106,6 +149,7 @@ var configSchemaSchemaJSON string
 
 // Connect connects to the data base and validates the connections
 func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.ConnectResponse, error) {
+	var err error
 	s.log.Debug("Connecting...")
 	s.disconnect()
 
@@ -114,7 +158,12 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 
 	session := &Session{
 		Log:        s.log,
-		SchemaInfo: map[string]*SchemaInfo{},
+		SchemaInfo: map[string]*meta.Schema{},
+	}
+
+	session.Config, err = s.getConfig()
+	if err != nil {
+		return nil, err
 	}
 
 	session.Ctx, session.Cancel = context.WithCancel(context.Background())
@@ -177,19 +226,17 @@ ORDER BY TABLE_NAME`)
 		id := GetSchemaID(schema, table)
 		info, ok := session.SchemaInfo[id]
 		if !ok {
-			info = &SchemaInfo{
+			info = &meta.Schema{
 				ID:               id,
 				IsTable:          typ == "BASE TABLE",
 				IsChangeTracking: changeTracking,
-				Columns:          map[string]*SchemaColumnInfo{},
 			}
 			session.SchemaInfo[id] = info
 		}
 		columnName = fmt.Sprintf("[%s]", columnName)
-		columnInfo, ok := info.Columns[columnName]
+		columnInfo, ok := info.LookupColumn(columnName)
 		if !ok {
-			columnInfo = &SchemaColumnInfo{ID: columnName}
-			info.Columns[columnName] = columnInfo
+			columnInfo = info.AddColumn(&meta.Column{ID: columnName})
 		}
 		columnInfo.IsKey = constraint != nil && *constraint == "PRIMARY KEY"
 	}
@@ -316,14 +363,13 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 					Shape: shape,
 					Limit: req.SampleSize,
 				}
-				records := make(chan *pub.Record)
 
-				go func() {
-					defer close(records)
-					err = readRecords(session, publishReq, records)
-				}()
+				collector := new(RecordCollector)
+				handler, innerRequest, err := BuildHandlerAndRequest(session, publishReq, collector)
 
-				for record := range records {
+				err = handler.Handle(innerRequest)
+
+				for _, record := range collector.Records {
 					shape.Sample = append(shape.Sample, record)
 				}
 
@@ -500,31 +546,10 @@ func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_Pub
 		}
 	}
 
-	records := make(chan *pub.Record)
 
-	if req.RealTimeSettingsJson == "" {
-		go func() {
-			defer close(records)
-			err = readRecords(session, req, records)
-		}()
-	} else {
-		if session.RealTimeHelper == nil {
-			session.RealTimeHelper = &RealTimeHelper{}
-		}
-		go func() {
-			defer close(records)
-			err = session.RealTimeHelper.PublishStream(session, req, records)
-		}()
-	}
+	handler, innerRequest, err := BuildHandlerAndRequest(session, req, PublishToStreamHandler(stream))
 
-	for record := range records {
-		sendErr := stream.Send(record)
-		if sendErr != nil {
-			session.Cancel()
-			err = sendErr
-			break
-		}
-	}
+	err = handler.Handle(innerRequest)
 
 	if session.Settings.PostPublishQuery != "" {
 		_, postPublishErr := session.DB.Exec(session.Settings.PostPublishQuery)
@@ -588,7 +613,7 @@ func (s *Server) getCount(session *OpSession, shape *pub.Shape) (*pub.Count, err
 
 	if shape.Query != "" {
 		query = fmt.Sprintf("SELECT COUNT(1) FROM (%s) as Q", shape.Query)
-	} else if !schemaInfo.IsTable {
+	} else if schemaInfo == nil || !schemaInfo.IsTable {
 		return &pub.Count{Kind: pub.Count_UNAVAILABLE}, nil
 	} else {
 		segs := schemaIDParseRE.FindStringSubmatch(shape.Id)
@@ -627,122 +652,6 @@ func (s *Server) getCount(session *OpSession, shape *pub.Shape) (*pub.Count, err
 	}, nil
 }
 
-func readRecords(session *OpSession, req *pub.PublishRequest, out chan<- *pub.Record) error {
-
-	var query string
-	var err error
-
-	query, err = buildQuery(req)
-	if err != nil {
-		return errors.Errorf("could not build query: %v", err)
-	}
-
-	if req.Limit > 0 {
-		query = fmt.Sprintf("select top(%d) * from (%s) as q", req.Limit, query)
-	}
-
-	stmt, err := session.DB.Prepare(query)
-	if err != nil {
-		return errors.Errorf("prepare query %q: %s", query, err)
-	}
-	session.Log.Debug("Prepared query for reading records.", "query", query)
-	defer stmt.Close()
-
-	return readRecordsUsingQuery(session, req.Shape, out, stmt)
-}
-
-func readRecordsUsingQuery(session *OpSession, shape *pub.Shape, out chan<- *pub.Record, stmt *sql.Stmt, args ...interface{}) error {
-
-	var err error
-	rows, err := stmt.Query(args...)
-	if err != nil {
-		return errors.Errorf("error executing query: %v", err)
-	}
-	columns, err := rows.ColumnTypes()
-	if err != nil {
-		return errors.Errorf("error getting columns from result set: %s", err)
-	}
-
-	shapePropertiesMap := map[string]*pub.Property{}
-	for _, p := range shape.Properties {
-		shapePropertiesMap[p.Name] = p
-	}
-
-	metaMap := map[string]bool{
-		naveegoActionHint: true,
-	}
-
-	valueBuffer := make([]interface{}, len(columns))
-	mapBuffer := make(map[string]interface{}, len(columns))
-
-	for rows.Next() {
-		if session.Ctx.Err() != nil {
-			return nil
-		}
-
-		for i, c := range columns {
-			if p, ok := shapePropertiesMap[c.Name()]; ok {
-				// this column contains a property defined on the shape
-				switch p.Type {
-				case pub.PropertyType_FLOAT:
-					var x *float64
-					valueBuffer[i] = &x
-				case pub.PropertyType_INTEGER:
-					var x *int64
-					valueBuffer[i] = &x
-				case pub.PropertyType_DECIMAL:
-					var x *string
-					valueBuffer[i] = &x
-				default:
-					valueBuffer[i] = &valueBuffer[i]
-				}
-			} else if ok := metaMap[c.Name()]; ok {
-				// this column contains a meta property added to the query by us
-				valueBuffer[i] = &valueBuffer[i]
-			}
-		}
-		err = rows.Scan(valueBuffer...)
-		if err != nil {
-			return errors.WithStack(err)
-		}
-
-		action := pub.Record_UPSERT
-
-		for i, c := range columns {
-			value := valueBuffer[i]
-
-			if p, ok := shapePropertiesMap[c.Name()]; ok {
-				// this column contains a property defined on the shape
-				mapBuffer[p.Id] = value
-			} else if ok := metaMap[c.Name()]; ok {
-				// this column contains a meta property added to the query by us
-				switch c.Name() {
-				case naveegoActionHint:
-					// this column indicates the change operation for this record
-					switch value {
-					case "I":
-						action = pub.Record_INSERT
-					case "U":
-						action = pub.Record_UPDATE
-					case "D":
-						action = pub.Record_DELETE
-					}
-				}
-			}
-		}
-
-		session.Log.Trace("Publishing record", "action", action, "data", mapBuffer)
-
-		var record *pub.Record
-		record, err = pub.NewRecord(action, mapBuffer)
-		if err != nil {
-			return errors.WithStack(err)
-		}
-		out <- record
-	}
-
-	return err
-}
 
 func buildQuery(req *pub.PublishRequest) (string, error) {
 

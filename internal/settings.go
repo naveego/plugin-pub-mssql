@@ -106,7 +106,7 @@ func (r RealTimeState) String() string{
 }
 
 type RealTimeTableState struct {
-	Offset int `json:"offset"`
+	Version int `json:"version"`
 }
 
 type RealTimeSettings struct {
@@ -122,7 +122,7 @@ func (r RealTimeSettings) String() string {
 }
 
 type RealTimeTableSettings struct {
-	TableName              string `json:"tableName" title:"Table" description:"The table to monitor for changes."`
+	SchemaID               string `json:"schemaID" title:"Table" description:"The table to monitor for changes."`
 	TranslateKeyUsingQuery bool   `json:"translateKeyUsingQuery" title:"Dependency" description:"Check here if this table is used to make the view you're publishing data from."`
 	Query                  string `json:"query,omitempty" title:"Query" description:"This query will be run with the parameter @ID set to the ID of the record which changed. The query must return the unique identifiers for the rows in the view that need to be republished because of the observed change." `
 }

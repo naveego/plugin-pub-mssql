@@ -1,9 +1,10 @@
-package internal
+package templates
 
 import (
 	"crypto/md5"
 	"fmt"
 	"github.com/Masterminds/sprig"
+	"github.com/naveego/plugin-pub-mssql/internal/meta"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/pkg/errors"
 	"regexp"
@@ -11,14 +12,14 @@ import (
 	"text/template"
 )
 
-type batchQueryArgs struct {
+type BatchQueryArgs struct {
 	Columns       []*pub.Property
 	Keys          []string
 	SchemaQuery   string
-	TrackedTables []batchTrackedTable
+	TrackedTables []BatchTrackedTable
 }
 
-type batchTrackedTable struct {
+type BatchTrackedTable struct {
 	ID    string
 	SelectQuery string
 	ProjectQuery string
@@ -29,12 +30,13 @@ type batchTrackedTable struct {
 var simplifierRE = regexp.MustCompile("[^A-z09_]")
 
 func uniquify(x string) string {
-	x = simplifierRE.ReplaceAllString(x, "")
+	x = strings.Trim(x, "[]")
+	x =  simplifierRE.ReplaceAllString(x, "")
 	h := md5.New()
 	h.Write([]byte(x))
 	o := h.Sum(nil)
 	suffix := fmt.Sprintf("%x", o)
-	return fmt.Sprintf("%s_%s", x, suffix[:4])
+	return fmt.Sprintf("[%s_%s]", x, suffix[:4])
 }
 
 func prefixCol(prefix, id string) string {
@@ -68,185 +70,156 @@ func renderTemplate(t *template.Template, args interface{}) (string, error) {
 	return w.String(),nil
 }
 
-func renderBatchQuery(args batchQueryArgs) (string, error) {
-	return renderTemplate(batchQueryTemplate, args)
-}
-
-var batchQueryTemplate = compileTemplate("batch-query",
-	// language=GoTemplate
-	`{{- /*gotype: github.com/naveego/plugin-pub-mssql/internal.batchQueryArgs*/ -}}
-/* 
-We explicitly select each column from the shape, but we select the 
-key columns from the intermediate ("Changes") table rather than from the 
-source view/table/query so that we can at least get the PKs of deleted rows. 
-*/ 
-SELECT 
-{{- range .Columns }}
-       {{ if .IsKey }}{{ uniquify "Changes" }}{{ else }}{{ uniquify "SchemaQuery" }}{{ end }}.{{ .Id }}, 
-{{- end }}
-	   {{ uniquify "Changes" }}.SYS_CHANGE_OPERATION AS __NAVEEGO__ACTION -- we alias the operation with a safe name here
-/*
-Here we are running the query provided by the user, or just selecting everything from the table/view.
-This is the part that gets us the data we will actually be turning into published records.
-*/
-FROM (
-{{ .SchemaQuery | indent 6 -}}
-     ) AS {{ uniquify "SchemaQuery" }}
-/*
-Now we outer join the changes from all the tables which drive the thing we're publishing from.
-*/
-RIGHT OUTER JOIN 
-	(
-	SELECT DISTINCT *
-	FROM (
-{{- range $i, $TT := .TrackedTables }}
-{{- if gt $i 0 }}
-	      UNION ALL
-{{- end }}
-          {{ $TT.SelectQuery }}, SYS_CHANGE_OPERATION
-          FROM (
-                SELECT {{range $TT.Keys}}Changes.{{ . }}, {{end}}
-        		       {{ range $TT.NonKeys }}Source.{{ . }}, {{ end}}
-         		       SYS_CHANGE_OPERATION
-                FROM CHANGETABLE(CHANGES {{ $TT.ID }}, @minVersion) AS Changes
-        	    LEFT OUTER JOIN {{ $TT.ID }} AS Source ON Source.{{ first $TT.Keys }} = Changes.{{ first $TT.Keys}}
-{{- range (rest $TT.Keys ) }}
-	   	                                               AND Source.{{ . }} = Changes.{{ . }}
-{{- end }}	
-	            WHERE SYS_CHANGE_VERSION <= @maxVersion
-               ) AS Source
-	      {{ $TT.ProjectQuery -}}
-{{- end }}
-	     ) AS AllChangeSources
-    ) AS {{ uniquify "Changes" }}
-	ON {{ with first .Keys }} {{ uniquify "SchemaQuery" }}.{{ . }} = {{ uniquify "Changes" }}.{{ . }} {{ end }}
-{{ range (rest .Keys) -}}
-	   AND {{ uniquify "SchemaQuery" }}.{{ . }} = {{ uniquify "Changes" }}.{{ . }}
-{{ end -}}`)
 
 
-
-var selfDependencyQueryTemplate = compileTemplate("dependencyQuery",
+var selfBridgeQueryTemplate = compileTemplate("selfBridgeQueryTemplate",
 	// language=GoTemplate
 	`SELECT 
-        {{ first .SchemaInfo.Keys }} as {{ first .SchemaInfo.Keys | prefixCol "Source" }}         
-        , {{ first .SchemaInfo.Keys }} as {{ prefixCol "Target" (first .SchemaInfo.Keys) }}
-  		{{ range rest .SchemaInfo.Keys }}, {{ . }} as {{ prefixCol "Source" . }},  {{ . }} as {{ prefixCol "Target" . }}{{ end }}
- 
-        	FROM {{ .SchemaInfo.ID }}` )
+    {{ first .SchemaInfo.Keys }} as {{ first .SchemaInfo.Keys | prefixCol "Schema" }}         
+    , {{ first .SchemaInfo.Keys }} as {{ prefixCol "Dependency" (first .SchemaInfo.Keys) }}
+  	{{- range rest .SchemaInfo.Keys }}
+  	, {{ . }} as {{ prefixCol "Schema" . }},  {{ . }} as {{ prefixCol "Dependency" . }}
+  	{{- end }}
+FROM {{ .SchemaInfo.ID }}` )
 
-type SelfDependencyQueryArgs struct {
-	SchemaInfo *SchemaInfo
+type SelfBridgeQueryArgs struct {
+	SchemaInfo *meta.Schema
 }
 
-func RenderSelfDependencyQuery(args SelfDependencyQueryArgs) (string, error) {
-	return renderTemplate(selfDependencyQueryTemplate, args)
+func RenderSelfBridgeQuery(args SelfBridgeQueryArgs) (string, error) {
+	return renderTemplate(selfBridgeQueryTemplate, args)
 }
-
-
-var changeDetectionQueryTemplate *template.Template = compileTemplate("changeDetectionQuery",
-	// language=GoTemplate
-	`
-
-SELECT 
-        {{ range .DependencyKeys }}{{ uniquify "Dep" }}.{{prefixCol "Target" . }}, {{ end }}         
-        {{ range .TableInfo.Keys }}{{ uniquify "CT" }}.{{ . }}, {{ end }}
-        {{ uniquify "CT" }}.SYS_CHANGE_OPERATION as SYS_CHANGE_OPERATION         
-        FROM (
-		  	SELECT *
-            FROM CHANGETABLE(CHANGES {{ .TableInfo.ID }}, @minVersion) AS {{ uniquify "CT" }}        	    
-	        WHERE SYS_CHANGE_VERSION <= @maxVersion 
-			) as {{ uniquify "CT" }} 
-		LEFT OUTER JOIN 
-		    (
-{{ .DependencyQuery | indent 16 }}
-			) as {{ uniquify "Dep" }}
-			ON  {{ uniquify "Dep" }}.{{ first .TableInfo.Keys | prefixCol "Target" }} = {{ uniquify "CT" }}.{{ first .TableInfo.Keys}}
-{{- range (rest .TableInfo.Keys ) }}
-	   	   		AND  {{ uniquify "Dep" }}.{{ prefixCol "Target" . }} = {{ uniquify "CT" }}.{{ . }}
-{{- end }}	
-        	` )
 
 type ChangeDetectionQueryArgs struct {
-	TableInfo       *SchemaInfo
-	DependencyKeys []string
-	DependencyQuery string
+	SchemaArgs     *meta.Schema
+	DependencyArgs *meta.Schema
+	BridgeQuery    string
+	// Key which will be prefixed to the names of columns from
+	// the change tracking results.
+	ChangeKeyPrefix string
+	// The column name to populate with SYS_CHANGE_OPERATION
+	ChangeOperationColumnName string
 }
 
 func RenderChangeDetectionQuery(args ChangeDetectionQueryArgs) (string, error) {
 	return renderTemplate(changeDetectionQueryTemplate, args)
 }
 
-
-type RealTimeSchemaQueryArgs struct {
-	Shape *pub.Shape
-	Tables RealTimeTableSettings
-	SchemaInfo map[string]*SchemaInfo
-}
-
-type RealTimeSchemaQueryInfoForTable struct {
-
-}
-
-type RealTimeSchemaQueryInfoForTable struct {
-
-}
-
-func RenderRealTimeSchemaQuery(args ChangeDetectionQueryArgs) (string, error) {
-	return renderTemplate(changeTrackedSchemaQueryTemplate, args)
-}
-
-var changeTrackedSchemaQueryTemplate = compileTemplate("change tracked query",
+var changeDetectionQueryTemplate *template.Template = compileTemplate("changeDetectionQuery",
 	// language=GoTemplate
 	`
 SELECT 
-{{- range .Shape.Properties }}
-		{{ .Id }}, 
+{{- range .DependencyArgs.KeyColumns }}
+   {{ uniquify "CT" }}.{{ .ID }} AS "{{ $.ChangeKeyPrefix }}{{ .OpaqueName }}" /*{{ . }}*/, 
+{{- end }}         
+{{- range .SchemaArgs.KeyColumns }}
+    {{ uniquify "Bridge" }}.{{ prefixCol "Schema" .ID }} AS {{ .OpaqueName }} /*{{ . }}*/, 
 {{- end }}
-{{- range .Tables }}
-{{ $info := index .SchemaInfo .SchemaID }}
-{{- range $info.Keys}}
-		{{ uniquify $info.ID }}.{{ . }} AS {{ prefixCol "" }}
+    {{ uniquify "CT" }}.SYS_CHANGE_OPERATION as {{ .ChangeOperationColumnName }}         
+    FROM 
+    (
+	 	SELECT *
+        FROM CHANGETABLE(CHANGES {{ .DependencyArgs.ID }}, @minVersion) AS {{ uniquify "CT" }}        	    
+	    WHERE SYS_CHANGE_VERSION <= @maxVersion 
+	) as {{ uniquify "CT" }} 
+	LEFT OUTER JOIN 
+    (
+{{ .BridgeQuery | indent 8 }}
+	) as {{ uniquify "Bridge" }}
+	ON  {{ uniquify "Bridge" }}.{{ first .SchemaArgs.Keys | prefixCol "Dependency" }} = {{ uniquify "CT" }}.{{ first .SchemaArgs.Keys}}
+{{- range (rest .SchemaArgs.Keys ) }}
+	AND  {{ uniquify "Bridge" }}.{{ prefixCol "Dependency" . }} = {{ uniquify "CT" }}.{{ . }}
+{{- end }}	
+        	` )
+
+
+type SchemaDataQueryArgs struct {
+	SchemaArgs *meta.Schema
+	DependencyTables []*meta.Schema
+	// Keys to filter the schema records by.
+	RowKeys []meta.RowKeys
+	// Name which will be used for the column which contains 1 if the row has been deleted from the schema.
+	DeletedFlagColumnName string
+}
+
+// RenderSchemaDataQuery renders the query used to actually retrieve data from a schema.
+func RenderSchemaDataQuery(args SchemaDataQueryArgs) (string, error) {
+	return renderTemplate(schemaDataQuery, args)
+}
+
+var schemaDataQuery = compileTemplate("schema data query",
+	// language=GoTemplate
+	`
+{{- if .RowKeys }}
+/* declare and populate the table used to filter change sets */
+DECLARE @ChangeKeys table(
+{{ with first .SchemaArgs.KeyColumns }}{{ .ID }} {{ .SQLType }}{{ end }}
+{{- range rest .SchemaArgs.KeyColumns }}
+, {{ .ID }} {{ .SQLType }}
+{{- end }}
+)
+
+INSERT INTO @ChangeKeys ({{ join ", " .SchemaArgs.Keys}})
+VALUES
+	({{ range first .RowKeys }}{{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }}{{ range rest .RowKeys }}, {{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }})
+{{- range rest .RowKeys }}
+	, ({{ range . }}{{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }}{{ range rest .RowKeys }}, {{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }})
 {{- end }}
 
-	   {{ uniquify "Changes" }}.SYS_CHANGE_OPERATION AS __NAVEEGO__ACTION -- we alias the operation with a safe name here
+{{- end }}
+
+SELECT DISTINCT
+{{- range .SchemaArgs.Columns }}
+{{- if and $.RowKeys .IsKey }}
+		COALESCE({{ uniquify "SchemaQuery" }}.{{ .ID }}, {{ uniquify "ChangeKeys" }}.{{ .ID }}) as {{ .ID }},
+{{- else }}
+		{{ printf "%s.%s" (uniquify "SchemaQuery") .ID | .CastForSelect }} as {{ .ID }},
+{{- end }}
+{{- end }}
+{{- range .DependencyTables }}
+{{- range .Columns}}
+{{- if .IsKey }}
+		{{ uniquify .SchemaID }}.{{ prefixCol "Dependency" .ID }} AS {{ .OpaqueName }} /*{{ . }}*/,
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if .RowKeys }}
+	CASE 
+		WHEN {{ with first .SchemaArgs.Keys }}{{ uniquify "SchemaQuery" }}.{{ . }} IS NULL {{end}} THEN CONVERT(bit, 1)
+		ELSE CONVERT(bit, 0)
+	END
+{{- else }}
+	CONVERT(bit, 0)
+{{- end }} AS {{.DeletedFlagColumnName}} 
 /*
 Here we are running the query provided by the user, or just selecting everything from the table/view.
 This is the part that gets us the data we will actually be turning into published records.
 */
 FROM (
-{{ .SchemaQuery | indent 6 -}}
+{{ .SchemaArgs.Query | indent 6 -}}
      ) AS {{ uniquify "SchemaQuery" }}
+{{- if .DependencyTables }}
 /*
 Now we outer join the changes from all the tables which drive the thing we're publishing from.
 */
-RIGHT OUTER JOIN 
+    {{- range .DependencyTables }}
+{{ $table := .}}
+LEFT OUTER JOIN 
 	(
-	SELECT DISTINCT *
-	FROM (
-{{- range $i, $TT := .TrackedTables }}
-{{- if gt $i 0 }}
-	      UNION ALL
+{{ .Query | indent 6 }}
+	) as {{ uniquify $table.ID }}
+	ON {{ uniquify $table.ID }}.{{ prefixCol "Schema" (first $.SchemaArgs.Keys) }} = {{ uniquify "SchemaQuery" }}.{{ first $.SchemaArgs.Keys }}
+        {{- range (rest $.SchemaArgs.Keys ) }}
+	AND {{ uniquify $table.ID }}.{{ prefixCol "Schema" . }} = {{ uniquify "SchemaQuery" }}.{{ . }}
+        {{- end }}	
+    {{- end }}
 {{- end }}
-          {{ $TT.SelectQuery }}, SYS_CHANGE_OPERATION
-          FROM (
-                SELECT {{range $TT.Keys}}Changes.{{ . }}, {{end}}
-        		       {{ range $TT.NonKeys }}Source.{{ . }}, {{ end}}
-         		       SYS_CHANGE_OPERATION
-                FROM CHANGETABLE(CHANGES {{ $TT.ID }}, @minVersion) AS Changes
-        	    LEFT OUTER JOIN {{ $TT.ID }} AS Source ON Source.{{ first $TT.Keys }} = Changes.{{ first $TT.Keys}}
-{{- range (rest $TT.Keys ) }}
-	   	                                               AND Source.{{ . }} = Changes.{{ . }}
-{{- end }}	
-	            WHERE SYS_CHANGE_VERSION <= @maxVersion
-               ) AS Source
-	      {{ $TT.ProjectQuery -}}
+{{- if .RowKeys }}
+/* filter the schema records by the row keys */
+RIGHT OUTER JOIN @ChangeKeys as {{ uniquify "ChangeKeys" }}
+	ON {{ with first .SchemaArgs.Keys }}{{ uniquify "SchemaQuery" }}.{{ . }} = {{ uniquify "ChangeKeys" }}.{{ . }}{{end}}
+{{- range rest .SchemaArgs.Keys }}
+	AND {{ uniquify "SchemaQuery" }}.{{ . }} = {{ uniquify "ChangeKeys" }}.{{ . }}
 {{- end }}
-	     ) AS AllChangeSources
-    ) AS {{ uniquify "Changes" }}
-	ON {{ with first .Keys }} {{ uniquify "SchemaQuery" }}.{{ . }} = {{ uniquify "Changes" }}.{{ . }} {{ end }}
-{{ range (rest .Keys) -}}
-	   AND {{ uniquify "SchemaQuery" }}.{{ . }} = {{ uniquify "Changes" }}.{{ . }}
-{{ end -}}`)
-
-
+{{- end }}
+`)

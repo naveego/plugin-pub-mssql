@@ -75,22 +75,23 @@ ALTER TABLE w3.dbo.RealTimeAux
   ENABLE change_tracking WITH (track_columns_updated = ON)
 
 
+GO
+;
+CREATE OR ALTER VIEW dbo.[RealTimeDuplicateView] (id, ownValue, mergeValue, spreadValue)
+AS
+SELECT id, ownValue, mergeValue, spreadValue
+FROM w3.dbo.RealTime
+
 
 GO
 ;
-CREATE OR ALTER VIEW dbo.[RealTimeDirectView] (id, ownValue, data)
+CREATE OR ALTER VIEW dbo.[RealTimeDerivedView] (id, ownValue, data)
 AS
 SELECT RT.id, RT.ownValue, RTA.data
 FROM w3.dbo.RealTime RT
 JOIN w3.dbo.RealTimeAux RTA
   on RTA.realTimeID = RT.id
 
-GO
-;
-CREATE OR ALTER VIEW dbo.[RealTimeDerivedView] (ownValue, ignoredID)
-AS
-SELECT ownValue, id
-FROM w3.dbo.RealTime
 
 GO
 ;

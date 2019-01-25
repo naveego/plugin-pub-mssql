@@ -31,6 +31,8 @@ Runs the publisher in externally controlled mode.`, version.Version.String()),
 			JSONFormat: true,
 		})
 
+		server := internal.NewServer(log)
+
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: plugin.HandshakeConfig{
 				ProtocolVersion: plugins.PublisherProtocolVersion,
@@ -38,7 +40,7 @@ Runs the publisher in externally controlled mode.`, version.Version.String()),
 				MagicCookieValue:plugins.PublisherMagicCookieValue,
 			},
 			Plugins: map[string]plugin.Plugin{
-				"publisher": pub.NewServerPlugin(internal.NewServer(log)),
+				"publisher": pub.NewServerPlugin(server),
 			},
 			Logger: log,
 

@@ -2,32 +2,21 @@ package store
 
 import (
 	"go.etcd.io/bbolt"
+	"os"
 	"sync"
 	"time"
 )
 
 
-type boltStore struct {
-	db   *bolt.DB
+type BoltStore struct {
+	DB   *bolt.DB
 	path string
 }
 
-func (b boltStore) AddOrUpdateSchemaRecord(schema string, key []byte, hash []byte) (added bool, changed bool, err error) {
-	panic("implement me")
-}
-
-func (b boltStore) AddDependency(dependencySchemaID string, dependencyKey []byte, schemaKey []byte) error {
-	panic("implement me")
-}
-
-func (b boltStore) GetDependentKeys(dependencySchemaID string, dependencyKey []byte) [][]byte {
-	panic("implement me")
-}
-
 var boltLock = new(sync.Mutex)
-var boltPool = map[string]boltStore{}
+var boltPool = map[string]BoltStore{}
 
-func getBoltStore(path string) (Store, error) {
+func GetBoltStore(path string) (BoltStore, error) {
 	boltLock.Lock()
 	defer boltLock.Unlock()
 
@@ -38,11 +27,11 @@ func getBoltStore(path string) (Store, error) {
 
 	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout:5*time.Second})
 	if err != nil {
-		return boltStore{}, err
+		return BoltStore{}, err
 	}
 
-	store = boltStore{
-		db:   db,
+	store = BoltStore{
+		DB:   db,
 		path: path,
 	}
 	boltPool[path] = store
@@ -50,13 +39,13 @@ func getBoltStore(path string) (Store, error) {
 	return store, nil
 }
 
-func releaseBoltStore(store boltStore) error {
+func ReleaseBoltStore(store BoltStore) error {
 	boltLock.Lock()
 	defer boltLock.Unlock()
 
 	store, ok := boltPool[store.path]
 	if ok {
-		err := store.db.Close()
+		err := store.DB.Close()
 
 		if err != nil {
 			return err
@@ -65,5 +54,24 @@ func releaseBoltStore(store boltStore) error {
 	}
 
 	return nil
+}
+
+func DestroyBoltStore(store BoltStore) error {
+	boltLock.Lock()
+	defer boltLock.Unlock()
+
+	store, ok := boltPool[store.path]
+	if ok {
+		err := store.DB.Close()
+
+		if err != nil {
+			return err
+		}
+		delete(boltPool, store.path)
+	}
+
+	err := os.Remove(store.path)
+
+	return err
 }
 

@@ -11,7 +11,6 @@ require (
 	github.com/coreos/go-semver v0.2.0
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denisenkom/go-mssqldb v0.0.0-20180707235734-242fa5aa1b45
-	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/go-ini/ini v1.38.2 // indirect
 	github.com/golang/protobuf v1.2.0
 	github.com/google/go-cmp v0.2.0 // indirect
@@ -20,7 +19,6 @@ require (
 	github.com/hashicorp/go-hclog v0.0.0-20180709165350-ff2cf002a8dd
 	github.com/hashicorp/go-plugin v0.0.0-20180331002553-e8d22c780116
 	github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb // indirect
-	github.com/hpcloud/tail v1.0.0 // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
@@ -33,7 +31,7 @@ require (
 	github.com/naveego/go-json-schema v0.2.2-0.20190118185532-4e0b267f18e8
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.7.0
-	github.com/onsi/gomega v1.4.1
+	github.com/onsi/gomega v1.4.3
 	github.com/pkg/errors v0.8.0
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.0.5
@@ -42,16 +40,15 @@ require (
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.1 // indirect
 	github.com/stretchr/testify v1.2.2 // indirect
+	go.etcd.io/bbolt v1.3.0
 	golang.org/x/crypto v0.0.0-20180718160520-a2144134853f // indirect
-	golang.org/x/net v0.0.0-20181201002055-351d144fa1fc
-	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f // indirect
-	golang.org/x/sys v0.0.0-20181205085412-a5c9d58dba9a // indirect
+	golang.org/x/net v0.0.0-20190119204137-ed066c81e75e
+	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4 // indirect
+	golang.org/x/sys v0.0.0-20190122071731-054c452bb702 // indirect
 	google.golang.org/genproto v0.0.0-20181202183823-bd91e49a0898 // indirect
 	google.golang.org/grpc v1.17.0
 	gopkg.in/airbrake/gobrake.v2 v2.0.9 // indirect
-	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2 // indirect
 	gopkg.in/ini.v1 v1.41.0 // indirect
-	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
-	gopkg.in/yaml.v2 v2.2.1 // indirect
+	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
