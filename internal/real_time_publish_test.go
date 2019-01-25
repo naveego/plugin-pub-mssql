@@ -150,9 +150,9 @@ var _ = Describe("PublishStream with Real Time", func() {
 		}).To(BeRecordMatching(pub.Record_UPSERT, expected))
 	})
 
-	DescribeTable("simple real time", func(schemaID string, settings RealTimeSettings) {
+	DescribeTable("simple real time", func(shape *pub.Shape, settings RealTimeSettings) {
 
-		schema := discoverShape(&pub.Shape{Id: schemaID})
+		schema := discoverShape(shape)
 
 		var (
 			expectedInsertedRecord RealTimeRecord
@@ -275,8 +275,8 @@ var _ = Describe("PublishStream with Real Time", func() {
 		})
 
 	},
-		Entry("when schema is table", "[RealTime]", RealTimeSettings{PollingInterval: "100ms"}),
-		Entry("when schema is view", "[RealTimeDuplicateView]", RealTimeSettings{
+		Entry("when schema is table", &pub.Shape{Id:"[RealTime]"}, RealTimeSettings{PollingInterval: "100ms"}),
+		Entry("when schema is view", &pub.Shape{Id:"[RealTimeDuplicateView]"}, RealTimeSettings{
 			PollingInterval: "100ms",
 			Tables: []RealTimeTableSettings{
 				{
@@ -284,6 +284,18 @@ var _ = Describe("PublishStream with Real Time", func() {
 					Query: `SELECT [RealTimeDuplicateView].id as [Schema.id], [RealTime].id as [Dependency.id]
 FROM RealTimeDuplicateView
 JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
+				},
+			},
+		}),
+		Entry("when schema is query", &pub.Shape{
+			Id:"duplicateQuery",
+			Query:"select * from realtime",
+		}, RealTimeSettings{
+			PollingInterval: "100ms",
+			Tables: []RealTimeTableSettings{
+				{
+					SchemaID: "[RealTime]",
+					Query: `SELECT [RealTime].id as [Schema.id], [RealTime].id as [Dependency.id] FROM RealTime`,
 				},
 			},
 		}),

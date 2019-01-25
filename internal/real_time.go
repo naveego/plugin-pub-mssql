@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"github.com/naveego/go-json-schema"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
+	"github.com/naveego/plugin-pub-mssql/internal/templates"
 	"github.com/pkg/errors"
 	"sort"
+	"strings"
 )
 
 type RealTimeHelper struct {
@@ -65,17 +67,6 @@ WHERE object_id=OBJECT_ID(@ID)`, sql.Named("ID", schemaID))
 	return nil
 }
 
-func (r *RealTimeHelper) isSchemaTable(session *OpSession, schemaID string) (bool, error) {
-
-	for id, table := range session.SchemaInfo {
-		if id == schemaID {
-			return table.IsTable, nil
-		}
-	}
-
-	return false, nil
-}
-
 func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.ConfigureRealTimeRequest) (*pub.ConfigureRealTimeResponse, error) {
 	var err error
 
@@ -86,13 +77,12 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 		return (&pub.ConfigureRealTimeResponse{}).WithFormErrors(err.Error()), nil
 	}
 
-	isTable, err := r.isSchemaTable(session, req.Shape.Id)
-	if err != nil {
-		// This shouldn't happen, but if we can't tell whether it's a table or not we can't do anything.
-		return nil, err
+	schemaInfo := session.SchemaInfo[req.Shape.Id]
+	if schemaInfo == nil {
+		schemaInfo = MetaSchemaFromShape(req.Shape)
 	}
 
-	if isTable {
+	if schemaInfo .IsTable {
 		// If the schema is a table and it has change tracking, we have nothing else to configure.
 		// Otherwise, we'll show the user an error telling them to configure change tracking for the table.
 
@@ -122,14 +112,8 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 	}
 
 	err = updateProperty(&schema.Property, func(property *jsonschema.Property) {
-		property.Extensions = map[string]interface{}{"uniqueItems": true}
-		var cols []string
-		for _, p := range req.Shape.Properties {
-			cols = append(cols, p.Id)
-		}
-		sort.Strings(cols)
-		property.Items = &jsonschema.Property{Type: "string", Enum: cols}
-	}, "keyColumns")
+		property.AdditionalProperties = map[string]interface{}{"type": "string"}
+	}, "tables", "keyMappings")
 	if err != nil {
 		panic("schema was malformed, could not set columns")
 	}
@@ -150,6 +134,41 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 		if err != nil {
 			tableErrorMap["tableName"] = err.Error()
 		}
+
+		expectedQueryKeys := map[string]bool{}
+
+		depSchema := session.SchemaInfo[table.SchemaID]
+		for _, k := range depSchema.Keys() {
+			expectedQueryKeys[templates.PrefixColumn("Dependency", k)] = false
+		}
+
+		for _, k := range schemaInfo.Keys() {
+			expectedQueryKeys[templates.PrefixColumn("Schema", k)] = false
+		}
+
+		if table.Query != "" {
+			metadata, err := describeResultSet(session, table.Query)
+			if err != nil {
+				tableErrorMap["query"] = fmt.Sprintf("Query failed: %s", err)
+			} else {
+				for _, col := range metadata {
+					safeName := fmt.Sprintf("[%s]", strings.Trim(col.Name, "[]"))
+					expectedQueryKeys[safeName] = true
+				}
+				var missing []string
+				for name, detected := range expectedQueryKeys {
+					if !detected {
+						missing = append(missing, name)
+					}
+				}
+					sort.Strings(missing)
+				if len(missing) > 0 {
+					tableErrorMap["query"] = fmt.Sprintf(
+						`One or more required columns not found in query. Missing column(s): %s`, strings.Join(missing, ", "))
+				}
+			}
+		}
+
 		tableErrors = append(tableErrors, tableErrorMap)
 	}
 

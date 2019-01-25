@@ -39,7 +39,9 @@ func uniquify(x string) string {
 	return fmt.Sprintf("[%s_%s]", x, suffix[:4])
 }
 
-func prefixCol(prefix, id string) string {
+// PrefixColumn makes a safe column name containing the prefix, a ., and the current ID, inside []"
+// PrefixColumn("Table", "[Key]") => "[Table.Key]"
+func PrefixColumn(prefix, id string) string {
 	id = strings.Trim(id, "[]")
 	return fmt.Sprintf("[%s.%s]", prefix, id)
 }
@@ -49,8 +51,8 @@ func compileTemplate(name, input string) *template.Template {
 	t, err := template.New(name).
 		Funcs(sprig.TxtFuncMap()).
 		Funcs(template.FuncMap{
-			"uniquify": uniquify,
-			"prefixCol": prefixCol,
+			"uniquify":  uniquify,
+			"PrefixColumn": PrefixColumn,
 		}).
 		Parse(input)
 	if err != nil {
@@ -75,10 +77,10 @@ func renderTemplate(t *template.Template, args interface{}) (string, error) {
 var selfBridgeQueryTemplate = compileTemplate("selfBridgeQueryTemplate",
 	// language=GoTemplate
 	`SELECT 
-    {{ first .SchemaInfo.Keys }} as {{ first .SchemaInfo.Keys | prefixCol "Schema" }}         
-    , {{ first .SchemaInfo.Keys }} as {{ prefixCol "Dependency" (first .SchemaInfo.Keys) }}
+    {{ first .SchemaInfo.Keys }} as {{ first .SchemaInfo.Keys | PrefixColumn "Schema" }}         
+    , {{ first .SchemaInfo.Keys }} as {{ PrefixColumn "Dependency" (first .SchemaInfo.Keys) }}
   	{{- range rest .SchemaInfo.Keys }}
-  	, {{ . }} as {{ prefixCol "Schema" . }},  {{ . }} as {{ prefixCol "Dependency" . }}
+  	, {{ . }} as {{ PrefixColumn "Schema" . }},  {{ . }} as {{ PrefixColumn "Dependency" . }}
   	{{- end }}
 FROM {{ .SchemaInfo.ID }}` )
 
@@ -113,7 +115,7 @@ SELECT
    {{ uniquify "CT" }}.{{ .ID }} AS "{{ $.ChangeKeyPrefix }}{{ .OpaqueName }}" /*{{ . }}*/, 
 {{- end }}         
 {{- range .SchemaArgs.KeyColumns }}
-    {{ uniquify "Bridge" }}.{{ prefixCol "Schema" .ID }} AS {{ .OpaqueName }} /*{{ . }}*/, 
+    {{ uniquify "Bridge" }}.{{ PrefixColumn "Schema" .ID }} AS {{ .OpaqueName }} /*{{ . }}*/, 
 {{- end }}
     {{ uniquify "CT" }}.SYS_CHANGE_OPERATION as {{ .ChangeOperationColumnName }}         
     FROM 
@@ -126,9 +128,9 @@ SELECT
     (
 {{ .BridgeQuery | indent 8 }}
 	) as {{ uniquify "Bridge" }}
-	ON  {{ uniquify "Bridge" }}.{{ first .SchemaArgs.Keys | prefixCol "Dependency" }} = {{ uniquify "CT" }}.{{ first .SchemaArgs.Keys}}
+	ON  {{ uniquify "Bridge" }}.{{ first .SchemaArgs.Keys | PrefixColumn "Dependency" }} = {{ uniquify "CT" }}.{{ first .SchemaArgs.Keys}}
 {{- range (rest .SchemaArgs.Keys ) }}
-	AND  {{ uniquify "Bridge" }}.{{ prefixCol "Dependency" . }} = {{ uniquify "CT" }}.{{ . }}
+	AND  {{ uniquify "Bridge" }}.{{ PrefixColumn "Dependency" . }} = {{ uniquify "CT" }}.{{ . }}
 {{- end }}	
         	` )
 
@@ -179,7 +181,7 @@ SELECT DISTINCT
 {{- range .DependencyTables }}
 {{- range .Columns}}
 {{- if .IsKey }}
-		{{ uniquify .SchemaID }}.{{ prefixCol "Dependency" .ID }} AS {{ .OpaqueName }} /*{{ . }}*/,
+		{{ uniquify .SchemaID }}.{{ PrefixColumn "Dependency" .ID }} AS {{ .OpaqueName }} /*{{ . }}*/,
 {{- end }}
 {{- end }}
 {{- end }}
@@ -208,9 +210,9 @@ LEFT OUTER JOIN
 	(
 {{ .Query | indent 6 }}
 	) as {{ uniquify $table.ID }}
-	ON {{ uniquify $table.ID }}.{{ prefixCol "Schema" (first $.SchemaArgs.Keys) }} = {{ uniquify "SchemaQuery" }}.{{ first $.SchemaArgs.Keys }}
+	ON {{ uniquify $table.ID }}.{{ PrefixColumn "Schema" (first $.SchemaArgs.Keys) }} = {{ uniquify "SchemaQuery" }}.{{ first $.SchemaArgs.Keys }}
         {{- range (rest $.SchemaArgs.Keys ) }}
-	AND {{ uniquify $table.ID }}.{{ prefixCol "Schema" . }} = {{ uniquify "SchemaQuery" }}.{{ . }}
+	AND {{ uniquify $table.ID }}.{{ PrefixColumn "Schema" . }} = {{ uniquify "SchemaQuery" }}.{{ . }}
         {{- end }}	
     {{- end }}
 {{- end }}

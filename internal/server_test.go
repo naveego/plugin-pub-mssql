@@ -114,7 +114,7 @@ var _ = Describe("Server", func() {
 
 			It("should have error if table does not have change tracking enabled", func() {
 
-				resp := configureRealTime("RealTimeDirectView", RealTimeSettings{
+				resp := configureRealTime("RealTimeDuplicateView", RealTimeSettings{
 					Tables: []RealTimeTableSettings{
 						{SchemaID: "[Customers]"},
 					},
@@ -129,7 +129,7 @@ var _ = Describe("Server", func() {
 				var actual RealTimeSettings
 				expectedSettings := RealTimeSettings{
 					Tables: []RealTimeTableSettings{
-						{SchemaID: "[Customers]"},
+						{SchemaID: "[RealTime]"},
 					},
 				}
 				resp := configureRealTime("RealTimeDirectView", expectedSettings)
@@ -137,22 +137,46 @@ var _ = Describe("Server", func() {
 				Expect(actual).To(BeEquivalentTo(expectedSettings))
 			})
 
-			It("should include columns enum for the keyColumns property", func() {
-				resp := configureRealTime("RealTimeDirectView", RealTimeSettings{})
-				jsonSchemaForForm := resp.GetJSONSchemaForForm()
-				jsm := GetMapFromJSONSchema(jsonSchemaForForm)
-				Expect(jsm).To(And(
-					HaveKeyWithValue("properties",
-						HaveKeyWithValue("keyColumns",
-							HaveKeyWithValue("items",
-								And(
-									HaveKeyWithValue("type", "string"),
-									HaveKeyWithValue("enum", ConsistOf([]string{"[id]", "[ownValue]", "[data]"})),
-								),
-							),
-						),
-					),
-				))
+			Describe("query validation", func() {
+
+				It("should detect invalid query", func(){
+					expectedSettings := RealTimeSettings{
+						Tables: []RealTimeTableSettings{
+							{
+								SchemaID: "[RealTime]",
+								Query:`SELECT [RealTimeDuplicateView].id as [Source.id], [RealTime].id as [Dep.id]
+								FROM RealTimeDuplicateView
+								JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
+							},
+						},
+					}
+					var errs map[string]interface{}
+					resp := configureRealTime("RealTimeDirectView", expectedSettings)
+					unmarshallString(resp.Form.DataErrorsJson, &errs)
+					Expect(errs).To(HaveKeyWithValue("tables",
+						ContainElement(HaveKeyWithValue("query", And(
+							ContainSubstring("[Schema.id]"),
+							ContainSubstring("[Dependency.id]"),
+							)))))
+
+				})
+
+				It("should detect valid query", func(){
+					expectedSettings := RealTimeSettings{
+						Tables: []RealTimeTableSettings{
+							{
+								SchemaID: "[RealTime]",
+								Query:`SELECT [RealTimeDuplicateView].id as [Schema.id], [RealTime].id as [Dependency.id]
+								FROM RealTimeDuplicateView
+								JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
+							},
+						},
+					}
+					var errs map[string]interface{}
+					resp := configureRealTime("RealTimeDirectView", expectedSettings)
+					unmarshallString(resp.Form.DataErrorsJson, &errs)
+					Expect(errs).To(HaveKeyWithValue("tables", ContainElement(Not(HaveKey("query")))))
+				})
 			})
 
 			It("should include tables as the enum for the table property", func() {

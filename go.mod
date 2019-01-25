@@ -28,7 +28,7 @@ require (
 	github.com/mitchellh/go-testing-interface v0.0.0-20171004221916-a61a99592b77 // indirect
 	github.com/naveego/ci v0.0.0-20181018203920-7ae6fce4428c
 	github.com/naveego/dataflow-contracts v0.1.1-0.20190121202441-11bf621c8bd6
-	github.com/naveego/go-json-schema v0.2.2-0.20190118185532-4e0b267f18e8
+	github.com/naveego/go-json-schema v0.2.2
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.7.0
 	github.com/onsi/gomega v1.4.3

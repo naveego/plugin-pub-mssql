@@ -452,7 +452,26 @@ type describeResult struct {
 	MaxLength         int64  `sql:"max_length"`
 }
 
-func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Shape) (error) {
+func describeResultSet(session *OpSession, query string) ([]describeResult, error) {
+	metaQuery := fmt.Sprintf("sp_describe_first_result_set N'%s', @params= N'', @browse_information_mode=1", query)
+
+	rows, err := session.DB.Query(metaQuery)
+
+	if err != nil {
+		return nil, errors.Errorf("error getting metadata for query %q: %s", query, err)
+	}
+
+	metadata := make([]describeResult, 0, 0)
+
+	err = sqlstructs.UnmarshalRows(rows, &metadata)
+	if err != nil {
+		return nil, errors.Errorf("error parsing metadata for query %q: %s", query, err)
+	}
+
+	return metadata, nil
+}
+
+func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Shape) error {
 
 	query := shape.Query
 	if query == "" {
@@ -461,21 +480,7 @@ func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Shape) (err
 
 	query = strings.Replace(query, "'", "''", -1)
 
-	metaQuery := fmt.Sprintf("sp_describe_first_result_set N'%s', @params= N'', @browse_information_mode=1", query)
-
-	rows, err := session.DB.Query(metaQuery)
-
-	if err != nil {
-		return errors.Errorf("error executing query %q: %v", metaQuery, err)
-	}
-
-	if err != nil {
-		return errors.WithStack(err)
-	}
-
-	metadata := make([]describeResult, 0, 0)
-
-	err = sqlstructs.UnmarshalRows(rows, &metadata)
+	metadata, err := describeResultSet(session, query)
 	if err != nil {
 		return err
 	}

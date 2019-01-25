@@ -111,7 +111,6 @@ type RealTimeTableState struct {
 
 type RealTimeSettings struct {
 	meta string `title:"Real Time Settings" description:"Configure the tables to monitor for changes."`
-	KeyColumns []string `json:"keyColumns" title:"Key Columns" description:"The column(s) which uniquely identify the records being published."`
 	Tables []RealTimeTableSettings `json:"tables" title:"Tables"`
 	PollingInterval string `json:"pollingInterval" title:"Polling Interval" default="5s" description:"Interval between checking for changes. Provide a number and a unit (s = second, m = minute, h = hour). Defaults to 5s." pattern:"\\d+(ms|s|m|h)"`
 }
@@ -123,8 +122,7 @@ func (r RealTimeSettings) String() string {
 
 type RealTimeTableSettings struct {
 	SchemaID               string `json:"schemaID" title:"Table" description:"The table to monitor for changes."`
-	TranslateKeyUsingQuery bool   `json:"translateKeyUsingQuery" title:"Dependency" description:"Check here if this table is used to make the view you're publishing data from."`
-	Query                  string `json:"query,omitempty" title:"Query" description:"This query will be run with the parameter @ID set to the ID of the record which changed. The query must return the unique identifiers for the rows in the view that need to be republished because of the observed change." `
+	Query                  string `json:"query,omitempty" title:"Query" description:"A query which matches up the primary keys of the the table where change tracking is enabled with the keys of the view or query you are publishing from." `
 }
 
 func GetRealTimeSchemas() (form *jsonschema.JSONSchema, ui SchemaMap) {

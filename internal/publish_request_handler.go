@@ -241,7 +241,6 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 					return errors.Errorf("error rendering self dependency query for table %q: %s", schema.ID, err)
 				}
 
-				realTimeSettings.KeyColumns = schema.Keys()
 				realTimeSettings.Tables = []RealTimeTableSettings{
 					{
 						SchemaID: schema.ID,

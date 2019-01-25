@@ -91,6 +91,8 @@ github.com/naveego/go-json-schema v0.1.2-0.20190117212538-40844f5f8b69 h1:78BXgA
 github.com/naveego/go-json-schema v0.1.2-0.20190117212538-40844f5f8b69/go.mod h1:M3lsvnaAT/vOv+ks27Aoq0+N5FjqUY8oT6Tz/wjkovw=
 github.com/naveego/go-json-schema v0.2.2-0.20190118185532-4e0b267f18e8 h1:zEscr34JmE305xjkINY2F/E56WyuUO87xhzw4eGmbRs=
 github.com/naveego/go-json-schema v0.2.2-0.20190118185532-4e0b267f18e8/go.mod h1:M3lsvnaAT/vOv+ks27Aoq0+N5FjqUY8oT6Tz/wjkovw=
+github.com/naveego/go-json-schema v0.2.2 h1:ccR/kYPYvul/ZkOxwQ5wLBU4lUODvsX7tK7obyFYwPE=
+github.com/naveego/go-json-schema v0.2.2/go.mod h1:M3lsvnaAT/vOv+ks27Aoq0+N5FjqUY8oT6Tz/wjkovw=
 github.com/oklog/run v1.0.0 h1:Ru7dDtJNOyC66gQ5dQmaCa0qIsAUFY3sFpK1Xk8igrw=
 github.com/oklog/run v1.0.0/go.mod h1:dlhp/R75TPv97u0XWUtDeV/lRKWPKSdTuV0TZvrmrQA=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
