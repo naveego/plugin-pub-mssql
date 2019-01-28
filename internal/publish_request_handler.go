@@ -10,6 +10,8 @@ import (
 	"github.com/naveego/plugin-pub-mssql/pkg/store"
 	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -20,8 +22,8 @@ import (
 )
 
 const (
-	ChangeKeyPrefix       = "NAVEEGO_CHANGE_KEY_"
-	DeletedFlagColumnName = "NAVEEGO_DELETED_COLUMN_FLAG"
+	ChangeKeyPrefix           = "NAVEEGO_CHANGE_KEY_"
+	DeletedFlagColumnName     = "NAVEEGO_DELETED_COLUMN_FLAG"
 	ChangeOperationColumnName = "NAVEEGO_CHANGE_OPERATION"
 )
 
@@ -40,7 +42,8 @@ type PublishRequest struct {
 	Changes []Changes
 	// Map from SchemaID of the dependency table to a RecordData containing the keys/values
 	// of the row the current data depends on.
-	Dependencies map[string]meta.RowMap
+	Dependencies  map[string]meta.RowMap
+	RealTimeState *RealTimeState
 }
 
 func (p PublishRequest) WithChanges(c []Changes) PublishRequest {
@@ -200,15 +203,15 @@ func GetRecordsStaticMiddleware() PublishMiddleware {
 	}
 }
 
-func GetRecordsRealTimeMiddleware() PublishMiddleware {
+func InitializeRealTimeComponentsMiddleware() PublishMiddleware {
 	return func(handler PublishHandler) PublishHandler {
 		return PublishHandlerFunc(func(req PublishRequest) error {
 
 			var err error
-
 			session := req.OpSession
-			log := session.Log.Named("GetRecordsRealTimeMiddleware")
+			log := session.Log.Named("InitializeRealTimeComponentsMiddleware")
 
+			shape := req.PluginRequest.Shape
 			var realTimeSettings RealTimeSettings
 			var realTimeState RealTimeState
 			err = json.Unmarshal([]byte(req.PluginRequest.RealTimeSettingsJson), &realTimeSettings)
@@ -221,15 +224,10 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 					return errors.Wrap(err, "invalid real time state")
 				}
 			}
+
 			req.RealTimeSettings = &realTimeSettings
+			req.RealTimeState = &realTimeState
 
-			minVersion := realTimeState.Version
-			maxVersion, err := getChangeTrackingVersion(session)
-			if err != nil {
-				return errors.Wrap(err, "get next change tracking version")
-			}
-
-			shape := req.PluginRequest.Shape
 			if len(realTimeSettings.Tables) == 0 {
 				schema := session.SchemaInfo[shape.Id]
 				if schema == nil || !schema.IsTable {
@@ -249,13 +247,51 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 				}
 			}
 
-			storePath := filepath.Join(req.OpSession.Config.PermanentDirectory, req.PluginRequest.JobId)
+			dir, jobID, currentDataVersion := req.OpSession.Config.PermanentDirectory, req.PluginRequest.JobId, int(req.PluginRequest.DataVersion)
+			storePath, err := getDBPath(dir, jobID, currentDataVersion)
+			if err != nil {
+				return errors.Errorf("could not create local storage directory for file %q: %s", storePath, err)
+			}
+			err = deleteOldData(dir, jobID, currentDataVersion)
+			if err != nil {
+				log.Error("Could not clean up old local storage records after version change.", "error", err)
+			}
+
 			boltStore, err := store.GetBoltStore(storePath)
 			if err != nil {
 				return errors.Wrap(err, "open store")
 			}
 			req.Store = boltStore
-			err = boltStore.DB.Update(func(tx *bolt.Tx) error {
+			defer store.ReleaseBoltStore(boltStore)
+
+
+			return handler.Handle(req)
+
+		})
+	}
+}
+
+func GetRecordsRealTimeMiddleware() PublishMiddleware {
+	return func(handler PublishHandler) PublishHandler {
+		return PublishHandlerFunc(func(req PublishRequest) error {
+
+			var err error
+
+			session := req.OpSession
+			log := session.Log.Named("GetRecordsRealTimeMiddleware")
+			realTimeState := req.RealTimeState
+			shape := req.PluginRequest.Shape
+
+			minVersion := realTimeState.Version
+			maxVersion, err := getChangeTrackingVersion(session)
+			if err != nil {
+				return errors.Wrap(err, "get next change tracking version")
+			}
+
+
+
+			realTimeSettings := req.RealTimeSettings
+			err = req.Store.DB.Update(func(tx *bolt.Tx) error {
 				b, err := tx.CreateBucketIfNotExists([]byte(shape.Id))
 				if err != nil {
 					return errors.Errorf("create bucket for %q: %s", shape.Id, err)
@@ -274,7 +310,6 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 				return nil
 			})
 
-			defer store.ReleaseBoltStore(boltStore)
 
 			initializeNeeded := false
 			if minVersion == 0 {
@@ -354,11 +389,11 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 			for _, table := range realTimeSettings.Tables {
 				depSchema := session.SchemaInfo[table.SchemaID]
 				args := templates.ChangeDetectionQueryArgs{
-					BridgeQuery:     table.Query,
-					SchemaArgs:      MetaSchemaFromShape(req.PluginRequest.Shape),
-					DependencyArgs:  depSchema,
-					ChangeKeyPrefix: ChangeKeyPrefix,
-					ChangeOperationColumnName:ChangeOperationColumnName,
+					BridgeQuery:               table.Query,
+					SchemaArgs:                MetaSchemaFromShape(req.PluginRequest.Shape),
+					DependencyArgs:            depSchema,
+					ChangeKeyPrefix:           ChangeKeyPrefix,
+					ChangeOperationColumnName: ChangeOperationColumnName,
 				}
 				queryText, err := templates.RenderChangeDetectionQuery(args)
 				queryTexts[table.SchemaID] = queryText
@@ -586,7 +621,7 @@ func ProcessChangesMiddleware() PublishMiddleware {
 						depSchema := session.SchemaInfo[changeSet.DependencyID]
 						depRowKeys, err := change.ExtractPrefixedRowKeys(depSchema, ChangeKeyPrefix)
 
-						cause := Cause{Table:changeSet.DependencyID, Action:action, DependencyKeys:depRowKeys}
+						cause := Cause{Table: changeSet.DependencyID, Action: action, DependencyKeys: depRowKeys}
 						causes[keyString] = cause
 
 						// Then get all the keys which were associated with the changed
@@ -691,6 +726,7 @@ func BuildHandlerAndRequest(session *OpSession, externalRequest *pub.PublishRequ
 			StoreChangeTrackingDataMiddleware(),
 			ProcessChangesMiddleware(),
 			GetRecordsRealTimeMiddleware(),
+			InitializeRealTimeComponentsMiddleware(),
 		)
 	}
 
@@ -884,4 +920,34 @@ func scanToMap(rows *sql.Rows) (map[string]interface{}, error) {
 	}
 
 	return dataBuffer, rows.Err()
+}
+
+// getDBPath gets the path for a DB for the specified scenario.
+func getDBPath(dir string, jobID string, dataVersion int) (string, error) {
+	dbDir := filepath.Join(dir, "plugin-pub-mssql", jobID)
+	err := os.MkdirAll(dbDir, 0700)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(dbDir, fmt.Sprint(dataVersion)), nil
+}
+
+func deleteOldData(dir string, jobID string, currentDataVersion int) error {
+	dbDir := filepath.Join(dir, "plugin-pub-mssql", jobID)
+	files, err := ioutil.ReadDir(dbDir)
+	if err != nil {
+		return err
+	}
+	current := fmt.Sprint(currentDataVersion)
+	for _, file := range files {
+		name := filepath.Base(file.Name())
+		if name != current {
+			err := os.Remove(filepath.Join(dbDir, file.Name()))
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

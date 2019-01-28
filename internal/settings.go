@@ -136,7 +136,7 @@ func GetRealTimeSchemas() (form *jsonschema.JSONSchema, ui SchemaMap) {
 	ui = SchemaMap{
 		"tables": SchemaMap{
 			"items": SchemaMap{
-				"ui:order": []string{"tableName", "translateKeyUsingQuery", "query"},
+				"ui:order": []string{"tableName", "query"},
 				"query":SchemaMap{
 					"ui:widget":"textarea",
 					"ui:options": SchemaMap{

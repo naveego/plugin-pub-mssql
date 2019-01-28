@@ -77,6 +77,9 @@ github.com/naveego/dataflow-contracts v0.1.1-0.20190121202136-476646410e33 h1:Ti
 github.com/naveego/dataflow-contracts v0.1.1-0.20190121202136-476646410e33/go.mod h1:jPutQKPCUfouzeS2/TzsJoyPrkZPb6k6p6xjvr/tF7c=
 github.com/naveego/dataflow-contracts v0.1.1-0.20190121202441-11bf621c8bd6 h1:CqDMChLCyDyZMxTKOhsWLld7W83YfxOmcc7Yn5+2p9U=
 github.com/naveego/dataflow-contracts v0.1.1-0.20190121202441-11bf621c8bd6/go.mod h1:jPutQKPCUfouzeS2/TzsJoyPrkZPb6k6p6xjvr/tF7c=
+github.com/naveego/dataflow-contracts v0.1.1-0.20190125195730-89555d2862d5 h1:b6tS2SmiK1TwQpvqG5mvG+/yM8ZrqA8/9N+dK9vgS8E=
+github.com/naveego/dataflow-contracts v0.1.1-0.20190125195730-89555d2862d5/go.mod h1:jPutQKPCUfouzeS2/TzsJoyPrkZPb6k6p6xjvr/tF7c=
+github.com/naveego/dataflow-contracts v0.1.1 h1:/6mzQ21OOIUwG+Z93mDOGAHgr7HtKy8o6Y0CgLoa3t8=
 github.com/naveego/go-json-schema v0.0.0-20190117164529-5d88e29a5885 h1:60TSqknoR+iMPwHNS9lzWjOUHSz1X3wi75rBb6jWhvc=
 github.com/naveego/go-json-schema v0.0.0-20190117164529-5d88e29a5885/go.mod h1:M3lsvnaAT/vOv+ks27Aoq0+N5FjqUY8oT6Tz/wjkovw=
 github.com/naveego/go-json-schema v0.0.0-20190117165430-eabb92dc2538 h1:RtCH6VOc7Gfd6Hc4kdEUkxfpjwkx98OBk+sTF7Uq3mA=

@@ -2,8 +2,6 @@ package internal_test
 
 import (
 	"database/sql"
-	"fmt"
-
 	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -37,6 +35,5 @@ var _ = Describe("sqlstructs", func() {
 
 		Expect(actual).To(ContainElement(AgentEntity{"A001", 0.14}))
 		Expect(actual).To(ContainElement(AgentEntity{"A002", 0.11}))
-		fmt.Println(actual)
 	})
 })

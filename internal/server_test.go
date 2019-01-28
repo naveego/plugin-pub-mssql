@@ -14,6 +14,25 @@ import (
 
 )
 
+var discoverShape = func(sut pub.PublisherServer, schema *pub.Shape) *pub.Shape {
+	response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
+		Mode:       pub.DiscoverShapesRequest_REFRESH,
+		SampleSize: 0,
+		ToRefresh: []*pub.Shape{
+			schema,
+		},
+	})
+	Expect(err).ToNot(HaveOccurred())
+	var out *pub.Shape
+	for _, s := range response.Shapes {
+		if s.Id == schema.Id {
+			out = s
+		}
+	}
+	Expect(out).ToNot(BeNil(), "should have discovered requested schema %q in %+v", schema.Id, response.Shapes)
+	return out
+}
+
 var _ = Describe("Server", func() {
 
 	var (
@@ -34,24 +53,7 @@ var _ = Describe("Server", func() {
 		settings = *GetTestSettings()
 	})
 
-	var discoverShape = func(schema *pub.Shape) *pub.Shape {
-		response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-			Mode:       pub.DiscoverShapesRequest_REFRESH,
-			SampleSize: 0,
-			ToRefresh: []*pub.Shape{
-				schema,
-			},
-		})
-		Expect(err).ToNot(HaveOccurred())
-		var out *pub.Shape
-		for _, s := range response.Shapes {
-			if s.Id == schema.Id {
-				out = s
-			}
-		}
-		Expect(out).ToNot(BeNil(), "should have discovered requested schema %q in %+v", schema.Id, response.Shapes)
-		return out
-	}
+
 
 	Describe("Connect", func() {
 
@@ -73,136 +75,6 @@ var _ = Describe("Server", func() {
 
 	})
 
-	Describe("ConfigureRealTime", func() {
-
-		var configureRealTime = func(schemaID string, settings RealTimeSettings) *pub.ConfigureRealTimeResponse {
-			shape := discoverShape(&pub.Shape{
-				Id: schemaID,
-			})
-			req := (&pub.ConfigureRealTimeRequest{
-				Shape: shape,
-			}).WithData(settings)
-			resp, err := sut.ConfigureRealTime(context.Background(), req)
-			Expect(err).ToNot(HaveOccurred())
-			return resp
-		}
-
-		BeforeEach(func() {
-			Expect(sut.Connect(context.Background(), pub.NewConnectRequest(settings))).ToNot(BeNil())
-		})
-
-		Describe("when schema is table", func() {
-			Describe("when table has change tracking enabled", func() {
-				It("should return a form schema with no properties", func() {
-					resp := configureRealTime("[RealTime]", RealTimeSettings{})
-					jsonSchemaForForm := resp.GetJSONSchemaForForm()
-					Expect(jsonSchemaForForm.Properties).To(BeEmpty())
-					Expect(jsonSchemaForForm.Description).ToNot(BeEmpty())
-				})
-			})
-			Describe("when table does not have change tracking enabled", func() {
-				It("should return an empty form schema with an error", func() {
-					resp := configureRealTime("[Agents]", RealTimeSettings{})
-					jsonSchemaForForm := resp.GetJSONSchemaForForm()
-					Expect(jsonSchemaForForm.Properties).To(BeEmpty())
-					Expect(resp.Form.Errors).To(ContainElement(ContainSubstring("Table does not have change tracking enabled.")))
-				})
-			})
-		})
-
-		Describe("when schema is a view", func() {
-
-			It("should have error if table does not have change tracking enabled", func() {
-
-				resp := configureRealTime("RealTimeDuplicateView", RealTimeSettings{
-					Tables: []RealTimeTableSettings{
-						{SchemaID: "[Customers]"},
-					},
-				})
-				dataErrors := resp.GetDataErrorsJSONAsMap()
-				Expect(dataErrors).To(HaveKeyWithValue("tables",
-					ContainElement(HaveKeyWithValue("tableName", ContainSubstring("Table does not have change tracking enabled.")))))
-
-			})
-
-			It("should round trip settings", func() {
-				var actual RealTimeSettings
-				expectedSettings := RealTimeSettings{
-					Tables: []RealTimeTableSettings{
-						{SchemaID: "[RealTime]"},
-					},
-				}
-				resp := configureRealTime("RealTimeDirectView", expectedSettings)
-				unmarshallString(resp.Form.DataJson, &actual)
-				Expect(actual).To(BeEquivalentTo(expectedSettings))
-			})
-
-			Describe("query validation", func() {
-
-				It("should detect invalid query", func(){
-					expectedSettings := RealTimeSettings{
-						Tables: []RealTimeTableSettings{
-							{
-								SchemaID: "[RealTime]",
-								Query:`SELECT [RealTimeDuplicateView].id as [Source.id], [RealTime].id as [Dep.id]
-								FROM RealTimeDuplicateView
-								JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
-							},
-						},
-					}
-					var errs map[string]interface{}
-					resp := configureRealTime("RealTimeDirectView", expectedSettings)
-					unmarshallString(resp.Form.DataErrorsJson, &errs)
-					Expect(errs).To(HaveKeyWithValue("tables",
-						ContainElement(HaveKeyWithValue("query", And(
-							ContainSubstring("[Schema.id]"),
-							ContainSubstring("[Dependency.id]"),
-							)))))
-
-				})
-
-				It("should detect valid query", func(){
-					expectedSettings := RealTimeSettings{
-						Tables: []RealTimeTableSettings{
-							{
-								SchemaID: "[RealTime]",
-								Query:`SELECT [RealTimeDuplicateView].id as [Schema.id], [RealTime].id as [Dependency.id]
-								FROM RealTimeDuplicateView
-								JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
-							},
-						},
-					}
-					var errs map[string]interface{}
-					resp := configureRealTime("RealTimeDirectView", expectedSettings)
-					unmarshallString(resp.Form.DataErrorsJson, &errs)
-					Expect(errs).To(HaveKeyWithValue("tables", ContainElement(Not(HaveKey("query")))))
-				})
-			})
-
-			It("should include tables as the enum for the table property", func() {
-				resp := configureRealTime("RealTimeDirectView", RealTimeSettings{})
-				jsonSchemaForForm := resp.GetJSONSchemaForForm()
-				jsm := GetMapFromJSONSchema(jsonSchemaForForm)
-				Expect(jsm).To(And(
-					HaveKeyWithValue("properties",
-						HaveKeyWithValue("tables",
-							HaveKeyWithValue("items",
-								HaveKeyWithValue("properties",
-									HaveKeyWithValue("schemaID",
-										And(
-											HaveKeyWithValue("enum", ConsistOf([]string{"[CompositeKey]", "[RealTimeAux]", "[RealTime]"}),
-											),
-										),
-									),
-								),
-							),
-						),
-					),
-				))
-			})
-
-		})
-	})
 
 	Describe("DiscoverShapes", func() {
 

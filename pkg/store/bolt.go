@@ -16,6 +16,7 @@ type BoltStore struct {
 var boltLock = new(sync.Mutex)
 var boltPool = map[string]BoltStore{}
 
+
 func GetBoltStore(path string) (BoltStore, error) {
 	boltLock.Lock()
 	defer boltLock.Unlock()

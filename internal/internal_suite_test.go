@@ -67,6 +67,13 @@ var _ = BeforeSuite(func() {
 		JSONFormat: false,
 	})
 
+	envTimeout, ok := os.LookupEnv("TEST_TIMEOUT")
+	if ok {
+		if envTimeoutDuration, err := time.ParseDuration(envTimeout); err == nil {
+			SetDefaultEventuallyTimeout(envTimeoutDuration)
+		}
+	}
+
 	Eventually(func() error { return connectToSQL("master") }, 60*time.Second, time.Second).Should(Succeed())
 
 	_, thisPath, _, _ := runtime.Caller(0)

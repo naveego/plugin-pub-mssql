@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="debug internal_suite_test.go " type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="plugin-pub-mssql" />
+    <working_directory value="$PROJECT_DIR$/internal" />
+    <envs>
+      <env name="TEST_TIMEOUT" value="10m" />
+    </envs>
+    <framework value="gotest" />
+    <kind value="FILE" />
+    <package value="github.com/naveego/plugin-pub-mssql" />
+    <directory value="$PROJECT_DIR$/" />
+    <filePath value="$PROJECT_DIR$/internal/internal_suite_test.go" />
+    <method v="2" />
+  </configuration>
+</component>

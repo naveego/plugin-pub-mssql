@@ -4,9 +4,10 @@ IF NOT EXISTS(SELECT name
   BEGIN
     CREATE DATABASE w3
 
-    ALTER DATABASE [w3] SET change_tracking = ON (change_retention = 14 days)
+    ALTER DATABASE [w3] SET CHANGE_TRACKING = ON (CHANGE_RETENTION = 14 DAYS)
 
     EXEC sp_executesql N'CREATE SCHEMA fact'
+    EXEC sp_executesql N'CREATE SCHEMA dev'
   END
 GO
 ;
@@ -15,7 +16,6 @@ USE w3
 
 GO
 ;
-
 
 IF OBJECT_ID('w3.fact.Orders', 'U') IS NOT NULL
   DROP TABLE w3.fact.Orders;
@@ -39,49 +39,50 @@ IF OBJECT_ID('w3.dbo.RealTimeAux', 'U') IS NOT NULL
 
 CREATE TABLE w3.dbo.CompositeKey
 (
-  id1   int NOT NULL,
-  id2   int NOT NULL,
-  value varchar(10),
+  id1   INT NOT NULL,
+  id2   INT NOT NULL,
+  value VARCHAR(10),
   PRIMARY KEY (id1, id2),
 )
 
 ALTER TABLE w3.dbo.CompositeKey
-  ENABLE change_tracking WITH (track_columns_updated = ON)
+  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
 
 
 CREATE TABLE w3.dbo.RealTime
 (
-  id          int         NOT NULL IDENTITY PRIMARY KEY,
-  ownValue    varchar(10) UNIQUE,
-  mergeValue  varchar(10) NULL,
-  spreadValue varchar(10) NULL,
+  id          INT         NOT NULL IDENTITY PRIMARY KEY,
+  ownValue    VARCHAR(10) UNIQUE,
+  mergeValue  VARCHAR(10) NULL,
+  spreadValue VARCHAR(10) NULL,
 )
 
 ALTER TABLE w3.dbo.RealTime
-  ENABLE change_tracking WITH (track_columns_updated = ON)
+  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
 
 GO
 
-CREATE TABLE w3.dbo.RealTimeAux
-(
-  id          int         NOT NULL IDENTITY PRIMARY KEY,
-  realTimeID  int NOT NULL,
-  data  varchar(10),
-)
-
-GO
-
-ALTER TABLE w3.dbo.RealTimeAux
-  ENABLE change_tracking WITH (track_columns_updated = ON)
-
-
-GO
-;
 CREATE OR ALTER VIEW dbo.[RealTimeDuplicateView] (id, ownValue, mergeValue, spreadValue)
 AS
 SELECT id, ownValue, mergeValue, spreadValue
 FROM w3.dbo.RealTime
 
+GO
+
+CREATE TABLE w3.dbo.RealTimeAux
+(
+  id         INT NOT NULL IDENTITY PRIMARY KEY,
+  realTimeID INT NOT NULL,
+  data       VARCHAR(10),
+)
+
+GO
+
+
+
+
+ALTER TABLE w3.dbo.RealTimeAux
+  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
 
 GO
 ;
@@ -89,8 +90,8 @@ CREATE OR ALTER VIEW dbo.[RealTimeDerivedView] (id, ownValue, data)
 AS
 SELECT RT.id, RT.ownValue, RTA.data
 FROM w3.dbo.RealTime RT
-JOIN w3.dbo.RealTimeAux RTA
-  on RTA.realTimeID = RT.id
+       JOIN w3.dbo.RealTimeAux RTA
+            ON RTA.realTimeID = RT.id
 
 
 GO
@@ -107,56 +108,150 @@ GO
 
 CREATE OR ALTER VIEW dbo.[RealTimeSpreadView] (row, id, ownValue, spreadValue)
 AS
-SELECT ROW_NUMBER() OVER(ORDER BY A.id ASC), A.id, A.ownValue, A.spreadValue
+SELECT ROW_NUMBER() OVER (ORDER BY A.id ASC), A.id, A.ownValue, A.spreadValue
 FROM w3.dbo.RealTime A
-       JOIN w3.dbo.RealTime B on A.spreadValue = b.spreadValue
+       JOIN w3.dbo.RealTime B ON A.spreadValue = b.spreadValue
 WHERE A.spreadValue IS NOT NULL
 GO
 ;
 
 INSERT INTO w3.dbo.RealTime
-values ('a1', 'a', null),
-       ('a2', 'a', null),
-       ('b1', 'b', null),
-       ('b2', 'b', null),
-       ('c1', null, 'c'),
-       ('c2', null, 'c')
+VALUES ('a1', 'a', NULL),
+       ('a2', 'a', NULL),
+       ('b1', 'b', NULL),
+       ('b2', 'b', NULL),
+       ('c1', NULL, 'c'),
+       ('c2', NULL, 'c')
 GO
 
 INSERT INTO w3.dbo.RealTimeAux
-values ( 1, 'a1-data'),
-       ( 2, 'a2-data'),
-       ( 3, 'b1-data'),
-       ( 4, 'b2-data')
+VALUES (1, 'a1-data'),
+       (2, 'a2-data'),
+       (3, 'b1-data'),
+       (4, 'b2-data')
 GO
+
+IF OBJECT_ID('w3.dev.Assignments', 'U') IS NOT NULL
+  DROP TABLE w3.dev.Assignments;
+IF OBJECT_ID('w3.dev.Developers', 'U') IS NOT NULL
+  DROP TABLE w3.dev.Developers;
+IF OBJECT_ID('w3.dev.Tasks', 'U') IS NOT NULL
+  DROP TABLE w3.dev.Tasks;
+IF OBJECT_ID('w3.dev.Sprints', 'U') IS NOT NULL
+  DROP TABLE w3.dev.Sprints;
+
+CREATE TABLE w3.dev.Developers
+(
+  id   INT NOT NULL PRIMARY KEY,
+  name VARCHAR(20) UNIQUE,
+
+)
+ALTER TABLE w3.dev.Developers
+  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
+
+INSERT INTO w3.dev.Developers (id, name)
+  VALUES
+  (1, 'chris'),
+  (2, 'derek'),
+  (3, 'steve'),
+  (4, 'wyatt')
+
+CREATE TABLE w3.dev.Tasks
+(
+  id   INT NOT NULL PRIMARY KEY,
+  name VARCHAR(100) UNIQUE,
+  size int
+)
+ALTER TABLE w3.dev.Tasks
+  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
+
+INSERT INTO w3.dev.Tasks (id, name, size)
+VALUES
+(1, 'DQ Check Execution', 5),
+(2, 'DQ Check Authoring', 8),
+(3, 'Schedule/Execute Writebacks', 5),
+(4, 'Define mappings from target source to shape', 3),
+(5, 'Register target sources to shapes', 3),
+(6, 'Define Target Schemas for Writebacks', 2),
+(7, 'Conditional Mapping Rules', 13),
+(8, 'Publish additional composite record data to kafka', 1),
+(9, 'Update Sage Plugin to Handle Writebacks', 2),
+(10, 'Update Zoho Plugin to handle Writebacks', 8)
+
+CREATE TABLE w3.dev.Sprints
+(
+  id   INT NOT NULL PRIMARY KEY,
+  name VARCHAR(20) UNIQUE,
+)
+ALTER TABLE w3.dev.Sprints
+  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
+INSERT INTO w3.dev.Sprints (id, name)
+VALUES
+(1, '2019s1'),
+(2, '2019s2')
+
+
+CREATE TABLE w3.dev.Assignments
+(
+  id          INT NOT NULL IDENTITY PRIMARY KEY,
+  developerID INT NOT NULL,
+  taskID      INT NOT NULL,
+  sprintID    INT NULL,
+  FOREIGN KEY (developerID) REFERENCES w3.dev.Developers (id),
+  FOREIGN KEY (taskID) REFERENCES w3.dev.Tasks (id),
+  FOREIGN KEY (sprintID) REFERENCES w3.dev.Sprints (id)
+)
+
+ALTER TABLE w3.dev.Assignments
+  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
+
+INSERT INTO w3.dev.Assignments (developerID, taskID, sprintID)
+VALUES
+       (1, 1, 1),
+       (1, 2, 1),
+       (1, 3, 2),
+       (2, 4, 1),
+       (2, 5, 2),
+       (3, 6, 1),
+       (3, 7, 2),
+       (4, 8, 1),
+       (4, 9, 1),
+       (4, 10, 2)
+       ;
+
+GO
+
+
+
+
 
 CREATE TABLE w3.dbo.Types
 (
-  "int"            int NOT NULL PRIMARY KEY,
-  "bigint"         bigint,
-  "numeric"        numeric(18, 5),
-  "bit"            bit,
-  "smallint"       smallint,
-  "decimal"        decimal(18, 4),
-  "smallmoney"     smallmoney,
-  "tinyint"        tinyint,
-  "money"          money,
-  "float"          float,
-  "real"           real,
-  "date"           date,
-  "datetimeoffset" datetimeoffset,
-  "datetime2"      datetime2,
-  "smalldatetime"  smalldatetime,
-  "datetime"       datetime,
-  "time"           time,
-  "char"           char(6),
-  "varchar"        varchar(10),
-  "text"           text,
-  "nchar"          nchar(6),
-  "nvarchar"       nvarchar(10),
-  "ntext"          ntext,
-  "binary"         binary(3),
-  "varbinary"      varbinary(100),
+  "int"            INT NOT NULL PRIMARY KEY,
+  "bigint"         BIGINT,
+  "numeric"        NUMERIC(18, 5),
+  "bit"            BIT,
+  "smallint"       SMALLINT,
+  "decimal"        DECIMAL(18, 4),
+  "smallmoney"     SMALLMONEY,
+  "tinyint"        TINYINT,
+  "money"          MONEY,
+  "float"          FLOAT,
+  "real"           REAL,
+  "date"           DATE,
+  "datetimeoffset" DATETIMEOFFSET,
+  "datetime2"      DATETIME2,
+  "smalldatetime"  SMALLDATETIME,
+  "datetime"       DATETIME,
+  "time"           TIME,
+  "char"           CHAR(6),
+  "varchar"        VARCHAR(10),
+  "text"           TEXT,
+  "nchar"          NCHAR(6),
+  "nvarchar"       NVARCHAR(10),
+  "ntext"          NTEXT,
+  "binary"         BINARY(3),
+  "varbinary"      VARBINARY(100),
 )
 
 
@@ -187,8 +282,8 @@ VALUES (42,
         'nchar',-- nchar
         'nvarchar',-- nvarchar
         'ntext',-- ntext
-        CAST('abc' as BINARY(3)),-- binary
-        CAST('cde' as VARBINARY(6))-- varbinary
+        CAST('abc' AS BINARY(3)),-- binary
+        CAST('cde' AS VARBINARY(6))-- varbinary
        )
 
 GO
@@ -199,7 +294,7 @@ CREATE TABLE w3.dbo.Agents
   "AGENT_CODE"   CHAR(4) NOT NULL PRIMARY KEY,
   "AGENT_NAME"   VARCHAR(40),
   "WORKING_AREA" VARCHAR(35),
-  "COMMISSION"   float,
+  "COMMISSION"   FLOAT,
   "PHONE_NO"     CHAR(12),
   "UPDATED_AT"   DATETIMEOFFSET,
   "BIOGRAPHY"    VARCHAR(MAX)
@@ -210,7 +305,7 @@ GO
 ;
 
 INSERT INTO w3.dbo.Agents
-VALUES ('A007', 'Ramasundar', 'Bangalore', null, '077-25814763', '1969-01-02T00:00:00Z', '');
+VALUES ('A007', 'Ramasundar', 'Bangalore', NULL, '077-25814763', '1969-01-02T00:00:00Z', '');
 INSERT INTO w3.dbo.Agents
 VALUES ('A003', 'Alex', 'London', '0.13', '075-12458969', '1970-01-02T00:00:00Z', '');
 INSERT INTO w3.dbo.Agents
@@ -426,9 +521,10 @@ SELECT WORKING_AREA, COUNT(AGENT_CODE)
 FROM w3.dbo.Agents
 GROUP BY WORKING_AREA;
 
-GO;
+GO
+;
 
 CREATE TABLE w3.dbo.PrePost
 (
-  Message varchar(50)
+  Message VARCHAR(50)
 )
