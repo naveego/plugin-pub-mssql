@@ -137,12 +137,12 @@ func connectToSQL(database string) error {
 
 	db, err = sql.Open("sqlserver", connectionString)
 	if err != nil {
-		log.Error("Error connecting to SQL Server", err)
+		log.Error("Error connecting to SQL Server", "error", err)
 		return err
 	}
 	err = db.Ping()
 	if err != nil {
-		log.Error("Error pinging SQL Server", err)
+		log.Error("Error pinging SQL Server", "error", err)
 		return err
 	}
 
