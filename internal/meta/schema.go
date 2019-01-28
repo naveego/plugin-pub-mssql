@@ -146,10 +146,6 @@ func (c Column) RenderSQLValue(v interface{}) string {
 func (c Column) CastForSelect(expression string) string {
 	baseType := strings.ToLower(strings.Split(c.SQLType, "(")[0])
 	switch (baseType) {
-	case "sql_variant":
-		return expression
-	case "xml":
-		return expression
 	case "datetimeoffset":
 		return expression
 	case "datetime2":
@@ -199,7 +195,9 @@ func (c Column) CastForSelect(expression string) string {
 	case "binary":
 		return expression
 		// these types cannot be used in a DISTINCT, so must be cast to string
-	case "text",
+	case "sql_variant",
+		"xml",
+		"text",
 		"image",
 		"ntext":
 		return fmt.Sprintf("CAST (%s as VARCHAR(MAX))", expression)
