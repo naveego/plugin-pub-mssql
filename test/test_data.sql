@@ -94,7 +94,7 @@ ALTER TABLE w3.dbo.RealTimeAux
   ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
 
 GO
-;
+
 CREATE OR ALTER VIEW dbo.[RealTimeDerivedView] (id, ownValue, data)
 AS
 SELECT RT.id, RT.ownValue, RTA.data

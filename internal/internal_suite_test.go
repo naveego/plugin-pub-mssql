@@ -29,7 +29,7 @@ var (
 	tableSchemaIDs []string
 	viewSchemaIDs  []string
 	testOutput     io.Writer
-	log hclog.Logger
+	log            hclog.Logger
 )
 
 func TestMSSQL(t *testing.T) {
@@ -90,7 +90,9 @@ var _ = BeforeSuite(func() {
 
 	cmds := splitScriptRE.Split(cmdText, -1)
 
+	log.Info("Preparing database.")
 	for _, cmd := range cmds {
+		log.Trace(cmd)
 		Expect(db.Exec(cmd)).ToNot(BeNil(), "should execute command "+cmd)
 	}
 
