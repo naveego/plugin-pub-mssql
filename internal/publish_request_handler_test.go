@@ -108,7 +108,7 @@ var _ = Describe("PublishStream with Real Time", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sqlstructs.UnmarshalRows(rows, &realTimeRecords)).To(Succeed())
 
-			rows, err = db.Query("SELECT * FROM w3.dbo.RealTimeDirectView")
+			rows, err = db.Query("SELECT * FROM w3.dbo.RealTimeDuplicateView")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sqlstructs.UnmarshalRows(rows, &realTimeDuplicateViewRecords)).To(Succeed())
 

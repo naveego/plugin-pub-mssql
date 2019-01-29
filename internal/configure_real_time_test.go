@@ -37,10 +37,8 @@ var _ = Describe("ConfigureRealTime", func() {
 	})
 	Describe("ConfigureRealTime", func() {
 
-		var configureRealTime = func(schemaID string, settings RealTimeSettings) *pub.ConfigureRealTimeResponse {
-			shape := discoverShape(sut, &pub.Shape{
-				Id: schemaID,
-			})
+		var configureRealTime = func(schema *pub.Shape, settings RealTimeSettings) *pub.ConfigureRealTimeResponse {
+			shape := discoverShape(sut, schema)
 			req := (&pub.ConfigureRealTimeRequest{
 				Shape: shape,
 			}).WithData(settings)
@@ -56,7 +54,7 @@ var _ = Describe("ConfigureRealTime", func() {
 		Describe("when schema is table", func() {
 			Describe("when table has change tracking enabled", func() {
 				It("should return a form schema with no properties", func() {
-					resp := configureRealTime("[RealTime]", RealTimeSettings{})
+					resp := configureRealTime(&pub.Shape{Id: "[RealTime]"}, RealTimeSettings{})
 					jsonSchemaForForm := resp.GetJSONSchemaForForm()
 					Expect(jsonSchemaForForm.Properties).To(BeEmpty())
 					Expect(jsonSchemaForForm.Description).ToNot(BeEmpty())
@@ -64,7 +62,7 @@ var _ = Describe("ConfigureRealTime", func() {
 			})
 			Describe("when table does not have change tracking enabled", func() {
 				It("should return an empty form schema with an error", func() {
-					resp := configureRealTime("[Agents]", RealTimeSettings{})
+					resp := configureRealTime(&pub.Shape{Id: "[Agents]"}, RealTimeSettings{})
 					jsonSchemaForForm := resp.GetJSONSchemaForForm()
 					Expect(jsonSchemaForForm.Properties).To(BeEmpty())
 					Expect(resp.Form.Errors).To(ContainElement(ContainSubstring("Table does not have change tracking enabled.")))
@@ -76,7 +74,7 @@ var _ = Describe("ConfigureRealTime", func() {
 
 			It("should have error if table does not have change tracking enabled", func() {
 
-				resp := configureRealTime("RealTimeDuplicateView", RealTimeSettings{
+				resp := configureRealTime(&pub.Shape{Id: "[RealTimeDuplicateView]"}, RealTimeSettings{
 					Tables: []RealTimeTableSettings{
 						{SchemaID: "[Customers]"},
 					},
@@ -94,7 +92,7 @@ var _ = Describe("ConfigureRealTime", func() {
 						{SchemaID: "[RealTime]"},
 					},
 				}
-				resp := configureRealTime("RealTimeDirectView", expectedSettings)
+				resp := configureRealTime(&pub.Shape{Id: "[RealTimeDuplicateView]"}, expectedSettings)
 				unmarshallString(resp.Form.DataJson, &actual)
 				Expect(actual).To(BeEquivalentTo(expectedSettings))
 			})
@@ -113,7 +111,16 @@ var _ = Describe("ConfigureRealTime", func() {
 						},
 					}
 					var errs map[string]interface{}
-					resp := configureRealTime("RealTimeDirectView", expectedSettings)
+					resp := configureRealTime(&pub.Shape{
+						Id: "[RealTimeDuplicateView]",
+						Properties:[]*pub.Property{
+							{Name:"id", Id:"[id]", IsKey:true, Type:pub.PropertyType_INTEGER, TypeAtSource:"int"},
+							{Name:"ownValue", Id:"[ownValue]", Type:pub.PropertyType_STRING, TypeAtSource:"varchar(10)"},
+							{Name:"mergeValue", Id:"[mergeValue]", Type:pub.PropertyType_STRING, TypeAtSource:"varchar(10)"},
+							{Name:"spreadValue", Id:"[spreadValue]", Type:pub.PropertyType_STRING, TypeAtSource:"varchar(10)"},
+						},
+
+					}, expectedSettings)
 					unmarshallString(resp.Form.DataErrorsJson, &errs)
 					Expect(errs).To(HaveKeyWithValue("tables",
 						ContainElement(HaveKeyWithValue("query", And(
@@ -135,14 +142,14 @@ var _ = Describe("ConfigureRealTime", func() {
 						},
 					}
 					var errs map[string]interface{}
-					resp := configureRealTime("RealTimeDirectView", expectedSettings)
+					resp := configureRealTime(&pub.Shape{Id: "[RealTimeDuplicateView]"}, expectedSettings)
 					unmarshallString(resp.Form.DataErrorsJson, &errs)
 					Expect(errs).To(HaveKeyWithValue("tables", ContainElement(Not(HaveKey("query")))))
 				})
 			})
 
 			It("should include tables as the enum for the table property", func() {
-				resp := configureRealTime("RealTimeDirectView", RealTimeSettings{})
+				resp := configureRealTime(&pub.Shape{Id: "[RealTimeDuplicateView]"}, RealTimeSettings{})
 				jsonSchemaForForm := resp.GetJSONSchemaForForm()
 				jsm := GetMapFromJSONSchema(jsonSchemaForForm)
 				Expect(jsm).To(And(
