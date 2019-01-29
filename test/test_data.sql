@@ -72,7 +72,7 @@ ALTER TABLE w3.dbo.RealTime
 
 GO
 
-CREATE OR ALTER VIEW dbo.[RealTimeDuplicateView] (id, ownValue, mergeValue, spreadValue)
+CREATE OR ALTER VIEW w3.dbo.[RealTimeDuplicateView] (id, ownValue, mergeValue, spreadValue)
 AS
 SELECT id, ownValue, mergeValue, spreadValue
 FROM w3.dbo.RealTime
@@ -95,7 +95,7 @@ ALTER TABLE w3.dbo.RealTimeAux
 
 GO
 
-CREATE OR ALTER VIEW dbo.[RealTimeDerivedView] (id, ownValue, data)
+CREATE OR ALTER VIEW  w3.dbo.[RealTimeDerivedView] (id, ownValue, data)
 AS
 SELECT RT.id, RT.ownValue, RTA.data
 FROM w3.dbo.RealTime RT
@@ -106,7 +106,7 @@ FROM w3.dbo.RealTime RT
 GO
 ;
 
-CREATE OR ALTER VIEW dbo.[RealTimeMergeView] (mergeValue, count)
+CREATE OR ALTER VIEW  w3.dbo.[RealTimeMergeView] (mergeValue, count)
 AS
 SELECT mergeValue, count(1)
 FROM w3.dbo.RealTime
@@ -115,7 +115,7 @@ GROUP BY mergeValue
 GO
 ;
 
-CREATE OR ALTER VIEW dbo.[RealTimeSpreadView] (row, id, ownValue, spreadValue)
+CREATE OR ALTER VIEW  w3.dbo.[RealTimeSpreadView] (row, id, ownValue, spreadValue)
 AS
 SELECT ROW_NUMBER() OVER (ORDER BY A.id ASC), A.id, A.ownValue, A.spreadValue
 FROM w3.dbo.RealTime A
