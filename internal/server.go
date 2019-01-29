@@ -338,7 +338,7 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 			s.log.Debug("Getting details for discovered schema", "id", shape.Id)
 			err := s.populateShapeColumns(session, shape)
 			if err != nil {
-				s.log.With("shape", shape.Id).With("err", err).Error("Error discovering columns.")
+				s.log.With("shape", shape.Id).With("err", err).Error("Error discovering columns")
 				shape.Errors = append(shape.Errors, fmt.Sprintf("Could not discover columns: %s", err))
 				goto Done
 			}
@@ -458,11 +458,19 @@ func describeResultSet(session *OpSession, query string) ([]describeResult, erro
 	rows, err := session.DB.Query(metaQuery)
 
 	if err != nil {
-		return nil, errors.Errorf("error getting metadata for query %q: %s", query, err)
+
+		rows, betterErr := session.DB.Query(query)
+		if betterErr == nil {
+			rows.Close()
+			return nil, errors.Errorf("unhelpful error returned by MSSQL when getting metadata for query %q: %s", query, err)
+		} else {
+			return nil, errors.Errorf("error when getting metadata for query %q: %s", query, betterErr)
+		}
 	}
 
 	metadata := make([]describeResult, 0, 0)
 
+	defer rows.Close()
 	err = sqlstructs.UnmarshalRows(rows, &metadata)
 	if err != nil {
 		return nil, errors.Errorf("error parsing metadata for query %q: %s", query, err)

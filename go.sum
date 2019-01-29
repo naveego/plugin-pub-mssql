@@ -69,10 +69,14 @@ github.com/lestrrat-go/strftime v0.0.0-20180821113735-8b31f9c59b0f h1:/o/LRlB6dB
 github.com/lestrrat-go/strftime v0.0.0-20180821113735-8b31f9c59b0f/go.mod h1:RMlXygAD3c48Psmr06d2G75L4E4xxzxkIe/+ppX9eAU=
 github.com/magefile/mage v1.7.1 h1:g42XqBdUeWk9z67wahvc4QjL9eH/nNKjwrOP4GgX0Hw=
 github.com/magefile/mage v1.7.1/go.mod h1:IUDi13rsHje59lecXokTfGX0QIzO45uVPlXnJYsXepA=
+github.com/magefile/mage v1.8.0 h1:mzL+xIopvPURVBwHG9A50JcjBO+xV3b5iZ7khFRI+5E=
+github.com/magefile/mage v1.8.0/go.mod h1:IUDi13rsHje59lecXokTfGX0QIzO45uVPlXnJYsXepA=
 github.com/mitchellh/go-testing-interface v0.0.0-20171004221916-a61a99592b77 h1:7GoSOOW2jpsfkntVKaS2rAr1TJqfcxotyaUcuxoZSzg=
 github.com/mitchellh/go-testing-interface v0.0.0-20171004221916-a61a99592b77/go.mod h1:kRemZodwjscx+RGhAo8eIhFbs2+BFgRtFPeD/KE+zxI=
 github.com/naveego/ci v0.0.0-20181018203920-7ae6fce4428c h1:IRgz1S021CF8X1+fritVeO63UDmm5c4r3oYvvh6JtnU=
 github.com/naveego/ci v0.0.0-20181018203920-7ae6fce4428c/go.mod h1:0JEOznyr2MKsUycZ91bxWsDDVdtzEoTWayoFod070jI=
+github.com/naveego/ci v0.0.0-20181106200225-bbe2ffc37d32 h1:LOk3+GOcJo6oxDrIJd7ZSVU5yCEtsqzNFk3/bcRyFVU=
+github.com/naveego/ci v0.0.0-20181106200225-bbe2ffc37d32/go.mod h1:0JEOznyr2MKsUycZ91bxWsDDVdtzEoTWayoFod070jI=
 github.com/naveego/dataflow-contracts v0.1.0 h1:ddSL6WJ+w7aHsu3owjj7bnMkPORYrK06dZOaA7DS3Cg=
 github.com/naveego/dataflow-contracts v0.1.0/go.mod h1:jPutQKPCUfouzeS2/TzsJoyPrkZPb6k6p6xjvr/tF7c=
 github.com/naveego/dataflow-contracts v0.1.1-0.20190118144515-c6f1f41bcbad h1:0y8aHZmry3taLKtRel+fyqS65tS3aWH7zIxFMzddvBE=

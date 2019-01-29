@@ -250,6 +250,26 @@ var _ = Describe("Server", func() {
 				})
 			})
 
+			Describe("when shape has invalid query defined", func() {
+				It("should return useful error", func() {
+
+					refreshShape := &pub.Shape{
+						Id:    "bogus_table",
+						Name:  "Bogus Data",
+						Query: "SELECT * FROM Bogus",
+					}
+
+					resp, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
+						Mode:       pub.DiscoverShapesRequest_REFRESH,
+						ToRefresh:  []*pub.Shape{refreshShape},
+						SampleSize: 5,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.Shapes).To(HaveLen(1))
+					shape := resp.Shapes[0]
+					Expect(shape.Errors).To(ContainElement(ContainSubstring("Invalid object name")))
+				})
+			})
 		})
 
 	})

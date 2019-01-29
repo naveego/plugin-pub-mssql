@@ -117,13 +117,17 @@ SELECT
 {{- range .SchemaArgs.KeyColumns }}
     {{ uniquify "Bridge" }}.{{ PrefixColumn "Schema" .ID }} AS {{ .OpaqueName }} /*{{ . }}*/, 
 {{- end }}
-    {{ uniquify "CT" }}.SYS_CHANGE_OPERATION as {{ .ChangeOperationColumnName }}         
+    {{ uniquify "CT" }}.SYS_CHANGE_OPERATION as {{ .ChangeOperationColumnName }}
+	-- The change tracking data is the driver for this query         
     FROM 
     (
 	 	SELECT *
         FROM CHANGETABLE(CHANGES {{ .DependencyArgs.ID }}, @minVersion) AS {{ uniquify "CT" }}        	    
 	    WHERE SYS_CHANGE_VERSION <= @maxVersion 
-	) as {{ uniquify "CT" }} 
+	) as {{ uniquify "CT" }}
+	-- We join in the bridge query to get us the rows in the schema which have been affected by the change. 
+	-- It's a left outer join so that if no rows are affected we still get the change keys, so 
+	-- that we can check rows which were previously associated with the changed row to see if they've changed now.
 	LEFT OUTER JOIN 
     (
 {{ .BridgeQuery | indent 8 }}
@@ -217,7 +221,7 @@ LEFT OUTER JOIN
     {{- end }}
 {{- end }}
 {{- if .RowKeys }}
-/* filter the schema records by the row keys */
+/* Now we filter the results down to only those rows that we care about based on the change keys derived from a detected change. */
 RIGHT OUTER JOIN @ChangeKeys as {{ uniquify "ChangeKeys" }}
 	ON {{ with first .SchemaArgs.Keys }}{{ uniquify "SchemaQuery" }}.{{ . }} = {{ uniquify "ChangeKeys" }}.{{ . }}{{end}}
 {{- range rest .SchemaArgs.Keys }}
