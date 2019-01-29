@@ -88,6 +88,15 @@ var _ = BeforeSuite(func() {
 
 	cmdText := string(testDataBytes)
 
+	Expect(db.Exec(`IF NOT EXISTS(SELECT name FROM master.dbo.sysdatabases WHERE name = N'w3')
+  BEGIN
+    CREATE DATABASE w3
+
+    ALTER DATABASE [w3] SET CHANGE_TRACKING = ON (CHANGE_RETENTION = 14 DAYS)
+  END`)).ToNot(BeNil())
+
+	Expect(connectToSQL("w3")).To(Succeed())
+
 	cmds := splitScriptRE.Split(cmdText, -1)
 
 	log.Info("Preparing database.")
@@ -95,8 +104,6 @@ var _ = BeforeSuite(func() {
 		log.Trace(cmd)
 		Expect(db.Exec(cmd)).ToNot(BeNil(), "should execute command "+cmd)
 	}
-
-	Expect(connectToSQL("w3")).To(Succeed())
 
 	rows, err := db.Query(`SELECT TABLE_SCHEMA,TABLE_NAME,TABLE_TYPE
 FROM w3.INFORMATION_SCHEMA.TABLES
