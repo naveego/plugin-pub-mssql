@@ -6,13 +6,23 @@ IF NOT EXISTS(SELECT name
 
     ALTER DATABASE [w3] SET CHANGE_TRACKING = ON (CHANGE_RETENTION = 14 DAYS)
 
-    EXEC sp_executesql N'CREATE SCHEMA fact'
-    EXEC sp_executesql N'CREATE SCHEMA dev'
   END
 GO
-;
-
 USE w3
+
+IF NOT exists(SELECT *
+              FROM sys.schemas
+              WHERE name = 'fact')
+  BEGIN
+    EXEC sp_executesql N'CREATE SCHEMA fact'
+  END;
+IF NOT exists(SELECT *
+              FROM sys.schemas
+              WHERE name = 'dev')
+  BEGIN
+    EXEC sp_executesql N'CREATE SCHEMA dev'
+  END;
+
 
 GO
 ;
@@ -77,7 +87,6 @@ CREATE TABLE w3.dbo.RealTimeAux
 )
 
 GO
-
 
 
 
@@ -150,33 +159,31 @@ ALTER TABLE w3.dev.Developers
   ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
 
 INSERT INTO w3.dev.Developers (id, name)
-  VALUES
-  (1, 'chris'),
-  (2, 'derek'),
-  (3, 'steve'),
-  (4, 'wyatt')
+VALUES (1, 'chris'),
+       (2, 'derek'),
+       (3, 'steve'),
+       (4, 'wyatt')
 
 CREATE TABLE w3.dev.Tasks
 (
   id   INT NOT NULL PRIMARY KEY,
   name VARCHAR(100) UNIQUE,
-  size int
+  size INT
 )
 ALTER TABLE w3.dev.Tasks
   ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
 
 INSERT INTO w3.dev.Tasks (id, name, size)
-VALUES
-(1, 'DQ Check Execution', 5),
-(2, 'DQ Check Authoring', 8),
-(3, 'Schedule/Execute Writebacks', 5),
-(4, 'Define mappings from target source to shape', 3),
-(5, 'Register target sources to shapes', 3),
-(6, 'Define Target Schemas for Writebacks', 2),
-(7, 'Conditional Mapping Rules', 13),
-(8, 'Publish additional composite record data to kafka', 1),
-(9, 'Update Sage Plugin to Handle Writebacks', 2),
-(10, 'Update Zoho Plugin to handle Writebacks', 8)
+VALUES (1, 'DQ Check Execution', 5),
+       (2, 'DQ Check Authoring', 8),
+       (3, 'Schedule/Execute Writebacks', 5),
+       (4, 'Define mappings from target source to shape', 3),
+       (5, 'Register target sources to shapes', 3),
+       (6, 'Define Target Schemas for Writebacks', 2),
+       (7, 'Conditional Mapping Rules', 13),
+       (8, 'Publish additional composite record data to kafka', 1),
+       (9, 'Update Sage Plugin to Handle Writebacks', 2),
+       (10, 'Update Zoho Plugin to handle Writebacks', 8)
 
 CREATE TABLE w3.dev.Sprints
 (
@@ -186,9 +193,8 @@ CREATE TABLE w3.dev.Sprints
 ALTER TABLE w3.dev.Sprints
   ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
 INSERT INTO w3.dev.Sprints (id, name)
-VALUES
-(1, '2019s1'),
-(2, '2019s2')
+VALUES (1, '2019s1'),
+       (2, '2019s2')
 
 
 CREATE TABLE w3.dev.Assignments
@@ -206,8 +212,7 @@ ALTER TABLE w3.dev.Assignments
   ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
 
 INSERT INTO w3.dev.Assignments (developerID, taskID, sprintID)
-VALUES
-       (1, 1, 1),
+VALUES (1, 1, 1),
        (1, 2, 1),
        (1, 3, 2),
        (2, 4, 1),
@@ -216,12 +221,9 @@ VALUES
        (3, 7, 2),
        (4, 8, 1),
        (4, 9, 1),
-       (4, 10, 2)
-       ;
+       (4, 10, 2);
 
 GO
-
-
 
 
 
