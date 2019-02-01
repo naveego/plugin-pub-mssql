@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "pollingInterval": {
+      "type": "string",
+      "description": "Interval between checking for changes. Provide a number and a unit (s = second, m = minute, h = hour). Defaults to 5s.",
+      "default": "5s",
+      "pattern": "\\d+(ms|s|m|h)",
+      "title": "Polling Interval"
+    },
+    "tables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "A query which matches up the primary keys of the the table where change tracking is enabled with the keys of the view or query you are publishing from.",
+            "title": "Query"
+          },
+          "schemaID": {
+            "type": "string",
+            "description": "The table to monitor for changes.",
+            "enum": [
+              "[CompositeKey]",
+              "[RealTimeAux]",
+              "[RealTime]",
+              "[dev].[Assignments]",
+              "[dev].[Developers]",
+              "[dev].[Sprints]",
+              "[dev].[Tasks]"
+            ],
+            "title": "Table"
+          }
+        },
+        "required": [
+          "schemaID"
+        ]
+      },
+      "description": "Add tables which will be checked for changes.",
+      "minLength": 1,
+      "title": "Tables"
+    }
+  },
+  "required": [
+    "pollingInterval"
+  ],
+  "description": "Configure the tables to monitor for changes.",
+  "title": "Real Time Settings"
+}

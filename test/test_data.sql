@@ -10,13 +10,13 @@ IF NOT EXISTS(SELECT name
 GO
 
 IF NOT exists(SELECT *
-              FROM sys.schemas
+              FROM w3.sys.schemas
               WHERE name = 'fact')
   BEGIN
     EXEC sp_executesql N'CREATE SCHEMA fact'
   END;
 IF NOT exists(SELECT *
-              FROM sys.schemas
+              FROM w3.sys.schemas
               WHERE name = 'dev')
   BEGIN
     EXEC sp_executesql N'CREATE SCHEMA dev'
@@ -130,6 +130,11 @@ VALUES ('a1', 'a', NULL),
        ('c1', NULL, 'c'),
        ('c2', NULL, 'c')
 GO
+
+INSERT INTO w3.dbo.RealTime
+VALUES ('test', 'a', NULL)
+
+
 
 INSERT INTO w3.dbo.RealTimeAux
 VALUES (1, 'a1-data'),

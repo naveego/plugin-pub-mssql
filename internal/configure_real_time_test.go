@@ -2,6 +2,7 @@ package internal_test
 
 import (
 	"context"
+	"encoding/json"
 	. "github.com/naveego/plugin-pub-mssql/internal"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	. "github.com/onsi/ginkgo"
@@ -53,18 +54,16 @@ var _ = Describe("ConfigureRealTime", func() {
 
 		Describe("when schema is table", func() {
 			Describe("when table has change tracking enabled", func() {
-				It("should return a form schema with no properties", func() {
+				It("should return a form schema with only the polling property", func() {
 					resp := configureRealTime(&pub.Shape{Id: "[RealTime]"}, RealTimeSettings{})
 					jsonSchemaForForm := resp.GetJSONSchemaForForm()
-					Expect(jsonSchemaForForm.Properties).To(BeEmpty())
+					Expect(jsonSchemaForForm.Properties).To(HaveLen(1))
 					Expect(jsonSchemaForForm.Description).ToNot(BeEmpty())
 				})
 			})
 			Describe("when table does not have change tracking enabled", func() {
-				It("should return an empty form schema with an error", func() {
+				It("should return an form schema with an error", func() {
 					resp := configureRealTime(&pub.Shape{Id: "[Agents]"}, RealTimeSettings{})
-					jsonSchemaForForm := resp.GetJSONSchemaForForm()
-					Expect(jsonSchemaForForm.Properties).To(BeEmpty())
 					Expect(resp.Form.Errors).To(ContainElement(ContainSubstring("Table does not have change tracking enabled.")))
 				})
 			})
@@ -79,11 +78,13 @@ var _ = Describe("ConfigureRealTime", func() {
 						{SchemaID: "[Customers]"},
 					},
 				})
-				dataErrors := resp.GetDataErrorsJSONAsMap()
-				Expect(dataErrors).To(HaveKeyWithValue("tables",
-					ContainElement(HaveKeyWithValue("tableName", ContainSubstring("Table does not have change tracking enabled.")))))
-
-			})
+				var errorMap ErrorMap
+				Expect(json.Unmarshal([]byte(resp.Form.DataErrorsJson), &errorMap)).To(Succeed())
+				errs := errorMap.GetErrors("tables", "0", "schemaID")
+				Expect(errs).To(
+					ContainElement(
+						ContainSubstring("Table does not have change tracking enabled.")))
+				})
 
 			It("should round trip settings", func() {
 				var actual RealTimeSettings
@@ -110,7 +111,6 @@ var _ = Describe("ConfigureRealTime", func() {
 							},
 						},
 					}
-					var errs map[string]interface{}
 					resp := configureRealTime(&pub.Shape{
 						Id: "[RealTimeDuplicateView]",
 						Properties:[]*pub.Property{
@@ -121,13 +121,14 @@ var _ = Describe("ConfigureRealTime", func() {
 						},
 
 					}, expectedSettings)
-					unmarshallString(resp.Form.DataErrorsJson, &errs)
-					Expect(errs).To(HaveKeyWithValue("tables",
-						ContainElement(HaveKeyWithValue("query", And(
+					var errorMap ErrorMap
+					unmarshallString(resp.Form.DataErrorsJson, &errorMap)
+					errs := errorMap.GetErrors("tables", "0", "query")
+					Expect(errs).To(ContainElement(
+						And(
 							ContainSubstring("[Schema.id]"),
 							ContainSubstring("[Dependency.id]"),
-						)))))
-
+						)))
 				})
 
 				It("should detect valid query", func() {
@@ -141,10 +142,11 @@ var _ = Describe("ConfigureRealTime", func() {
 							},
 						},
 					}
-					var errs map[string]interface{}
+					var errorMap ErrorMap
 					resp := configureRealTime(&pub.Shape{Id: "[RealTimeDuplicateView]"}, expectedSettings)
-					unmarshallString(resp.Form.DataErrorsJson, &errs)
-					Expect(errs).To(HaveKeyWithValue("tables", ContainElement(Not(HaveKey("query")))))
+					unmarshallString(resp.Form.DataErrorsJson, &errorMap)
+					errs := errorMap.GetErrors("tables", "0", "query")
+					Expect(errs).To(BeEmpty())
 				})
 			})
 

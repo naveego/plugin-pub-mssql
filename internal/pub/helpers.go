@@ -69,6 +69,14 @@ func (m *ConfigureRealTimeResponse) WithSchema(schema *jsonschema.JSONSchema) *C
 	m.Form.SchemaJson = schema.String()
 	return m
 }
+func (m *ConfigureRealTimeResponse) WithUI(ui map[string]interface{}) *ConfigureRealTimeResponse {
+	if m.Form == nil {
+		m.Form = &ConfigurationFormResponse{}
+	}
+	j, _ := json.MarshalIndent(ui, "", "  ")
+	m.Form.UiJson = string(j)
+	return m
+}
 
 func (m *ConfigureRealTimeResponse) WithFormErrors(errs ...string) *ConfigureRealTimeResponse {
 	if m.Form == nil {
@@ -82,7 +90,7 @@ func (m *ConfigureRealTimeResponse) WithFormErrors(errs ...string) *ConfigureRea
 	return m
 }
 
-func (m *ConfigureRealTimeResponse) GetDataErrorsJSONAsMap() map[string]interface{} {
+func (m *ConfigureRealTimeResponse) GetDataErrorsJSONAsErrorMap() map[string]interface{} {
 	if m.Form == nil {
 		return nil
 	}

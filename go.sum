@@ -14,6 +14,8 @@ github.com/as/hue v0.0.0-20140817061117-4a3906858b4f h1:AYMN7qvpQ4fzJQeiM3hhMQ2k
 github.com/as/hue v0.0.0-20140817061117-4a3906858b4f/go.mod h1:Wcq8v8U7nZmLqPkYiTthbN7ImIc1gXip/kyxbx7sJxE=
 github.com/aws/aws-sdk-go v1.15.44 h1:XIhmST75fI9XXOdRQKw2czRLiT7abSjKLXdhD9jC4Fk=
 github.com/aws/aws-sdk-go v1.15.44/go.mod h1:mFuSZ37Z9YOHbQEwBWztmVzqXrEkub65tZoCYDt7FT0=
+github.com/boltdb/bolt v1.3.1 h1:JQmyP4ZBrce+ZQu0dY660FMfatumYDLun9hBCUVIkF4=
+github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx27Ps=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/coreos/go-semver v0.2.0 h1:3Jm3tLmsgAYcjC+4Up7hJrFBPr+n7rAqYeSw/SZazuY=
 github.com/coreos/go-semver v0.2.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=

@@ -8,6 +8,7 @@ require (
 	github.com/aokoli/goutils v1.1.0 // indirect
 	github.com/as/hue v0.0.0-20140817061117-4a3906858b4f
 	github.com/aws/aws-sdk-go v1.15.44 // indirect
+	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/coreos/go-semver v0.2.0
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denisenkom/go-mssqldb v0.0.0-20180707235734-242fa5aa1b45
