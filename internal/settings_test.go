@@ -16,6 +16,7 @@ var _ = Describe("Settings", func() {
 		settings = *GetTestSettings()
 	})
 
+
 	Describe("Validate", func() {
 
 		It("Should error if host is not set", func() {

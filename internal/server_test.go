@@ -1,19 +1,37 @@
 package internal_test
 
 import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"github.com/hashicorp/go-hclog"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	. "github.com/naveego/plugin-pub-mssql/internal"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
-	"context"
-	"google.golang.org/grpc/metadata"
-	"encoding/json"
-	"encoding/base64"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
-	"fmt"
-	"log"
+	"google.golang.org/grpc/metadata"
+
 )
+
+var discoverShape = func(sut pub.PublisherServer, schema *pub.Shape) *pub.Shape {
+	response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
+		Mode:       pub.DiscoverShapesRequest_REFRESH,
+		SampleSize: 0,
+		ToRefresh: []*pub.Shape{
+			schema,
+		},
+	})
+	Expect(err).ToNot(HaveOccurred())
+	var out *pub.Shape
+	for _, s := range response.Shapes {
+		if s.Id == schema.Id {
+			out = s
+		}
+	}
+	Expect(out).ToNot(BeNil(), "should have discovered requested schema %q in %+v", schema.Id, response.Shapes)
+	return out
+}
 
 var _ = Describe("Server", func() {
 
@@ -26,14 +44,16 @@ var _ = Describe("Server", func() {
 
 		log := hclog.New(&hclog.LoggerOptions{
 			Level:      hclog.Trace,
-			Output:     GinkgoWriter,
-			JSONFormat: true,
+			Output:     testOutput,
+			JSONFormat: false,
 		})
 
 		sut = NewServer(log)
 
 		settings = *GetTestSettings()
 	})
+
+
 
 	Describe("Connect", func() {
 
@@ -54,6 +74,7 @@ var _ = Describe("Server", func() {
 		})
 
 	})
+
 
 	Describe("DiscoverShapes", func() {
 
@@ -83,7 +104,7 @@ var _ = Describe("Server", func() {
 				Expect(ids).To(ContainElement("[fact].[Orders]"), "schema should be included if not dbo")
 				Expect(ids).To(ContainElement("[Agents per Working Area]"), "views should be included")
 
-				Expect(shapes).To(HaveLen(6), "only tables and views should be returned")
+				Expect(shapes).To(HaveLen(len(allSchemaIDs)), "only tables and views should be returned")
 			})
 
 			Describe("shape details", func() {
@@ -100,9 +121,6 @@ var _ = Describe("Server", func() {
 						}
 					}
 					Expect(agents).ToNot(BeNil())
-
-					agentsJSON, _ := json.Marshal(agents)
-					fmt.Println("Agents JSON:", string(agentsJSON))
 				})
 
 				It("should include properties", func() {
@@ -132,10 +150,9 @@ var _ = Describe("Server", func() {
 					}))
 				})
 
-				It("should include count", func() {
+				It("should not include count", func() {
 					Expect(agents.Count).To(Equal(&pub.Count{
-						Kind:  pub.Count_EXACT,
-						Value: 12,
+						Kind: pub.Count_UNAVAILABLE,
 					}))
 				})
 
@@ -189,18 +206,18 @@ var _ = Describe("Server", func() {
 				}))
 			})
 
-			Describe("when shape has query defined", func(){
+			Describe("when shape has query defined", func() {
 				It("should update shape", func() {
 
 					refreshShape := &pub.Shape{
-						Id:   "agent_names",
-						Name: "Agent Names",
+						Id:    "agent_names",
+						Name:  "Agent Names",
 						Query: "SELECT AGENT_CODE, AGENT_NAME AS Name FROM Agents",
 					}
 
 					response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-						Mode:      pub.DiscoverShapesRequest_REFRESH,
-						ToRefresh: []*pub.Shape{refreshShape},
+						Mode:       pub.DiscoverShapesRequest_REFRESH,
+						ToRefresh:  []*pub.Shape{refreshShape},
 						SampleSize: 5,
 					})
 					Expect(err).ToNot(HaveOccurred())
@@ -214,7 +231,7 @@ var _ = Describe("Server", func() {
 						Name:         "AGENT_CODE",
 						Type:         pub.PropertyType_STRING,
 						TypeAtSource: "char(4)",
-						IsKey:		  true,
+						IsKey:        true,
 					}))
 					Expect(properties).To(ContainElement(&pub.Property{
 						Id:           "[Name]",
@@ -233,279 +250,303 @@ var _ = Describe("Server", func() {
 				})
 			})
 
+			Describe("when shape has invalid query defined", func() {
+				It("should return useful error", func() {
 
+					refreshShape := &pub.Shape{
+						Id:    "bogus_table",
+						Name:  "Bogus Data",
+						Query: "SELECT * FROM Bogus",
+					}
+
+					resp, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
+						Mode:       pub.DiscoverShapesRequest_REFRESH,
+						ToRefresh:  []*pub.Shape{refreshShape},
+						SampleSize: 5,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.Shapes).To(HaveLen(1))
+					shape := resp.Shapes[0]
+					Expect(shape.Errors).To(ContainElement(ContainSubstring("Invalid object name")))
+				})
+			})
 		})
 
-		Describe("PublishStream", func() {
+	})
 
-			Describe("pre and post publish queries", func() {
+	Describe("PublishStream", func() {
 
-				var req *pub.PublishRequest
+		BeforeEach(func() {
+			Expect(sut.Connect(context.Background(), pub.NewConnectRequest(settings))).ToNot(BeNil())
+		})
 
-				setup := func(settings Settings) {
-					var prepost *pub.Shape
-					_, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
-					Expect(err).ToNot(HaveOccurred())
+		Describe("pre and post publish queries", func() {
 
-					response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-						Mode:       pub.DiscoverShapesRequest_ALL,
-						SampleSize: 2,
-					})
-					Expect(err).ToNot(HaveOccurred())
-					for _, s := range response.Shapes {
-						if s.Id == "[PrePost]" {
-							prepost = s
-						}
+			var req *pub.PublishRequest
+
+			setup := func(settings Settings) {
+				var prepost *pub.Shape
+				_, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
+				Expect(err).ToNot(HaveOccurred())
+
+				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
+					Mode:       pub.DiscoverShapesRequest_ALL,
+					SampleSize: 2,
+				})
+				Expect(err).ToNot(HaveOccurred())
+				for _, s := range response.Shapes {
+					if s.Id == "[PrePost]" {
+						prepost = s
 					}
-					Expect(prepost).ToNot(BeNil())
-					req = &pub.PublishRequest{
-						Shape: prepost,
-					}
-
-					Expect(db.Exec("delete from w3.dbo.PrePost")).ToNot(BeNil())
-					Expect(db.Exec("insert into w3.dbo.PrePost values ('placeholder')")).ToNot(BeNil())
+				}
+				Expect(prepost).ToNot(BeNil())
+				req = &pub.PublishRequest{
+					Shape: prepost,
 				}
 
-				It("should run pre-publish query", func() {
-					settings.PrePublishQuery = "INSERT INTO w3.dbo.PrePost VALUES ('pre')"
-					setup(settings)
+				Expect(db.Exec("DELETE FROM w3.dbo.PrePost")).ToNot(BeNil())
+				Expect(db.Exec("INSERT INTO w3.dbo.PrePost VALUES ('placeholder')")).ToNot(BeNil())
+			}
 
-					stream := new(publisherStream)
-					Expect(sut.PublishStream(req, stream)).To(Succeed())
-					Expect(stream.err).ToNot(HaveOccurred())
-					Expect(stream.records).To(
-						ContainElement(
-							WithTransform(func(e *pub.Record) string { return e.DataJson },
-								ContainSubstring("pre"))))
-				})
+			It("should run pre-publish query", func() {
+				settings.PrePublishQuery = "INSERT INTO w3.dbo.PrePost VALUES ('pre')"
+				setup(settings)
 
-				It("should run post-publish query", func() {
-					settings.PostPublishQuery = "INSERT INTO w3.dbo.PrePost VALUES ('post')"
-					setup(settings)
-					stream := new(publisherStream)
-					Expect(sut.PublishStream(req, stream)).To(Succeed())
-
-					row := db.QueryRow("select * from w3.dbo.PrePost where Message = 'post'")
-					var msg string
-					Expect(row.Scan(&msg)).To(Succeed())
-					Expect(msg).To(Equal("post"))
-				})
-
-				It("should run post-publish query even if publish fails", func() {
-					settings.PostPublishQuery = "INSERT INTO w3.dbo.PrePost VALUES ('post')"
-					setup(settings)
-					stream := new(publisherStream)
-					stream.err = errors.New("expected")
-
-					Expect(sut.PublishStream(req, stream)).To(MatchError(ContainSubstring("expected")))
-
-					row := db.QueryRow("select * from w3.dbo.PrePost where Message = 'post'")
-					var msg string
-					Expect(row.Scan(&msg)).To(Succeed())
-					Expect(msg).To(Equal("post"))
-				})
-
-				It("should combine post-publish query error with publish error if publish fails", func() {
-					settings.PostPublishQuery = "INSERT INTO w3.dbo.PrePost 'invalid syntax'"
-					setup(settings)
-					stream := new(publisherStream)
-					stream.err = errors.New("expected")
-
-					Expect(sut.PublishStream(req, stream)).To(
-						MatchError(
-							And(
-								ContainSubstring("expected"),
-								ContainSubstring("invalid"),
-							)))
-				})
+				stream := new(publisherStream)
+				Expect(sut.PublishStream(req, stream)).To(Succeed())
+				Expect(stream.err).ToNot(HaveOccurred())
+				Expect(stream.records).To(
+					ContainElement(
+						WithTransform(func(e *pub.Record) string { return e.DataJson },
+							ContainSubstring("pre"))))
 			})
 
-			Describe("filtering", func() {
+			It("should run post-publish query", func() {
+				settings.PostPublishQuery = "INSERT INTO w3.dbo.PrePost VALUES ('post')"
+				setup(settings)
+				stream := new(publisherStream)
+				Expect(sut.PublishStream(req, stream)).To(Succeed())
 
-				var req *pub.PublishRequest
-				BeforeEach(func() {
-					var agents *pub.Shape
-
-					response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-						Mode:       pub.DiscoverShapesRequest_ALL,
-						SampleSize: 2,
-					})
-					Expect(err).ToNot(HaveOccurred())
-					for _, s := range response.Shapes {
-						if s.Id == "[Agents]" {
-							agents = s
-						}
-					}
-					Expect(agents).ToNot(BeNil())
-					req = &pub.PublishRequest{
-						Shape: agents,
-					}
-				})
-
-				It("should publish all when unfiltered", func() {
-					stream := new(publisherStream)
-					Expect(sut.PublishStream(req, stream)).To(Succeed())
-					Expect(stream.err).ToNot(HaveOccurred())
-					Expect(stream.records).To(HaveLen(12))
-
-					var alex map[string]interface{}
-					var ramasundar map[string]interface{}
-					var data []map[string]interface{}
-					for _, record := range stream.records {
-						var d map[string]interface{}
-						Expect(json.Unmarshal([]byte(record.DataJson), &d)).To(Succeed())
-						data = append(data, d)
-						switch d["[AGENT_NAME]"] {
-						case "Alex":
-						log.Printf("found alex: %+v", d)
-							alex = d
-						case "Ramasundar":
-							ramasundar = d
-						}
-					}
-					Expect(alex).ToNot(BeNil(), "should find Alex (code==A003)")
-
-					Expect(alex).To(And(
-						HaveKeyWithValue("[AGENT_CODE]", "A003"),
-						HaveKeyWithValue("[AGENT_NAME]", "Alex"),
-						HaveKeyWithValue("[WORKING_AREA]", "London"),
-						HaveKeyWithValue("[COMMISSION]", float64(0.13)),
-						HaveKeyWithValue("[PHONE_NO]", "075-12458969"),
-						HaveKeyWithValue("[UPDATED_AT]", "1970-01-02T00:00:00Z"),
-						HaveKeyWithValue("[BIOGRAPHY]", ""),
-					))
-
-					Expect(ramasundar).ToNot(BeNil(), "should find ramusander even though it has a null value")
-					Expect(ramasundar).To(And(
-						HaveKeyWithValue("[COMMISSION]", BeNil()),
-					))
-				})
-
-				It("should filter on equality", func() {
-					stream := new(publisherStream)
-					req.Filters = []*pub.PublishFilter{
-						{
-							Kind:       pub.PublishFilter_EQUALS,
-							PropertyId: "[AGENT_CODE]",
-							Value:      "A003",
-						},
-					}
-					Expect(sut.PublishStream(req, stream)).To(Succeed())
-					Expect(stream.err).ToNot(HaveOccurred())
-					Expect(stream.records).To(HaveLen(1))
-					Expect(stream.records[0].DataJson).To(ContainSubstring("Alex"))
-				})
-
-				It("should filter on GREATER_THAN", func() {
-					stream := new(publisherStream)
-					req.Filters = []*pub.PublishFilter{
-						{
-							Kind:       pub.PublishFilter_GREATER_THAN,
-							PropertyId: "[UPDATED_AT]",
-							Value:      "1970-01-02T00:00:00Z",
-						},
-					}
-					Expect(sut.PublishStream(req, stream)).To(Succeed())
-					Expect(stream.err).ToNot(HaveOccurred())
-					Expect(stream.records).To(HaveLen(7))
-				})
-				It("should filter on LESS_THAN", func() {
-					stream := new(publisherStream)
-					req.Filters = []*pub.PublishFilter{
-						{
-							Kind:       pub.PublishFilter_LESS_THAN,
-							PropertyId: "[COMMISSION]",
-							Value:      "0.12",
-						},
-					}
-					Expect(sut.PublishStream(req, stream)).To(Succeed())
-					Expect(stream.err).ToNot(HaveOccurred())
-					Expect(stream.records).To(HaveLen(2))
-				})
+				row := db.QueryRow("SELECT * FROM w3.dbo.PrePost WHERE Message = 'post'")
+				var msg string
+				Expect(row.Scan(&msg)).To(Succeed())
+				Expect(msg).To(Equal("post"))
 			})
 
-			Describe("typing", func() {
+			It("should run post-publish query even if publish fails", func() {
+				settings.PostPublishQuery = "INSERT INTO w3.dbo.PrePost VALUES ('post')"
+				setup(settings)
+				stream := new(publisherStream)
+				stream.err = errors.New("expected")
 
-				var req *pub.PublishRequest
-				BeforeEach(func() {
-					var types *pub.Shape
+				Expect(sut.PublishStream(req, stream)).To(MatchError(ContainSubstring("expected")))
 
-					response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-						Mode:       pub.DiscoverShapesRequest_ALL,
-						SampleSize: 2,
-					})
-					Expect(err).ToNot(HaveOccurred())
-					for _, s := range response.Shapes {
-						if s.Id == "[Types]" {
-							types = s
-						}
-					}
-					Expect(types).ToNot(BeNil())
-					req = &pub.PublishRequest{
-						Shape: types,
-					}
+				row := db.QueryRow("SELECT * FROM w3.dbo.PrePost WHERE Message = 'post'")
+				var msg string
+				Expect(row.Scan(&msg)).To(Succeed())
+				Expect(msg).To(Equal("post"))
+			})
+
+			It("should combine post-publish query error with publish error if publish fails", func() {
+				settings.PostPublishQuery = "INSERT INTO w3.dbo.PrePost 'invalid syntax'"
+				setup(settings)
+				stream := new(publisherStream)
+				stream.err = errors.New("expected")
+
+				Expect(sut.PublishStream(req, stream)).To(
+					MatchError(
+						And(
+							ContainSubstring("expected"),
+							ContainSubstring("invalid"),
+						)))
+			})
+		})
+
+		Describe("filtering", func() {
+
+			var req *pub.PublishRequest
+			BeforeEach(func() {
+				var agents *pub.Shape
+
+				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
+					Mode:       pub.DiscoverShapesRequest_ALL,
+					SampleSize: 2,
 				})
+				Expect(err).ToNot(HaveOccurred())
+				for _, s := range response.Shapes {
+					if s.Id == "[Agents]" {
+						agents = s
+					}
+				}
+				Expect(agents).ToNot(BeNil())
+				req = &pub.PublishRequest{
+					Shape: agents,
+				}
+			})
 
-				It("should publish record with all data in correct format", func() {
-					stream := new(publisherStream)
-					Expect(sut.PublishStream(req, stream)).To(Succeed())
-					Expect(stream.err).ToNot(HaveOccurred())
-					Expect(stream.records).To(HaveLen(1))
-					record := stream.records[0]
-					var data map[string]interface{}
-					Expect(json.Unmarshal([]byte(record.DataJson), &data)).To(Succeed())
+			It("should publish all when unfiltered", func() {
+				stream := new(publisherStream)
+				Expect(sut.PublishStream(req, stream)).To(Succeed())
+				Expect(stream.err).ToNot(HaveOccurred())
+				Expect(stream.records).To(HaveLen(12))
 
-					Expect(data).To(And(
-						HaveKeyWithValue("[int]", BeNumerically("==", 42)),
-						HaveKeyWithValue("[bigint]", Equal("9223372036854775807")),
-						HaveKeyWithValue("[numeric]", Equal("1234.56780")),
-						HaveKeyWithValue("[smallint]", BeNumerically("==", 123)),
-						HaveKeyWithValue("[decimal]", Equal("1234.5678")),
-						HaveKeyWithValue("[smallmoney]", Equal("12.5600")),
-						HaveKeyWithValue("[tinyint]", BeNumerically("==", 12)),
-						HaveKeyWithValue("[money]", Equal("1234.5600")),
-						HaveKeyWithValue("[float]", BeNumerically("~", 123456.789, 1E8)),
-						HaveKeyWithValue("[real]", BeNumerically("~", 123456.789, 1E8)),
-						HaveKeyWithValue("[bit]", true),
-						HaveKeyWithValue("[date]", "1970-01-01T00:00:00Z"),
-						HaveKeyWithValue("[datetimeoffset]", "2007-05-08T12:35:29.1234567+12:15", ),
-						HaveKeyWithValue("[datetime2]", "2007-05-08T12:35:29.1234567Z", ),
-						HaveKeyWithValue("[smalldatetime]", "2007-05-08T12:35:00Z"),
-						HaveKeyWithValue("[datetime]", "2007-05-08T12:35:29.123Z"),
-						HaveKeyWithValue("[time]", "0001-01-01T12:35:29.123Z"),
-						HaveKeyWithValue("[char]", "char  "),
-						HaveKeyWithValue("[varchar]", "abc"),
-						HaveKeyWithValue("[text]", "abc"),
-						HaveKeyWithValue("[nchar]", "nchar "),
-						HaveKeyWithValue("[nvarchar]", "nvarchar"),
-						HaveKeyWithValue("[ntext]", "ntext"),
-						HaveKeyWithValue("[binary]", base64.StdEncoding.EncodeToString([]byte("abc"))),
-						HaveKeyWithValue("[varbinary]", base64.StdEncoding.EncodeToString([]byte("cde"))),
-					))
+				var alex map[string]interface{}
+				var ramasundar map[string]interface{}
+				var data []map[string]interface{}
+				for _, record := range stream.records {
+					var d map[string]interface{}
+					Expect(json.Unmarshal([]byte(record.DataJson), &d)).To(Succeed())
+					data = append(data, d)
+					switch d["[AGENT_NAME]"] {
+					case "Alex":
+						alex = d
+					case "Ramasundar":
+						ramasundar = d
+					}
+				}
+				Expect(alex).ToNot(BeNil(), "should find Alex (code==A003)")
 
+				Expect(alex).To(And(
+					HaveKeyWithValue("[AGENT_CODE]", "A003"),
+					HaveKeyWithValue("[AGENT_NAME]", "Alex"),
+					HaveKeyWithValue("[WORKING_AREA]", "London"),
+					HaveKeyWithValue("[COMMISSION]", float64(0.13)),
+					HaveKeyWithValue("[PHONE_NO]", "075-12458969"),
+					HaveKeyWithValue("[UPDATED_AT]", "1970-01-02T00:00:00Z"),
+					HaveKeyWithValue("[BIOGRAPHY]", ""),
+				))
+
+				Expect(ramasundar).ToNot(BeNil(), "should find ramusander even though it has a null value")
+				Expect(ramasundar).To(And(
+					HaveKeyWithValue("[COMMISSION]", BeNil()),
+				))
+			})
+
+			It("should filter on equality", func() {
+				stream := new(publisherStream)
+				req.Filters = []*pub.PublishFilter{
+					{
+						Kind:       pub.PublishFilter_EQUALS,
+						PropertyId: "[AGENT_CODE]",
+						Value:      "A003",
+					},
+				}
+				Expect(sut.PublishStream(req, stream)).To(Succeed())
+				Expect(stream.err).ToNot(HaveOccurred())
+				Expect(stream.records).To(HaveLen(1))
+				Expect(stream.records[0].DataJson).To(ContainSubstring("Alex"))
+			})
+
+			It("should filter on GREATER_THAN", func() {
+				stream := new(publisherStream)
+				req.Filters = []*pub.PublishFilter{
+					{
+						Kind:       pub.PublishFilter_GREATER_THAN,
+						PropertyId: "[UPDATED_AT]",
+						Value:      "1970-01-02T00:00:00Z",
+					},
+				}
+				Expect(sut.PublishStream(req, stream)).To(Succeed())
+				Expect(stream.err).ToNot(HaveOccurred())
+				Expect(stream.records).To(HaveLen(7))
+			})
+			It("should filter on LESS_THAN", func() {
+				stream := new(publisherStream)
+				req.Filters = []*pub.PublishFilter{
+					{
+						Kind:       pub.PublishFilter_LESS_THAN,
+						PropertyId: "[COMMISSION]",
+						Value:      "0.12",
+					},
+				}
+				Expect(sut.PublishStream(req, stream)).To(Succeed())
+				Expect(stream.err).ToNot(HaveOccurred())
+				Expect(stream.records).To(HaveLen(2))
+			})
+		})
+
+		Describe("typing", func() {
+
+			var req *pub.PublishRequest
+			BeforeEach(func() {
+				var types *pub.Shape
+
+				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
+					Mode:       pub.DiscoverShapesRequest_ALL,
+					SampleSize: 2,
 				})
+				Expect(err).ToNot(HaveOccurred())
+				for _, s := range response.Shapes {
+					if s.Id == "[Types]" {
+						types = s
+					}
+				}
+				Expect(types).ToNot(BeNil())
+				req = &pub.PublishRequest{
+					Shape: types,
+				}
+			})
 
-				Describe("Disconnect", func() {
+			It("should publish record with all data in correct format", func() {
+				stream := new(publisherStream)
+				Expect(sut.PublishStream(req, stream)).To(Succeed())
+				Expect(stream.err).ToNot(HaveOccurred())
+				Expect(stream.records).To(HaveLen(1))
+				record := stream.records[0]
+				var data map[string]interface{}
+				Expect(json.Unmarshal([]byte(record.DataJson), &data)).To(Succeed())
 
-					It("should not be connected after disconnect", func() {
-						Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
+				Expect(data).To(And(
+					HaveKeyWithValue("[int]", BeNumerically("==", 42)),
+					HaveKeyWithValue("[bigint]", Equal("9223372036854775807")),
+					HaveKeyWithValue("[numeric]", Equal("1234.56780")),
+					HaveKeyWithValue("[smallint]", BeNumerically("==", 123)),
+					HaveKeyWithValue("[decimal]", Equal("1234.5678")),
+					HaveKeyWithValue("[smallmoney]", Equal("12.5600")),
+					HaveKeyWithValue("[tinyint]", BeNumerically("==", 12)),
+					HaveKeyWithValue("[money]", Equal("1234.5600")),
+					HaveKeyWithValue("[float]", BeNumerically("~", 123456.789, 1E8)),
+					HaveKeyWithValue("[real]", BeNumerically("~", 123456.789, 1E8)),
+					HaveKeyWithValue("[bit]", true),
+					HaveKeyWithValue("[date]", "1970-01-01T00:00:00Z"),
+					HaveKeyWithValue("[datetimeoffset]", "2007-05-08T12:35:29.1234567+12:15", ),
+					HaveKeyWithValue("[datetime2]", "2007-05-08T12:35:29.1234567Z", ),
+					HaveKeyWithValue("[smalldatetime]", "2007-05-08T12:35:00Z"),
+					HaveKeyWithValue("[datetime]", "2007-05-08T12:35:29.123Z"),
+					HaveKeyWithValue("[time]", "0001-01-01T12:35:29.123Z"),
+					HaveKeyWithValue("[char]", "char  "),
+					HaveKeyWithValue("[varchar]", "abc"),
+					HaveKeyWithValue("[text]", "abc"),
+					HaveKeyWithValue("[nchar]", "nchar "),
+					HaveKeyWithValue("[nvarchar]", "nvarchar"),
+					HaveKeyWithValue("[ntext]", "ntext"),
+					HaveKeyWithValue("[binary]", base64.StdEncoding.EncodeToString([]byte("abc"))),
+					HaveKeyWithValue("[varbinary]", base64.StdEncoding.EncodeToString([]byte("cde"))),
+				))
 
-						_, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{})
-						Expect(err).To(MatchError(ContainSubstring("not connected")))
+			})
 
-						err = sut.PublishStream(&pub.PublishRequest{}, nil)
-						Expect(err).To(MatchError(ContainSubstring("not connected")))
-					})
+			Describe("Disconnect", func() {
 
+				It("should not be connected after disconnect", func() {
+					Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
+
+					_, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{})
+					Expect(err).To(MatchError(ContainSubstring("not connected")))
+
+					err = sut.PublishStream(&pub.PublishRequest{}, nil)
+					Expect(err).To(MatchError(ContainSubstring("not connected")))
 				})
 
 			})
+
 		})
 	})
 })
 
 type publisherStream struct {
 	records []*pub.Record
+	out     chan *pub.Record
 	err     error
 }
 
@@ -514,6 +555,9 @@ func (p *publisherStream) Send(record *pub.Record) error {
 		return p.err
 	}
 	p.records = append(p.records, record)
+	if p.out != nil {
+		p.out <- record
+	}
 	return nil
 }
 
@@ -539,4 +583,9 @@ func (publisherStream) SendMsg(m interface{}) error {
 
 func (publisherStream) RecvMsg(m interface{}) error {
 	panic("implement me")
+}
+
+func unmarshallString(jsn string, out interface{}) {
+	err := json.Unmarshal([]byte(jsn), &out)
+	Expect(err).ToNot(HaveOccurred())
 }

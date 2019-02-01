@@ -5,7 +5,11 @@ package cmd
 import (
 	"fmt"
 	"github.com/hashicorp/go-hclog"
+	"github.com/lestrrat-go/file-rotatelogs"
+	"github.com/pkg/errors"
+	"io"
 	"os"
+	"time"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/naveego/dataflow-contracts/plugins"
@@ -23,13 +27,33 @@ var RootCmd = &cobra.Command{
 	Short: "A publisher that pulls data from SQL.",
 	Long: fmt.Sprintf(`Version %s
 Runs the publisher in externally controlled mode.`, version.Version.String()),
-	Run: func(cmd *cobra.Command, args []string)  {
+	RunE: func(cmd *cobra.Command, args []string)  error {
+
+		logf, err := rotatelogs.New(
+			"./log.%Y%m%d%H%M",
+			rotatelogs.WithLinkName("./log"),
+			rotatelogs.WithMaxAge(24 * time.Hour),
+			rotatelogs.WithRotationTime(time.Hour),
+		)
+		if err != nil {
+			return errors.Wrap(err, "log file")
+		}
 
 		log := hclog.New(&hclog.LoggerOptions{
 			Level:      hclog.Trace,
-			Output:     os.Stderr,
+			Output:     io.MultiWriter(os.Stderr, logf),
 			JSONFormat: true,
 		})
+
+		log.Info("Starting.")
+
+		defer func(){
+			if err := recover(); err != nil{
+				log.Error("panic", "error", err)
+			}
+		}()
+
+		server := internal.NewServer(log)
 
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: plugin.HandshakeConfig{
@@ -38,13 +62,15 @@ Runs the publisher in externally controlled mode.`, version.Version.String()),
 				MagicCookieValue:plugins.PublisherMagicCookieValue,
 			},
 			Plugins: map[string]plugin.Plugin{
-				"publisher": pub.NewServerPlugin(internal.NewServer(log)),
+				"publisher": pub.NewServerPlugin(server),
 			},
 			Logger: log,
 
 			// A non-nil value here enables gRPC serving for this plugin...
 			GRPCServer: plugin.DefaultGRPCServer,
 		})
+
+		return nil
 	}}
 
 func Execute() {

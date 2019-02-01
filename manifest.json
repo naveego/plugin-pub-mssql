@@ -2,8 +2,7 @@
   "id": "pub-mssql",
   "displayName": "Microsoft SQL Server Publisher",
   "description": "Publisher which pulls data from an MS SQL Server instance.",
-  "versionDescription": "Version 2.1.4",
-  "version": "2.1.4",
+  "version": "3.0.0-beta3",
   "iconFile": "icon.png",
   "executable": "plugin-pub-mssql",
   "kind": "publisher",
@@ -11,6 +10,8 @@
   "arch": "$GOARCH",
   "canProduceMultipleSchemas": true,
   "canAcceptQueryBasedSchemas": true,
+  "canConfigureRealTime": true,
+  "canConfigure": true,
   "querySchema": {
     "ui": {
       "ui:widget": "code",

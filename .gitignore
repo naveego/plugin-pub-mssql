@@ -10,6 +10,9 @@ dist/**/*
 # Build outputs
 build/outputs
 
+# manifest copy used by tests:
+internal/manifest.json
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
@@ -66,3 +69,6 @@ fabric.properties
 .idea/httpRequests
 .idea/encodings.xml
 .idea/dataSources.xml
+
+log
+log.*

@@ -23,6 +23,38 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type LogLevel int32
+
+const (
+	LogLevel_Error LogLevel = 0
+	LogLevel_Warn  LogLevel = 1
+	LogLevel_Info  LogLevel = 2
+	LogLevel_Debug LogLevel = 3
+	LogLevel_Trace LogLevel = 4
+)
+
+var LogLevel_name = map[int32]string{
+	0: "Error",
+	1: "Warn",
+	2: "Info",
+	3: "Debug",
+	4: "Trace",
+}
+var LogLevel_value = map[string]int32{
+	"Error": 0,
+	"Warn":  1,
+	"Info":  2,
+	"Debug": 3,
+	"Trace": 4,
+}
+
+func (x LogLevel) String() string {
+	return proto.EnumName(LogLevel_name, int32(x))
+}
+func (LogLevel) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{0}
+}
+
 type PropertyType int32
 
 const (
@@ -85,7 +117,7 @@ func (x PropertyType) String() string {
 	return proto.EnumName(PropertyType_name, int32(x))
 }
 func (PropertyType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{0}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{1}
 }
 
 type PublishFilter_Kind int32
@@ -114,7 +146,7 @@ func (x PublishFilter_Kind) String() string {
 	return proto.EnumName(PublishFilter_Kind_name, int32(x))
 }
 func (PublishFilter_Kind) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{3, 0}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{5, 0}
 }
 
 type DiscoverShapesRequest_Mode int32
@@ -139,7 +171,7 @@ func (x DiscoverShapesRequest_Mode) String() string {
 	return proto.EnumName(DiscoverShapesRequest_Mode_name, int32(x))
 }
 func (DiscoverShapesRequest_Mode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{4, 0}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{6, 0}
 }
 
 type Count_Kind int32
@@ -165,7 +197,7 @@ func (x Count_Kind) String() string {
 	return proto.EnumName(Count_Kind_name, int32(x))
 }
 func (Count_Kind) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{7, 0}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{9, 0}
 }
 
 type Record_Action int32
@@ -175,6 +207,9 @@ const (
 	Record_INSERT Record_Action = 1
 	Record_UPDATE Record_Action = 2
 	Record_DELETE Record_Action = 3
+	// This action indicates that there is no data in this record;
+	// instead the real time state field on this record should be persisted.
+	Record_REAL_TIME_STATE_COMMIT Record_Action = 4
 )
 
 var Record_Action_name = map[int32]string{
@@ -182,25 +217,128 @@ var Record_Action_name = map[int32]string{
 	1: "INSERT",
 	2: "UPDATE",
 	3: "DELETE",
+	4: "REAL_TIME_STATE_COMMIT",
 }
 var Record_Action_value = map[string]int32{
-	"UPSERT": 0,
-	"INSERT": 1,
-	"UPDATE": 2,
-	"DELETE": 3,
+	"UPSERT":                 0,
+	"INSERT":                 1,
+	"UPDATE":                 2,
+	"DELETE":                 3,
+	"REAL_TIME_STATE_COMMIT": 4,
 }
 
 func (x Record_Action) String() string {
 	return proto.EnumName(Record_Action_name, int32(x))
 }
 func (Record_Action) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{11, 0}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{13, 0}
 }
+
+type ConfigureRequest struct {
+	// The level of logging information the plugin should emit.
+	LogLevel LogLevel `protobuf:"varint,1,opt,name=log_level,json=logLevel,proto3,enum=pub.LogLevel" json:"log_level,omitempty"`
+	// Directory where log files should be stored.
+	LogDirectory string `protobuf:"bytes,2,opt,name=log_directory,json=logDirectory,proto3" json:"log_directory,omitempty"`
+	// Directory where the plugin can store data permanently.
+	PermanentDirectory string `protobuf:"bytes,3,opt,name=permanent_directory,json=permanentDirectory,proto3" json:"permanent_directory,omitempty"`
+	// Directory where the plugin can store temporary information which may be deleted.
+	TemporaryDirectory   string   `protobuf:"bytes,4,opt,name=temporary_directory,json=temporaryDirectory,proto3" json:"temporary_directory,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConfigureRequest) Reset()         { *m = ConfigureRequest{} }
+func (m *ConfigureRequest) String() string { return proto.CompactTextString(m) }
+func (*ConfigureRequest) ProtoMessage()    {}
+func (*ConfigureRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{0}
+}
+func (m *ConfigureRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConfigureRequest.Unmarshal(m, b)
+}
+func (m *ConfigureRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConfigureRequest.Marshal(b, m, deterministic)
+}
+func (dst *ConfigureRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureRequest.Merge(dst, src)
+}
+func (m *ConfigureRequest) XXX_Size() int {
+	return xxx_messageInfo_ConfigureRequest.Size(m)
+}
+func (m *ConfigureRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigureRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigureRequest proto.InternalMessageInfo
+
+func (m *ConfigureRequest) GetLogLevel() LogLevel {
+	if m != nil {
+		return m.LogLevel
+	}
+	return LogLevel_Error
+}
+
+func (m *ConfigureRequest) GetLogDirectory() string {
+	if m != nil {
+		return m.LogDirectory
+	}
+	return ""
+}
+
+func (m *ConfigureRequest) GetPermanentDirectory() string {
+	if m != nil {
+		return m.PermanentDirectory
+	}
+	return ""
+}
+
+func (m *ConfigureRequest) GetTemporaryDirectory() string {
+	if m != nil {
+		return m.TemporaryDirectory
+	}
+	return ""
+}
+
+type ConfigureResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConfigureResponse) Reset()         { *m = ConfigureResponse{} }
+func (m *ConfigureResponse) String() string { return proto.CompactTextString(m) }
+func (*ConfigureResponse) ProtoMessage()    {}
+func (*ConfigureResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{1}
+}
+func (m *ConfigureResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConfigureResponse.Unmarshal(m, b)
+}
+func (m *ConfigureResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConfigureResponse.Marshal(b, m, deterministic)
+}
+func (dst *ConfigureResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureResponse.Merge(dst, src)
+}
+func (m *ConfigureResponse) XXX_Size() int {
+	return xxx_messageInfo_ConfigureResponse.Size(m)
+}
+func (m *ConfigureResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigureResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigureResponse proto.InternalMessageInfo
 
 type ConnectRequest struct {
 	// The settings the publisher should use to connect, as a JSON string.
 	// The JSON will be based on the JSONSchema defined in the publisher's package.json.
-	SettingsJson         string   `protobuf:"bytes,2,opt,name=settings_json,json=settingsJson,proto3" json:"settings_json,omitempty"`
+	SettingsJson string `protobuf:"bytes,2,opt,name=settings_json,json=settingsJson,proto3" json:"settings_json,omitempty"`
+	// OAuth configuration information which the plugin may need to
+	// obtain an access token using the OAuth state.
+	OauthConfiguration *OAuthConfiguration `protobuf:"bytes,3,opt,name=oauth_configuration,json=oauthConfiguration,proto3" json:"oauth_configuration,omitempty"`
+	// The OAuth state returned from the last Connect, ConnectSession, or CompleteOAuthFlow.
+	OauthStateJson       string   `protobuf:"bytes,4,opt,name=oauth_state_json,json=oauthStateJson,proto3" json:"oauth_state_json,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -210,7 +348,7 @@ func (m *ConnectRequest) Reset()         { *m = ConnectRequest{} }
 func (m *ConnectRequest) String() string { return proto.CompactTextString(m) }
 func (*ConnectRequest) ProtoMessage()    {}
 func (*ConnectRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{0}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{2}
 }
 func (m *ConnectRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConnectRequest.Unmarshal(m, b)
@@ -237,8 +375,35 @@ func (m *ConnectRequest) GetSettingsJson() string {
 	return ""
 }
 
-// ConnectResponse has no data; if the connect fails, the plugin should return an error.
+func (m *ConnectRequest) GetOauthConfiguration() *OAuthConfiguration {
+	if m != nil {
+		return m.OauthConfiguration
+	}
+	return nil
+}
+
+func (m *ConnectRequest) GetOauthStateJson() string {
+	if m != nil {
+		return m.OauthStateJson
+	}
+	return ""
+}
+
+// Connection result information.
 type ConnectResponse struct {
+	// If connection settings are invalid, this should contain the problem.
+	SettingsError string `protobuf:"bytes,1,opt,name=settings_error,json=settingsError,proto3" json:"settings_error,omitempty"`
+	// If the connection settings appear valid, connecting to the target system failed,
+	// this should contain the error from the target system.
+	ConnectionError string `protobuf:"bytes,2,opt,name=connection_error,json=connectionError,proto3" json:"connection_error,omitempty"`
+	// If the OAuth state is invalid or expired, this should contain a description
+	// of the problem.
+	OauthError string `protobuf:"bytes,3,opt,name=oauth_error,json=oauthError,proto3" json:"oauth_error,omitempty"`
+	// The OAuth data which should be stored securely and passed next time
+	// a connection is requested. This is returned by Connect because
+	// forming the connection may have used up a refresh token and
+	// the new refresh token must now be stored.
+	OauthStateJson       string   `protobuf:"bytes,4,opt,name=oauth_state_json,json=oauthStateJson,proto3" json:"oauth_state_json,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -248,7 +413,7 @@ func (m *ConnectResponse) Reset()         { *m = ConnectResponse{} }
 func (m *ConnectResponse) String() string { return proto.CompactTextString(m) }
 func (*ConnectResponse) ProtoMessage()    {}
 func (*ConnectResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{1}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{3}
 }
 func (m *ConnectResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConnectResponse.Unmarshal(m, b)
@@ -268,23 +433,63 @@ func (m *ConnectResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ConnectResponse proto.InternalMessageInfo
 
+func (m *ConnectResponse) GetSettingsError() string {
+	if m != nil {
+		return m.SettingsError
+	}
+	return ""
+}
+
+func (m *ConnectResponse) GetConnectionError() string {
+	if m != nil {
+		return m.ConnectionError
+	}
+	return ""
+}
+
+func (m *ConnectResponse) GetOauthError() string {
+	if m != nil {
+		return m.OauthError
+	}
+	return ""
+}
+
+func (m *ConnectResponse) GetOauthStateJson() string {
+	if m != nil {
+		return m.OauthStateJson
+	}
+	return ""
+}
+
 type PublishRequest struct {
 	// The shape of the records to publish.
 	Shape *Shape `protobuf:"bytes,1,opt,name=shape,proto3" json:"shape,omitempty"`
 	// Limit of number of records to return.
 	Limit uint32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 	// Zero or more filters which should be applied to the returned records.
-	Filters              []*PublishFilter `protobuf:"bytes,3,rep,name=filters,proto3" json:"filters,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
+	Filters []*PublishFilter `protobuf:"bytes,3,rep,name=filters,proto3" json:"filters,omitempty"`
+	// Settings for real time publishing, if any.
+	RealTimeSettingsJson string `protobuf:"bytes,6,opt,name=real_time_settings_json,json=realTimeSettingsJson,proto3" json:"real_time_settings_json,omitempty"`
+	// State object from the last published record from the
+	// connection used for this publish request.
+	RealTimeStateJson string `protobuf:"bytes,7,opt,name=real_time_state_json,json=realTimeStateJson,proto3" json:"real_time_state_json,omitempty"`
+	// ID for the job which contains the shape, the connection used
+	// to connect before starting this job, the real time settings and state,
+	// and so on. Can be used to persist local state between publishes.
+	JobId string `protobuf:"bytes,8,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	// The data_version is a counter that will be incremented whenever
+	// all data produced for a particular job_id should be discarded.
+	DataVersion          uint32   `protobuf:"varint,9,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *PublishRequest) Reset()         { *m = PublishRequest{} }
 func (m *PublishRequest) String() string { return proto.CompactTextString(m) }
 func (*PublishRequest) ProtoMessage()    {}
 func (*PublishRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{2}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{4}
 }
 func (m *PublishRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PublishRequest.Unmarshal(m, b)
@@ -325,6 +530,34 @@ func (m *PublishRequest) GetFilters() []*PublishFilter {
 	return nil
 }
 
+func (m *PublishRequest) GetRealTimeSettingsJson() string {
+	if m != nil {
+		return m.RealTimeSettingsJson
+	}
+	return ""
+}
+
+func (m *PublishRequest) GetRealTimeStateJson() string {
+	if m != nil {
+		return m.RealTimeStateJson
+	}
+	return ""
+}
+
+func (m *PublishRequest) GetJobId() string {
+	if m != nil {
+		return m.JobId
+	}
+	return ""
+}
+
+func (m *PublishRequest) GetDataVersion() uint32 {
+	if m != nil {
+		return m.DataVersion
+	}
+	return 0
+}
+
 type PublishFilter struct {
 	// Kind of the match.
 	Kind PublishFilter_Kind `protobuf:"varint,1,opt,name=kind,proto3,enum=pub.PublishFilter_Kind" json:"kind,omitempty"`
@@ -342,7 +575,7 @@ func (m *PublishFilter) Reset()         { *m = PublishFilter{} }
 func (m *PublishFilter) String() string { return proto.CompactTextString(m) }
 func (*PublishFilter) ProtoMessage()    {}
 func (*PublishFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{3}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{5}
 }
 func (m *PublishFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PublishFilter.Unmarshal(m, b)
@@ -399,7 +632,7 @@ func (m *DiscoverShapesRequest) Reset()         { *m = DiscoverShapesRequest{} }
 func (m *DiscoverShapesRequest) String() string { return proto.CompactTextString(m) }
 func (*DiscoverShapesRequest) ProtoMessage()    {}
 func (*DiscoverShapesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{4}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{6}
 }
 func (m *DiscoverShapesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DiscoverShapesRequest.Unmarshal(m, b)
@@ -452,7 +685,7 @@ func (m *DiscoverShapesResponse) Reset()         { *m = DiscoverShapesResponse{}
 func (m *DiscoverShapesResponse) String() string { return proto.CompactTextString(m) }
 func (*DiscoverShapesResponse) ProtoMessage()    {}
 func (*DiscoverShapesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{5}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{7}
 }
 func (m *DiscoverShapesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DiscoverShapesResponse.Unmarshal(m, b)
@@ -508,7 +741,7 @@ func (m *Shape) Reset()         { *m = Shape{} }
 func (m *Shape) String() string { return proto.CompactTextString(m) }
 func (*Shape) ProtoMessage()    {}
 func (*Shape) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{6}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{8}
 }
 func (m *Shape) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Shape.Unmarshal(m, b)
@@ -603,7 +836,7 @@ func (m *Count) Reset()         { *m = Count{} }
 func (m *Count) String() string { return proto.CompactTextString(m) }
 func (*Count) ProtoMessage()    {}
 func (*Count) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{7}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{9}
 }
 func (m *Count) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Count.Unmarshal(m, b)
@@ -672,7 +905,7 @@ func (m *Property) Reset()         { *m = Property{} }
 func (m *Property) String() string { return proto.CompactTextString(m) }
 func (*Property) ProtoMessage()    {}
 func (*Property) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{8}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{10}
 }
 func (m *Property) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Property.Unmarshal(m, b)
@@ -772,7 +1005,7 @@ func (m *DisconnectRequest) Reset()         { *m = DisconnectRequest{} }
 func (m *DisconnectRequest) String() string { return proto.CompactTextString(m) }
 func (*DisconnectRequest) ProtoMessage()    {}
 func (*DisconnectRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{9}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{11}
 }
 func (m *DisconnectRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DisconnectRequest.Unmarshal(m, b)
@@ -802,7 +1035,7 @@ func (m *DisconnectResponse) Reset()         { *m = DisconnectResponse{} }
 func (m *DisconnectResponse) String() string { return proto.CompactTextString(m) }
 func (*DisconnectResponse) ProtoMessage()    {}
 func (*DisconnectResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{10}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{12}
 }
 func (m *DisconnectResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DisconnectResponse.Unmarshal(m, b)
@@ -827,7 +1060,14 @@ type Record struct {
 	// cannot determine what the action should be relative to data alreay acquired.
 	Action Record_Action `protobuf:"varint,1,opt,name=action,proto3,enum=pub.Record_Action" json:"action,omitempty"`
 	// Data for this record, as a JSON string.
-	DataJson             string   `protobuf:"bytes,2,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
+	DataJson string `protobuf:"bytes,2,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
+	// State which should be preserved and passed back to the next
+	// call of PublishStream. Only considered if action indicates this is a state commit.
+	RealTimeStateJson string `protobuf:"bytes,3,opt,name=real_time_state_json,json=realTimeStateJson,proto3" json:"real_time_state_json,omitempty"`
+	// Cause for the publish of the record.
+	// If provided, this should be an end-user readable string describing what triggered the publish.
+	// This should only be set for real time published records, where the cause may be interesting.
+	Cause                string   `protobuf:"bytes,4,opt,name=cause,proto3" json:"cause,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -837,7 +1077,7 @@ func (m *Record) Reset()         { *m = Record{} }
 func (m *Record) String() string { return proto.CompactTextString(m) }
 func (*Record) ProtoMessage()    {}
 func (*Record) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_4b5f8e743c135c18, []int{11}
+	return fileDescriptor_publisher_35fdb1933582f001, []int{13}
 }
 func (m *Record) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Record.Unmarshal(m, b)
@@ -871,7 +1111,671 @@ func (m *Record) GetDataJson() string {
 	return ""
 }
 
+func (m *Record) GetRealTimeStateJson() string {
+	if m != nil {
+		return m.RealTimeStateJson
+	}
+	return ""
+}
+
+func (m *Record) GetCause() string {
+	if m != nil {
+		return m.Cause
+	}
+	return ""
+}
+
+type ConfigureQueryRequest struct {
+	// The form state for the request.
+	Form                 *ConfigurationFormRequest `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
+	XXX_unrecognized     []byte                    `json:"-"`
+	XXX_sizecache        int32                     `json:"-"`
+}
+
+func (m *ConfigureQueryRequest) Reset()         { *m = ConfigureQueryRequest{} }
+func (m *ConfigureQueryRequest) String() string { return proto.CompactTextString(m) }
+func (*ConfigureQueryRequest) ProtoMessage()    {}
+func (*ConfigureQueryRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{14}
+}
+func (m *ConfigureQueryRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConfigureQueryRequest.Unmarshal(m, b)
+}
+func (m *ConfigureQueryRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConfigureQueryRequest.Marshal(b, m, deterministic)
+}
+func (dst *ConfigureQueryRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureQueryRequest.Merge(dst, src)
+}
+func (m *ConfigureQueryRequest) XXX_Size() int {
+	return xxx_messageInfo_ConfigureQueryRequest.Size(m)
+}
+func (m *ConfigureQueryRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigureQueryRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigureQueryRequest proto.InternalMessageInfo
+
+func (m *ConfigureQueryRequest) GetForm() *ConfigurationFormRequest {
+	if m != nil {
+		return m.Form
+	}
+	return nil
+}
+
+type ConfigureQueryResponse struct {
+	Form *ConfigurationFormResponse `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
+	// The schema that this query will produce.
+	Shape                *Shape   `protobuf:"bytes,2,opt,name=shape,proto3" json:"shape,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConfigureQueryResponse) Reset()         { *m = ConfigureQueryResponse{} }
+func (m *ConfigureQueryResponse) String() string { return proto.CompactTextString(m) }
+func (*ConfigureQueryResponse) ProtoMessage()    {}
+func (*ConfigureQueryResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{15}
+}
+func (m *ConfigureQueryResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConfigureQueryResponse.Unmarshal(m, b)
+}
+func (m *ConfigureQueryResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConfigureQueryResponse.Marshal(b, m, deterministic)
+}
+func (dst *ConfigureQueryResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureQueryResponse.Merge(dst, src)
+}
+func (m *ConfigureQueryResponse) XXX_Size() int {
+	return xxx_messageInfo_ConfigureQueryResponse.Size(m)
+}
+func (m *ConfigureQueryResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigureQueryResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigureQueryResponse proto.InternalMessageInfo
+
+func (m *ConfigureQueryResponse) GetForm() *ConfigurationFormResponse {
+	if m != nil {
+		return m.Form
+	}
+	return nil
+}
+
+func (m *ConfigureQueryResponse) GetShape() *Shape {
+	if m != nil {
+		return m.Shape
+	}
+	return nil
+}
+
+type ConfigureConnectionRequest struct {
+	// The form state for the request.
+	Form *ConfigurationFormRequest `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
+	// An embedded ConnectRequest to support passing
+	// OAuth secrets into the connection configuration operation.
+	ConnectRequest       *ConnectRequest `protobuf:"bytes,2,opt,name=connect_request,json=connectRequest,proto3" json:"connect_request,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
+}
+
+func (m *ConfigureConnectionRequest) Reset()         { *m = ConfigureConnectionRequest{} }
+func (m *ConfigureConnectionRequest) String() string { return proto.CompactTextString(m) }
+func (*ConfigureConnectionRequest) ProtoMessage()    {}
+func (*ConfigureConnectionRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{16}
+}
+func (m *ConfigureConnectionRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConfigureConnectionRequest.Unmarshal(m, b)
+}
+func (m *ConfigureConnectionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConfigureConnectionRequest.Marshal(b, m, deterministic)
+}
+func (dst *ConfigureConnectionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureConnectionRequest.Merge(dst, src)
+}
+func (m *ConfigureConnectionRequest) XXX_Size() int {
+	return xxx_messageInfo_ConfigureConnectionRequest.Size(m)
+}
+func (m *ConfigureConnectionRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigureConnectionRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigureConnectionRequest proto.InternalMessageInfo
+
+func (m *ConfigureConnectionRequest) GetForm() *ConfigurationFormRequest {
+	if m != nil {
+		return m.Form
+	}
+	return nil
+}
+
+func (m *ConfigureConnectionRequest) GetConnectRequest() *ConnectRequest {
+	if m != nil {
+		return m.ConnectRequest
+	}
+	return nil
+}
+
+type ConfigureConnectionResponse struct {
+	Form *ConfigurationFormResponse `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
+	// An embedded ConnectResponse to support returning
+	// updated OAuth secrets from the connection configuration operation
+	// if the secrets have been updated.
+	ConnectResponse      *ConnectResponse `protobuf:"bytes,2,opt,name=connect_response,json=connectResponse,proto3" json:"connect_response,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
+}
+
+func (m *ConfigureConnectionResponse) Reset()         { *m = ConfigureConnectionResponse{} }
+func (m *ConfigureConnectionResponse) String() string { return proto.CompactTextString(m) }
+func (*ConfigureConnectionResponse) ProtoMessage()    {}
+func (*ConfigureConnectionResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{17}
+}
+func (m *ConfigureConnectionResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConfigureConnectionResponse.Unmarshal(m, b)
+}
+func (m *ConfigureConnectionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConfigureConnectionResponse.Marshal(b, m, deterministic)
+}
+func (dst *ConfigureConnectionResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureConnectionResponse.Merge(dst, src)
+}
+func (m *ConfigureConnectionResponse) XXX_Size() int {
+	return xxx_messageInfo_ConfigureConnectionResponse.Size(m)
+}
+func (m *ConfigureConnectionResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigureConnectionResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigureConnectionResponse proto.InternalMessageInfo
+
+func (m *ConfigureConnectionResponse) GetForm() *ConfigurationFormResponse {
+	if m != nil {
+		return m.Form
+	}
+	return nil
+}
+
+func (m *ConfigureConnectionResponse) GetConnectResponse() *ConnectResponse {
+	if m != nil {
+		return m.ConnectResponse
+	}
+	return nil
+}
+
+type ConfigureRealTimeRequest struct {
+	// The form state for the request.
+	Form *ConfigurationFormRequest `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
+	// The shape (schema) which is being targeted for real time publishing.
+	Shape                *Shape   `protobuf:"bytes,2,opt,name=shape,proto3" json:"shape,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConfigureRealTimeRequest) Reset()         { *m = ConfigureRealTimeRequest{} }
+func (m *ConfigureRealTimeRequest) String() string { return proto.CompactTextString(m) }
+func (*ConfigureRealTimeRequest) ProtoMessage()    {}
+func (*ConfigureRealTimeRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{18}
+}
+func (m *ConfigureRealTimeRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConfigureRealTimeRequest.Unmarshal(m, b)
+}
+func (m *ConfigureRealTimeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConfigureRealTimeRequest.Marshal(b, m, deterministic)
+}
+func (dst *ConfigureRealTimeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureRealTimeRequest.Merge(dst, src)
+}
+func (m *ConfigureRealTimeRequest) XXX_Size() int {
+	return xxx_messageInfo_ConfigureRealTimeRequest.Size(m)
+}
+func (m *ConfigureRealTimeRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigureRealTimeRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigureRealTimeRequest proto.InternalMessageInfo
+
+func (m *ConfigureRealTimeRequest) GetForm() *ConfigurationFormRequest {
+	if m != nil {
+		return m.Form
+	}
+	return nil
+}
+
+func (m *ConfigureRealTimeRequest) GetShape() *Shape {
+	if m != nil {
+		return m.Shape
+	}
+	return nil
+}
+
+type ConfigureRealTimeResponse struct {
+	Form                 *ConfigurationFormResponse `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
+	XXX_unrecognized     []byte                     `json:"-"`
+	XXX_sizecache        int32                      `json:"-"`
+}
+
+func (m *ConfigureRealTimeResponse) Reset()         { *m = ConfigureRealTimeResponse{} }
+func (m *ConfigureRealTimeResponse) String() string { return proto.CompactTextString(m) }
+func (*ConfigureRealTimeResponse) ProtoMessage()    {}
+func (*ConfigureRealTimeResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{19}
+}
+func (m *ConfigureRealTimeResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConfigureRealTimeResponse.Unmarshal(m, b)
+}
+func (m *ConfigureRealTimeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConfigureRealTimeResponse.Marshal(b, m, deterministic)
+}
+func (dst *ConfigureRealTimeResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureRealTimeResponse.Merge(dst, src)
+}
+func (m *ConfigureRealTimeResponse) XXX_Size() int {
+	return xxx_messageInfo_ConfigureRealTimeResponse.Size(m)
+}
+func (m *ConfigureRealTimeResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigureRealTimeResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigureRealTimeResponse proto.InternalMessageInfo
+
+func (m *ConfigureRealTimeResponse) GetForm() *ConfigurationFormResponse {
+	if m != nil {
+		return m.Form
+	}
+	return nil
+}
+
+type ConfigurationFormRequest struct {
+	// JSON object containing the current values of the settings
+	// as entered into the UI.
+	DataJson string `protobuf:"bytes,1,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
+	// Opaque state object from the most recent Configure*Response.
+	StateJson            string   `protobuf:"bytes,2,opt,name=state_json,json=stateJson,proto3" json:"state_json,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConfigurationFormRequest) Reset()         { *m = ConfigurationFormRequest{} }
+func (m *ConfigurationFormRequest) String() string { return proto.CompactTextString(m) }
+func (*ConfigurationFormRequest) ProtoMessage()    {}
+func (*ConfigurationFormRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{20}
+}
+func (m *ConfigurationFormRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConfigurationFormRequest.Unmarshal(m, b)
+}
+func (m *ConfigurationFormRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConfigurationFormRequest.Marshal(b, m, deterministic)
+}
+func (dst *ConfigurationFormRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigurationFormRequest.Merge(dst, src)
+}
+func (m *ConfigurationFormRequest) XXX_Size() int {
+	return xxx_messageInfo_ConfigurationFormRequest.Size(m)
+}
+func (m *ConfigurationFormRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigurationFormRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigurationFormRequest proto.InternalMessageInfo
+
+func (m *ConfigurationFormRequest) GetDataJson() string {
+	if m != nil {
+		return m.DataJson
+	}
+	return ""
+}
+
+func (m *ConfigurationFormRequest) GetStateJson() string {
+	if m != nil {
+		return m.StateJson
+	}
+	return ""
+}
+
+type ConfigurationFormResponse struct {
+	// The JSONSchema which should be used to build the form.
+	SchemaJson string `protobuf:"bytes,1,opt,name=schema_json,json=schemaJson,proto3" json:"schema_json,omitempty"`
+	// The UI hints which should be provided to the form.
+	UiJson string `protobuf:"bytes,2,opt,name=ui_json,json=uiJson,proto3" json:"ui_json,omitempty"`
+	// The state object which should be passed in any future Configure*Request as part of this configuration session.
+	StateJson string `protobuf:"bytes,3,opt,name=state_json,json=stateJson,proto3" json:"state_json,omitempty"`
+	// Current values from the form.
+	DataJson string `protobuf:"bytes,4,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
+	// Errors which should be displayed attached to fields in the form,
+	// in the form of a JSON object with the same shape as the data object,
+	// but the values are arrays of strings containing the error messages.
+	DataErrorsJson string `protobuf:"bytes,5,opt,name=data_errors_json,json=dataErrorsJson,proto3" json:"data_errors_json,omitempty"`
+	// Generic errors which should be displayed at the bottom of the form,
+	// not associated with any specific fields.
+	Errors               []string `protobuf:"bytes,6,rep,name=errors,proto3" json:"errors,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConfigurationFormResponse) Reset()         { *m = ConfigurationFormResponse{} }
+func (m *ConfigurationFormResponse) String() string { return proto.CompactTextString(m) }
+func (*ConfigurationFormResponse) ProtoMessage()    {}
+func (*ConfigurationFormResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{21}
+}
+func (m *ConfigurationFormResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConfigurationFormResponse.Unmarshal(m, b)
+}
+func (m *ConfigurationFormResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConfigurationFormResponse.Marshal(b, m, deterministic)
+}
+func (dst *ConfigurationFormResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigurationFormResponse.Merge(dst, src)
+}
+func (m *ConfigurationFormResponse) XXX_Size() int {
+	return xxx_messageInfo_ConfigurationFormResponse.Size(m)
+}
+func (m *ConfigurationFormResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigurationFormResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigurationFormResponse proto.InternalMessageInfo
+
+func (m *ConfigurationFormResponse) GetSchemaJson() string {
+	if m != nil {
+		return m.SchemaJson
+	}
+	return ""
+}
+
+func (m *ConfigurationFormResponse) GetUiJson() string {
+	if m != nil {
+		return m.UiJson
+	}
+	return ""
+}
+
+func (m *ConfigurationFormResponse) GetStateJson() string {
+	if m != nil {
+		return m.StateJson
+	}
+	return ""
+}
+
+func (m *ConfigurationFormResponse) GetDataJson() string {
+	if m != nil {
+		return m.DataJson
+	}
+	return ""
+}
+
+func (m *ConfigurationFormResponse) GetDataErrorsJson() string {
+	if m != nil {
+		return m.DataErrorsJson
+	}
+	return ""
+}
+
+func (m *ConfigurationFormResponse) GetErrors() []string {
+	if m != nil {
+		return m.Errors
+	}
+	return nil
+}
+
+type BeginOAuthFlowRequest struct {
+	Configuration *OAuthConfiguration `protobuf:"bytes,1,opt,name=configuration,proto3" json:"configuration,omitempty"`
+	// The URL that the auth server should send the authorization token to.
+	RedirectUrl          string   `protobuf:"bytes,2,opt,name=redirect_url,json=redirectUrl,proto3" json:"redirect_url,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *BeginOAuthFlowRequest) Reset()         { *m = BeginOAuthFlowRequest{} }
+func (m *BeginOAuthFlowRequest) String() string { return proto.CompactTextString(m) }
+func (*BeginOAuthFlowRequest) ProtoMessage()    {}
+func (*BeginOAuthFlowRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{22}
+}
+func (m *BeginOAuthFlowRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BeginOAuthFlowRequest.Unmarshal(m, b)
+}
+func (m *BeginOAuthFlowRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BeginOAuthFlowRequest.Marshal(b, m, deterministic)
+}
+func (dst *BeginOAuthFlowRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BeginOAuthFlowRequest.Merge(dst, src)
+}
+func (m *BeginOAuthFlowRequest) XXX_Size() int {
+	return xxx_messageInfo_BeginOAuthFlowRequest.Size(m)
+}
+func (m *BeginOAuthFlowRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_BeginOAuthFlowRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BeginOAuthFlowRequest proto.InternalMessageInfo
+
+func (m *BeginOAuthFlowRequest) GetConfiguration() *OAuthConfiguration {
+	if m != nil {
+		return m.Configuration
+	}
+	return nil
+}
+
+func (m *BeginOAuthFlowRequest) GetRedirectUrl() string {
+	if m != nil {
+		return m.RedirectUrl
+	}
+	return ""
+}
+
+type BeginOAuthFlowResponse struct {
+	// The URL the user should use to start the authorization process.
+	AuthorizationUrl     string   `protobuf:"bytes,1,opt,name=authorization_url,json=authorizationUrl,proto3" json:"authorization_url,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *BeginOAuthFlowResponse) Reset()         { *m = BeginOAuthFlowResponse{} }
+func (m *BeginOAuthFlowResponse) String() string { return proto.CompactTextString(m) }
+func (*BeginOAuthFlowResponse) ProtoMessage()    {}
+func (*BeginOAuthFlowResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{23}
+}
+func (m *BeginOAuthFlowResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BeginOAuthFlowResponse.Unmarshal(m, b)
+}
+func (m *BeginOAuthFlowResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BeginOAuthFlowResponse.Marshal(b, m, deterministic)
+}
+func (dst *BeginOAuthFlowResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BeginOAuthFlowResponse.Merge(dst, src)
+}
+func (m *BeginOAuthFlowResponse) XXX_Size() int {
+	return xxx_messageInfo_BeginOAuthFlowResponse.Size(m)
+}
+func (m *BeginOAuthFlowResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_BeginOAuthFlowResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BeginOAuthFlowResponse proto.InternalMessageInfo
+
+func (m *BeginOAuthFlowResponse) GetAuthorizationUrl() string {
+	if m != nil {
+		return m.AuthorizationUrl
+	}
+	return ""
+}
+
+type CompleteOAuthFlowRequest struct {
+	Configuration *OAuthConfiguration `protobuf:"bytes,1,opt,name=configuration,proto3" json:"configuration,omitempty"`
+	// The URL that the OAuth flow redirected the user to after authentication.
+	// If the response_mode was 'query' this will contain the token.
+	RedirectUrl string `protobuf:"bytes,2,opt,name=redirect_url,json=redirectUrl,proto3" json:"redirect_url,omitempty"`
+	// The body that the OAuth flow caused to be posted if the response_mode
+	// for the redirect was 'form_post'.
+	RedirectBody         string   `protobuf:"bytes,3,opt,name=redirect_body,json=redirectBody,proto3" json:"redirect_body,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CompleteOAuthFlowRequest) Reset()         { *m = CompleteOAuthFlowRequest{} }
+func (m *CompleteOAuthFlowRequest) String() string { return proto.CompactTextString(m) }
+func (*CompleteOAuthFlowRequest) ProtoMessage()    {}
+func (*CompleteOAuthFlowRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{24}
+}
+func (m *CompleteOAuthFlowRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CompleteOAuthFlowRequest.Unmarshal(m, b)
+}
+func (m *CompleteOAuthFlowRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CompleteOAuthFlowRequest.Marshal(b, m, deterministic)
+}
+func (dst *CompleteOAuthFlowRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CompleteOAuthFlowRequest.Merge(dst, src)
+}
+func (m *CompleteOAuthFlowRequest) XXX_Size() int {
+	return xxx_messageInfo_CompleteOAuthFlowRequest.Size(m)
+}
+func (m *CompleteOAuthFlowRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CompleteOAuthFlowRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CompleteOAuthFlowRequest proto.InternalMessageInfo
+
+func (m *CompleteOAuthFlowRequest) GetConfiguration() *OAuthConfiguration {
+	if m != nil {
+		return m.Configuration
+	}
+	return nil
+}
+
+func (m *CompleteOAuthFlowRequest) GetRedirectUrl() string {
+	if m != nil {
+		return m.RedirectUrl
+	}
+	return ""
+}
+
+func (m *CompleteOAuthFlowRequest) GetRedirectBody() string {
+	if m != nil {
+		return m.RedirectBody
+	}
+	return ""
+}
+
+type OAuthConfiguration struct {
+	// Client ID to use for resolving codes.
+	ClientId string `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	// Client secret to use for resolving codes.
+	ClientSecret string `protobuf:"bytes,2,opt,name=client_secret,json=clientSecret,proto3" json:"client_secret,omitempty"`
+	// The configuration blob stored for this plugin type,
+	// which can contain any data that should not be hard coded into the plugin.
+	ConfigurationJson    string   `protobuf:"bytes,3,opt,name=configuration_json,json=configurationJson,proto3" json:"configuration_json,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *OAuthConfiguration) Reset()         { *m = OAuthConfiguration{} }
+func (m *OAuthConfiguration) String() string { return proto.CompactTextString(m) }
+func (*OAuthConfiguration) ProtoMessage()    {}
+func (*OAuthConfiguration) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{25}
+}
+func (m *OAuthConfiguration) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_OAuthConfiguration.Unmarshal(m, b)
+}
+func (m *OAuthConfiguration) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_OAuthConfiguration.Marshal(b, m, deterministic)
+}
+func (dst *OAuthConfiguration) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OAuthConfiguration.Merge(dst, src)
+}
+func (m *OAuthConfiguration) XXX_Size() int {
+	return xxx_messageInfo_OAuthConfiguration.Size(m)
+}
+func (m *OAuthConfiguration) XXX_DiscardUnknown() {
+	xxx_messageInfo_OAuthConfiguration.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_OAuthConfiguration proto.InternalMessageInfo
+
+func (m *OAuthConfiguration) GetClientId() string {
+	if m != nil {
+		return m.ClientId
+	}
+	return ""
+}
+
+func (m *OAuthConfiguration) GetClientSecret() string {
+	if m != nil {
+		return m.ClientSecret
+	}
+	return ""
+}
+
+func (m *OAuthConfiguration) GetConfigurationJson() string {
+	if m != nil {
+		return m.ConfigurationJson
+	}
+	return ""
+}
+
+type CompleteOAuthFlowResponse struct {
+	// JSON data containing the OAuth information the plugin wants
+	// to be passed to any connect request.
+	OauthStateJson       string   `protobuf:"bytes,1,opt,name=oauth_state_json,json=oauthStateJson,proto3" json:"oauth_state_json,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CompleteOAuthFlowResponse) Reset()         { *m = CompleteOAuthFlowResponse{} }
+func (m *CompleteOAuthFlowResponse) String() string { return proto.CompactTextString(m) }
+func (*CompleteOAuthFlowResponse) ProtoMessage()    {}
+func (*CompleteOAuthFlowResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_publisher_35fdb1933582f001, []int{26}
+}
+func (m *CompleteOAuthFlowResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CompleteOAuthFlowResponse.Unmarshal(m, b)
+}
+func (m *CompleteOAuthFlowResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CompleteOAuthFlowResponse.Marshal(b, m, deterministic)
+}
+func (dst *CompleteOAuthFlowResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CompleteOAuthFlowResponse.Merge(dst, src)
+}
+func (m *CompleteOAuthFlowResponse) XXX_Size() int {
+	return xxx_messageInfo_CompleteOAuthFlowResponse.Size(m)
+}
+func (m *CompleteOAuthFlowResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_CompleteOAuthFlowResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CompleteOAuthFlowResponse proto.InternalMessageInfo
+
+func (m *CompleteOAuthFlowResponse) GetOauthStateJson() string {
+	if m != nil {
+		return m.OauthStateJson
+	}
+	return ""
+}
+
 func init() {
+	proto.RegisterType((*ConfigureRequest)(nil), "pub.ConfigureRequest")
+	proto.RegisterType((*ConfigureResponse)(nil), "pub.ConfigureResponse")
 	proto.RegisterType((*ConnectRequest)(nil), "pub.ConnectRequest")
 	proto.RegisterType((*ConnectResponse)(nil), "pub.ConnectResponse")
 	proto.RegisterType((*PublishRequest)(nil), "pub.PublishRequest")
@@ -884,6 +1788,20 @@ func init() {
 	proto.RegisterType((*DisconnectRequest)(nil), "pub.DisconnectRequest")
 	proto.RegisterType((*DisconnectResponse)(nil), "pub.DisconnectResponse")
 	proto.RegisterType((*Record)(nil), "pub.Record")
+	proto.RegisterType((*ConfigureQueryRequest)(nil), "pub.ConfigureQueryRequest")
+	proto.RegisterType((*ConfigureQueryResponse)(nil), "pub.ConfigureQueryResponse")
+	proto.RegisterType((*ConfigureConnectionRequest)(nil), "pub.ConfigureConnectionRequest")
+	proto.RegisterType((*ConfigureConnectionResponse)(nil), "pub.ConfigureConnectionResponse")
+	proto.RegisterType((*ConfigureRealTimeRequest)(nil), "pub.ConfigureRealTimeRequest")
+	proto.RegisterType((*ConfigureRealTimeResponse)(nil), "pub.ConfigureRealTimeResponse")
+	proto.RegisterType((*ConfigurationFormRequest)(nil), "pub.ConfigurationFormRequest")
+	proto.RegisterType((*ConfigurationFormResponse)(nil), "pub.ConfigurationFormResponse")
+	proto.RegisterType((*BeginOAuthFlowRequest)(nil), "pub.BeginOAuthFlowRequest")
+	proto.RegisterType((*BeginOAuthFlowResponse)(nil), "pub.BeginOAuthFlowResponse")
+	proto.RegisterType((*CompleteOAuthFlowRequest)(nil), "pub.CompleteOAuthFlowRequest")
+	proto.RegisterType((*OAuthConfiguration)(nil), "pub.OAuthConfiguration")
+	proto.RegisterType((*CompleteOAuthFlowResponse)(nil), "pub.CompleteOAuthFlowResponse")
+	proto.RegisterEnum("pub.LogLevel", LogLevel_name, LogLevel_value)
 	proto.RegisterEnum("pub.PropertyType", PropertyType_name, PropertyType_value)
 	proto.RegisterEnum("pub.PublishFilter_Kind", PublishFilter_Kind_name, PublishFilter_Kind_value)
 	proto.RegisterEnum("pub.DiscoverShapesRequest_Mode", DiscoverShapesRequest_Mode_name, DiscoverShapesRequest_Mode_value)
@@ -903,8 +1821,16 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type PublisherClient interface {
+	// Configures the plugin.
+	Configure(ctx context.Context, in *ConfigureRequest, opts ...grpc.CallOption) (*ConfigureResponse, error)
 	// Instructs the publisher to connect to its data source.
 	Connect(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (*ConnectResponse, error)
+	// Instructs the plugin to connect to its data source
+	// and maintain a session where any change in the connection state
+	// or updates to OAuth information are streamed back to the host.
+	// The plugin should maintain this connection until Disconnect is called.
+	// This must be implemented if the plugin manifest has `canUseOAuth` set to true.
+	ConnectSession(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (Publisher_ConnectSessionClient, error)
 	// Requests a listing of shapes this publisher can provide records for.
 	DiscoverShapes(ctx context.Context, in *DiscoverShapesRequest, opts ...grpc.CallOption) (*DiscoverShapesResponse, error)
 	// PublishString begins streaming records to the client from the plugin.
@@ -912,6 +1838,22 @@ type PublisherClient interface {
 	// Tells the publisher to disconnect from its data source, stop any running publishes,
 	// and gracefully prepare to be shut down.
 	Disconnect(ctx context.Context, in *DisconnectRequest, opts ...grpc.CallOption) (*DisconnectResponse, error)
+	// Configures a connection which can be used to connect to a data source.
+	// This must be implemented if the plugin manifest has `canConfigureConnection` set to true.
+	// This is an alternative to having a `configSchema` element in the manifest.
+	ConfigureConnection(ctx context.Context, in *ConfigureConnectionRequest, opts ...grpc.CallOption) (*ConfigureConnectionResponse, error)
+	// Configures a query which can be used to publish a shape.
+	// This must be implemented if the plugin manifest has `canConfigureQuery` set to true.
+	ConfigureQuery(ctx context.Context, in *ConfigureQueryRequest, opts ...grpc.CallOption) (*ConfigureQueryResponse, error)
+	// Configures settings for real time publishing (change detection).
+	// This must be implemented if the plugin manifest has `canPublishRealTime` set to true.
+	ConfigureRealTime(ctx context.Context, in *ConfigureRealTimeRequest, opts ...grpc.CallOption) (*ConfigureRealTimeResponse, error)
+	// Invoked to begin an OAuth flow. This must be implemented if the plugin
+	// manifest has `canUseOAuth` set to true.
+	BeginOAuthFlow(ctx context.Context, in *BeginOAuthFlowRequest, opts ...grpc.CallOption) (*BeginOAuthFlowResponse, error)
+	// Invoked to complete an OAuth flow. This must be implemented if the plugin
+	// manifest has `canUseOAuth` set to true.
+	CompleteOAuthFlow(ctx context.Context, in *CompleteOAuthFlowRequest, opts ...grpc.CallOption) (*CompleteOAuthFlowResponse, error)
 }
 
 type publisherClient struct {
@@ -922,6 +1864,15 @@ func NewPublisherClient(cc *grpc.ClientConn) PublisherClient {
 	return &publisherClient{cc}
 }
 
+func (c *publisherClient) Configure(ctx context.Context, in *ConfigureRequest, opts ...grpc.CallOption) (*ConfigureResponse, error) {
+	out := new(ConfigureResponse)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/Configure", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *publisherClient) Connect(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (*ConnectResponse, error) {
 	out := new(ConnectResponse)
 	err := c.cc.Invoke(ctx, "/pub.Publisher/Connect", in, out, opts...)
@@ -929,6 +1880,38 @@ func (c *publisherClient) Connect(ctx context.Context, in *ConnectRequest, opts 
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *publisherClient) ConnectSession(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (Publisher_ConnectSessionClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Publisher_serviceDesc.Streams[0], "/pub.Publisher/ConnectSession", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &publisherConnectSessionClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Publisher_ConnectSessionClient interface {
+	Recv() (*ConnectResponse, error)
+	grpc.ClientStream
+}
+
+type publisherConnectSessionClient struct {
+	grpc.ClientStream
+}
+
+func (x *publisherConnectSessionClient) Recv() (*ConnectResponse, error) {
+	m := new(ConnectResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *publisherClient) DiscoverShapes(ctx context.Context, in *DiscoverShapesRequest, opts ...grpc.CallOption) (*DiscoverShapesResponse, error) {
@@ -941,7 +1924,7 @@ func (c *publisherClient) DiscoverShapes(ctx context.Context, in *DiscoverShapes
 }
 
 func (c *publisherClient) PublishStream(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (Publisher_PublishStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Publisher_serviceDesc.Streams[0], "/pub.Publisher/PublishStream", opts...)
+	stream, err := c.cc.NewStream(ctx, &_Publisher_serviceDesc.Streams[1], "/pub.Publisher/PublishStream", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -981,10 +1964,63 @@ func (c *publisherClient) Disconnect(ctx context.Context, in *DisconnectRequest,
 	return out, nil
 }
 
+func (c *publisherClient) ConfigureConnection(ctx context.Context, in *ConfigureConnectionRequest, opts ...grpc.CallOption) (*ConfigureConnectionResponse, error) {
+	out := new(ConfigureConnectionResponse)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/ConfigureConnection", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *publisherClient) ConfigureQuery(ctx context.Context, in *ConfigureQueryRequest, opts ...grpc.CallOption) (*ConfigureQueryResponse, error) {
+	out := new(ConfigureQueryResponse)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/ConfigureQuery", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *publisherClient) ConfigureRealTime(ctx context.Context, in *ConfigureRealTimeRequest, opts ...grpc.CallOption) (*ConfigureRealTimeResponse, error) {
+	out := new(ConfigureRealTimeResponse)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/ConfigureRealTime", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *publisherClient) BeginOAuthFlow(ctx context.Context, in *BeginOAuthFlowRequest, opts ...grpc.CallOption) (*BeginOAuthFlowResponse, error) {
+	out := new(BeginOAuthFlowResponse)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/BeginOAuthFlow", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *publisherClient) CompleteOAuthFlow(ctx context.Context, in *CompleteOAuthFlowRequest, opts ...grpc.CallOption) (*CompleteOAuthFlowResponse, error) {
+	out := new(CompleteOAuthFlowResponse)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/CompleteOAuthFlow", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PublisherServer is the server API for Publisher service.
 type PublisherServer interface {
+	// Configures the plugin.
+	Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error)
 	// Instructs the publisher to connect to its data source.
 	Connect(context.Context, *ConnectRequest) (*ConnectResponse, error)
+	// Instructs the plugin to connect to its data source
+	// and maintain a session where any change in the connection state
+	// or updates to OAuth information are streamed back to the host.
+	// The plugin should maintain this connection until Disconnect is called.
+	// This must be implemented if the plugin manifest has `canUseOAuth` set to true.
+	ConnectSession(*ConnectRequest, Publisher_ConnectSessionServer) error
 	// Requests a listing of shapes this publisher can provide records for.
 	DiscoverShapes(context.Context, *DiscoverShapesRequest) (*DiscoverShapesResponse, error)
 	// PublishString begins streaming records to the client from the plugin.
@@ -992,10 +2028,44 @@ type PublisherServer interface {
 	// Tells the publisher to disconnect from its data source, stop any running publishes,
 	// and gracefully prepare to be shut down.
 	Disconnect(context.Context, *DisconnectRequest) (*DisconnectResponse, error)
+	// Configures a connection which can be used to connect to a data source.
+	// This must be implemented if the plugin manifest has `canConfigureConnection` set to true.
+	// This is an alternative to having a `configSchema` element in the manifest.
+	ConfigureConnection(context.Context, *ConfigureConnectionRequest) (*ConfigureConnectionResponse, error)
+	// Configures a query which can be used to publish a shape.
+	// This must be implemented if the plugin manifest has `canConfigureQuery` set to true.
+	ConfigureQuery(context.Context, *ConfigureQueryRequest) (*ConfigureQueryResponse, error)
+	// Configures settings for real time publishing (change detection).
+	// This must be implemented if the plugin manifest has `canPublishRealTime` set to true.
+	ConfigureRealTime(context.Context, *ConfigureRealTimeRequest) (*ConfigureRealTimeResponse, error)
+	// Invoked to begin an OAuth flow. This must be implemented if the plugin
+	// manifest has `canUseOAuth` set to true.
+	BeginOAuthFlow(context.Context, *BeginOAuthFlowRequest) (*BeginOAuthFlowResponse, error)
+	// Invoked to complete an OAuth flow. This must be implemented if the plugin
+	// manifest has `canUseOAuth` set to true.
+	CompleteOAuthFlow(context.Context, *CompleteOAuthFlowRequest) (*CompleteOAuthFlowResponse, error)
 }
 
 func RegisterPublisherServer(s *grpc.Server, srv PublisherServer) {
 	s.RegisterService(&_Publisher_serviceDesc, srv)
+}
+
+func _Publisher_Configure_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfigureRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PublisherServer).Configure(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pub.Publisher/Configure",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PublisherServer).Configure(ctx, req.(*ConfigureRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Publisher_Connect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1014,6 +2084,27 @@ func _Publisher_Connect_Handler(srv interface{}, ctx context.Context, dec func(i
 		return srv.(PublisherServer).Connect(ctx, req.(*ConnectRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _Publisher_ConnectSession_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ConnectRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(PublisherServer).ConnectSession(m, &publisherConnectSessionServer{stream})
+}
+
+type Publisher_ConnectSessionServer interface {
+	Send(*ConnectResponse) error
+	grpc.ServerStream
+}
+
+type publisherConnectSessionServer struct {
+	grpc.ServerStream
+}
+
+func (x *publisherConnectSessionServer) Send(m *ConnectResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _Publisher_DiscoverShapes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1073,10 +2164,104 @@ func _Publisher_Disconnect_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Publisher_ConfigureConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfigureConnectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PublisherServer).ConfigureConnection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pub.Publisher/ConfigureConnection",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PublisherServer).ConfigureConnection(ctx, req.(*ConfigureConnectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Publisher_ConfigureQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfigureQueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PublisherServer).ConfigureQuery(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pub.Publisher/ConfigureQuery",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PublisherServer).ConfigureQuery(ctx, req.(*ConfigureQueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Publisher_ConfigureRealTime_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfigureRealTimeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PublisherServer).ConfigureRealTime(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pub.Publisher/ConfigureRealTime",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PublisherServer).ConfigureRealTime(ctx, req.(*ConfigureRealTimeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Publisher_BeginOAuthFlow_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BeginOAuthFlowRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PublisherServer).BeginOAuthFlow(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pub.Publisher/BeginOAuthFlow",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PublisherServer).BeginOAuthFlow(ctx, req.(*BeginOAuthFlowRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Publisher_CompleteOAuthFlow_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteOAuthFlowRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PublisherServer).CompleteOAuthFlow(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pub.Publisher/CompleteOAuthFlow",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PublisherServer).CompleteOAuthFlow(ctx, req.(*CompleteOAuthFlowRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Publisher_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pub.Publisher",
 	HandlerType: (*PublisherServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Configure",
+			Handler:    _Publisher_Configure_Handler,
+		},
 		{
 			MethodName: "Connect",
 			Handler:    _Publisher_Connect_Handler,
@@ -1089,8 +2274,33 @@ var _Publisher_serviceDesc = grpc.ServiceDesc{
 			MethodName: "Disconnect",
 			Handler:    _Publisher_Disconnect_Handler,
 		},
+		{
+			MethodName: "ConfigureConnection",
+			Handler:    _Publisher_ConfigureConnection_Handler,
+		},
+		{
+			MethodName: "ConfigureQuery",
+			Handler:    _Publisher_ConfigureQuery_Handler,
+		},
+		{
+			MethodName: "ConfigureRealTime",
+			Handler:    _Publisher_ConfigureRealTime_Handler,
+		},
+		{
+			MethodName: "BeginOAuthFlow",
+			Handler:    _Publisher_BeginOAuthFlow_Handler,
+		},
+		{
+			MethodName: "CompleteOAuthFlow",
+			Handler:    _Publisher_CompleteOAuthFlow_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "ConnectSession",
+			Handler:       _Publisher_ConnectSession_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "PublishStream",
 			Handler:       _Publisher_PublishStream_Handler,
@@ -1100,71 +2310,124 @@ var _Publisher_serviceDesc = grpc.ServiceDesc{
 	Metadata: "publisher.proto",
 }
 
-func init() { proto.RegisterFile("publisher.proto", fileDescriptor_publisher_4b5f8e743c135c18) }
+func init() { proto.RegisterFile("publisher.proto", fileDescriptor_publisher_35fdb1933582f001) }
 
-var fileDescriptor_publisher_4b5f8e743c135c18 = []byte{
-	// 1005 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0xd1, 0x6e, 0xdb, 0x36,
-	0x14, 0xb5, 0x64, 0x5b, 0xb6, 0xae, 0x13, 0x47, 0x61, 0xd2, 0x54, 0x48, 0x07, 0xd4, 0x50, 0x37,
-	0x20, 0xcb, 0x36, 0xa3, 0x48, 0xd0, 0x61, 0x0f, 0x03, 0x06, 0xc5, 0x51, 0x52, 0x37, 0xb2, 0x93,
-	0x51, 0xca, 0x90, 0x37, 0x41, 0xb1, 0xd8, 0x85, 0xab, 0x2d, 0xa9, 0xa2, 0x14, 0xc0, 0xfd, 0x82,
-	0x01, 0x7b, 0xdb, 0x1f, 0xec, 0x6d, 0x5f, 0xb0, 0xbf, 0xd9, 0xbf, 0x0c, 0x24, 0x25, 0x47, 0x5e,
-	0xba, 0x87, 0x01, 0x7d, 0x23, 0xcf, 0x3d, 0xe2, 0xbd, 0xba, 0xe7, 0xf0, 0x12, 0xb6, 0xd2, 0xe2,
-	0x76, 0x4e, 0xd9, 0x1d, 0xc9, 0x86, 0x69, 0x96, 0xe4, 0x09, 0x6a, 0xa6, 0xc5, 0xad, 0xf5, 0x0a,
-	0xfa, 0xa3, 0x24, 0x8e, 0xc9, 0x2c, 0xc7, 0xe4, 0x7d, 0x41, 0x58, 0x8e, 0x5e, 0xc0, 0x26, 0x23,
-	0x79, 0x4e, 0xe3, 0x9f, 0x59, 0xf0, 0x0b, 0x4b, 0x62, 0x53, 0x1d, 0x28, 0x07, 0x3a, 0xde, 0xa8,
-	0xc0, 0x37, 0x2c, 0x89, 0xad, 0x6d, 0xd8, 0x5a, 0x7d, 0xc6, 0xd2, 0x24, 0x66, 0xc4, 0xba, 0x87,
-	0xfe, 0x95, 0xcc, 0x50, 0x9d, 0x34, 0x80, 0x36, 0xbb, 0x0b, 0x53, 0x62, 0x2a, 0x03, 0xe5, 0xa0,
-	0x77, 0x04, 0xc3, 0xb4, 0xb8, 0x1d, 0x7a, 0x1c, 0xc1, 0x32, 0x80, 0x76, 0xa1, 0x3d, 0xa7, 0x0b,
-	0x9a, 0x8b, 0x1c, 0x9b, 0x58, 0x6e, 0xd0, 0xd7, 0xd0, 0x79, 0x4b, 0xe7, 0x39, 0xc9, 0x98, 0xd9,
-	0x1c, 0x34, 0x0f, 0x7a, 0x47, 0x48, 0x7c, 0x59, 0x9e, 0x7e, 0x26, 0x42, 0xb8, 0xa2, 0x58, 0x7f,
-	0x2a, 0xb0, 0xb9, 0x16, 0x42, 0x5f, 0x41, 0xeb, 0x1d, 0x8d, 0x23, 0x91, 0xb6, 0x7f, 0xf4, 0xf4,
-	0xf1, 0xc7, 0xc3, 0x0b, 0x1a, 0x47, 0x58, 0x90, 0xd0, 0x73, 0xe8, 0xa5, 0x59, 0x92, 0x92, 0x2c,
-	0x5f, 0x06, 0x34, 0x2a, 0x7f, 0x16, 0x2a, 0x68, 0x1c, 0xf1, 0x1a, 0xef, 0xc3, 0x79, 0x41, 0xcc,
-	0xa6, 0x08, 0xc9, 0x8d, 0x75, 0x0c, 0x2d, 0x7e, 0x08, 0x02, 0xd0, 0x9c, 0x1f, 0xaf, 0x6d, 0xd7,
-	0x33, 0x1a, 0x68, 0x13, 0x74, 0xd7, 0xf1, 0xbc, 0xc0, 0x7f, 0x6d, 0x4f, 0x0d, 0x05, 0x19, 0xb0,
-	0x71, 0x8e, 0x1d, 0xdb, 0x77, 0xb0, 0x44, 0x54, 0xeb, 0x2f, 0x05, 0x9e, 0x9c, 0x52, 0x36, 0x4b,
-	0xee, 0x49, 0x26, 0xfa, 0xc0, 0xaa, 0x56, 0x1d, 0x43, 0x6b, 0x91, 0x44, 0xa4, 0x2c, 0xf9, 0xb9,
-	0x28, 0xf9, 0xa3, 0xcc, 0xe1, 0x24, 0x89, 0x08, 0x16, 0x64, 0xf4, 0x25, 0x40, 0x9e, 0x04, 0x19,
-	0x79, 0x9b, 0x11, 0x76, 0x67, 0xaa, 0xa2, 0x55, 0xf5, 0x26, 0xeb, 0x79, 0x82, 0x65, 0x90, 0xff,
-	0x25, 0x0b, 0x17, 0xe9, 0x9c, 0x04, 0x8c, 0x7e, 0x20, 0x66, 0x4b, 0xb4, 0x1b, 0x24, 0xe4, 0xd1,
-	0x0f, 0xc4, 0xfa, 0x0c, 0x5a, 0xfc, 0x64, 0xd4, 0x81, 0xa6, 0xed, 0xba, 0x46, 0x03, 0xf5, 0xa0,
-	0x83, 0x9d, 0x33, 0xec, 0x78, 0xaf, 0x0d, 0xc5, 0xfa, 0x1e, 0xf6, 0xfe, 0x5d, 0x8d, 0x54, 0x1d,
-	0x59, 0xa0, 0x09, 0x29, 0x99, 0xa9, 0x3c, 0xca, 0x5f, 0x46, 0xac, 0x3f, 0x54, 0x68, 0x0b, 0x04,
-	0xf5, 0x41, 0xa5, 0x52, 0x17, 0x1d, 0xab, 0x34, 0x42, 0x08, 0x5a, 0x71, 0xb8, 0x20, 0x65, 0xd7,
-	0xc5, 0x1a, 0x0d, 0xa0, 0x17, 0x11, 0x36, 0xcb, 0x68, 0x9a, 0xd3, 0x24, 0x2e, 0xbb, 0x5e, 0x87,
-	0xd0, 0x37, 0x50, 0xe9, 0x43, 0x09, 0x33, 0x5b, 0x22, 0xef, 0xa6, 0x54, 0xb9, 0x94, 0x0d, 0xd7,
-	0x08, 0xdc, 0x86, 0xb3, 0xa4, 0x88, 0x73, 0xb3, 0x5d, 0xb3, 0xe1, 0x88, 0x23, 0x58, 0x06, 0xd0,
-	0x0b, 0xd0, 0x64, 0x2b, 0x4c, 0x4d, 0x1c, 0xd6, 0x13, 0x14, 0x4c, 0x66, 0x49, 0x16, 0xe1, 0x32,
-	0xc4, 0x7d, 0xf0, 0xbe, 0x20, 0xd9, 0xd2, 0xec, 0x48, 0x1f, 0x88, 0x0d, 0x1a, 0xc2, 0xce, 0xea,
-	0x5e, 0x05, 0x0b, 0x92, 0x87, 0xf2, 0xce, 0x74, 0x05, 0x67, 0x7b, 0x15, 0x9a, 0x90, 0x3c, 0xe4,
-	0x17, 0x07, 0xed, 0x81, 0x46, 0xb2, 0x2c, 0xc9, 0x98, 0xa9, 0x0f, 0x9a, 0x07, 0x3a, 0x2e, 0x77,
-	0x56, 0x0e, 0xed, 0x51, 0x59, 0x4b, 0xdd, 0xbc, 0x5b, 0x0f, 0xc5, 0xd6, 0x4d, 0xbb, 0xf2, 0x24,
-	0x6f, 0x5c, 0xbb, 0xf2, 0xe4, 0xcb, 0xd2, 0x93, 0x5b, 0xd0, 0xbb, 0x9e, 0xda, 0x3f, 0xd9, 0x63,
-	0xd7, 0x3e, 0x71, 0x1d, 0xa3, 0x81, 0x36, 0xa0, 0xeb, 0x78, 0xfe, 0x78, 0x62, 0xfb, 0x8e, 0xa1,
-	0x20, 0x1d, 0xda, 0xce, 0x8d, 0x3d, 0xf2, 0x0d, 0xd5, 0xfa, 0x5b, 0x85, 0x6e, 0xd5, 0xb3, 0x4f,
-	0x24, 0xce, 0x17, 0xd0, 0xca, 0x97, 0xa9, 0xb4, 0x58, 0xff, 0x68, 0x7b, 0x4d, 0x16, 0x7f, 0x99,
-	0x12, 0x2c, 0xc2, 0xe8, 0x09, 0x68, 0x94, 0x05, 0xef, 0xc8, 0x52, 0xa8, 0xd2, 0xc5, 0x6d, 0xca,
-	0x2e, 0xc8, 0x12, 0x1d, 0xc2, 0x36, 0x65, 0xc1, 0x2c, 0x23, 0x61, 0x4e, 0x02, 0x21, 0x0e, 0xc9,
-	0x4c, 0x4d, 0x30, 0xb6, 0x28, 0x1b, 0x09, 0x7c, 0x24, 0xe1, 0x92, 0x5b, 0xa4, 0x51, 0x9d, 0xdb,
-	0xa9, 0xb8, 0xd7, 0x02, 0xaf, 0xb8, 0xff, 0x57, 0xa6, 0xcf, 0xa1, 0xcf, 0xcb, 0x0c, 0xc2, 0x3c,
-	0x60, 0x49, 0x91, 0xcd, 0x88, 0xa9, 0xcb, 0x29, 0xc8, 0x51, 0x3b, 0xf7, 0x04, 0xc6, 0x6f, 0x15,
-	0x65, 0x41, 0x5c, 0xcc, 0xe7, 0xe1, 0xed, 0x9c, 0x98, 0x20, 0x72, 0x03, 0x65, 0xd3, 0x12, 0xb1,
-	0x76, 0x60, 0x5b, 0xdc, 0x9b, 0xfa, 0x80, 0xb5, 0x76, 0x01, 0xd5, 0xc1, 0x72, 0x7c, 0xfe, 0xa6,
-	0x80, 0x26, 0x1d, 0x87, 0x0e, 0x41, 0x0b, 0x67, 0xa2, 0xbf, 0xd2, 0x04, 0xa8, 0x66, 0xc7, 0xa1,
-	0x2d, 0x22, 0xb8, 0x64, 0xa0, 0x67, 0xa0, 0x47, 0x61, 0xf5, 0x3b, 0x52, 0xa9, 0x2e, 0x07, 0xc4,
-	0x94, 0xfe, 0x0e, 0x34, 0x49, 0xe7, 0x63, 0xea, 0xfa, 0xca, 0x73, 0xb0, 0x6f, 0x34, 0xf8, 0x7a,
-	0x3c, 0x15, 0x6b, 0x45, 0xe2, 0xa7, 0xdc, 0x17, 0x2a, 0x5f, 0x9f, 0x3a, 0xae, 0xe3, 0x3b, 0x46,
-	0xf3, 0xf0, 0x77, 0x05, 0x36, 0xea, 0xaa, 0xf1, 0xa0, 0xe7, 0xe3, 0xf1, 0xf4, 0xdc, 0x68, 0xa0,
-	0x2e, 0xb4, 0x4e, 0x2e, 0x2f, 0x5d, 0x43, 0xe5, 0x43, 0x62, 0x3c, 0xf5, 0x9d, 0x73, 0x07, 0x1b,
-	0x4d, 0xee, 0xab, 0x33, 0xf7, 0xd2, 0xf6, 0x8d, 0x16, 0xc7, 0x4f, 0x9d, 0xd1, 0x78, 0x62, 0xbb,
-	0x46, 0x9b, 0xd3, 0x45, 0x06, 0x8d, 0xaf, 0xfc, 0xf1, 0xc4, 0x31, 0x3a, 0xdc, 0x91, 0x1c, 0x13,
-	0xbb, 0xae, 0xc0, 0x9d, 0x1b, 0xdf, 0xd0, 0xc5, 0xd1, 0xee, 0xe5, 0x89, 0x01, 0x7c, 0xf5, 0xc6,
-	0xbb, 0x9c, 0x1a, 0x3d, 0x3e, 0x92, 0x6e, 0x26, 0xae, 0xb1, 0x71, 0xf4, 0xab, 0x0a, 0xfa, 0x55,
-	0x25, 0x15, 0xfa, 0x16, 0x3a, 0xe5, 0x13, 0x84, 0x76, 0xca, 0x5b, 0x52, 0x6f, 0xf3, 0xfe, 0xee,
-	0x3a, 0x58, 0xb6, 0xb9, 0x81, 0x2e, 0xa0, 0xbf, 0x3e, 0xcb, 0xd0, 0xfe, 0x7f, 0x8f, 0xdb, 0xfd,
-	0x67, 0x1f, 0x8d, 0xad, 0x0e, 0x7b, 0xb5, 0x7a, 0x7b, 0xbc, 0x3c, 0x23, 0xe1, 0xa2, 0x2c, 0x65,
-	0xfd, 0x21, 0xdc, 0xaf, 0xcf, 0x13, 0xab, 0xf1, 0x52, 0x41, 0x3f, 0x00, 0x3c, 0x58, 0x00, 0xed,
-	0x3d, 0xe4, 0x58, 0xfb, 0x83, 0xa7, 0x8f, 0xf0, 0x2a, 0xef, 0xad, 0x26, 0x9e, 0xf0, 0xe3, 0x7f,
-	0x02, 0x00, 0x00, 0xff, 0xff, 0x89, 0x1f, 0xd4, 0x6b, 0xd5, 0x07, 0x00, 0x00,
+var fileDescriptor_publisher_35fdb1933582f001 = []byte{
+	// 1844 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x58, 0xcd, 0x72, 0xe3, 0xc6,
+	0x11, 0x26, 0xf8, 0x27, 0xb2, 0x29, 0x51, 0xd0, 0xe8, 0x8f, 0xe1, 0x66, 0xbd, 0x0a, 0x36, 0xae,
+	0x92, 0xe5, 0x58, 0x76, 0xb4, 0xe5, 0x9c, 0x36, 0xb5, 0x45, 0x51, 0xd0, 0x2e, 0x77, 0x29, 0x69,
+	0x0d, 0x40, 0x9b, 0xad, 0x5c, 0x50, 0x20, 0x31, 0x92, 0xb0, 0x06, 0x31, 0xf4, 0x0c, 0xa0, 0x14,
+	0xf7, 0x9e, 0x63, 0x2e, 0x3e, 0xe5, 0xea, 0x5b, 0x7c, 0xc9, 0x31, 0x6f, 0x90, 0x27, 0xc8, 0x39,
+	0xaf, 0x90, 0x67, 0x48, 0xcd, 0x0f, 0x40, 0x80, 0xa2, 0x9c, 0xd8, 0x9b, 0xca, 0x0d, 0xfc, 0xba,
+	0xa7, 0xe7, 0x9b, 0xee, 0x9e, 0xee, 0x1e, 0xc2, 0xfa, 0x34, 0x19, 0x85, 0x01, 0xbb, 0xc1, 0xf4,
+	0x70, 0x4a, 0x49, 0x4c, 0x50, 0x65, 0x9a, 0x8c, 0x8c, 0xbf, 0x6b, 0xa0, 0xf7, 0x49, 0x74, 0x15,
+	0x5c, 0x27, 0x14, 0x5b, 0xf8, 0x9b, 0x04, 0xb3, 0x18, 0x1d, 0x40, 0x33, 0x24, 0xd7, 0x6e, 0x88,
+	0x6f, 0x71, 0xd8, 0xd1, 0xf6, 0xb4, 0xfd, 0xf6, 0xd1, 0xda, 0xe1, 0x34, 0x19, 0x1d, 0x0e, 0xc9,
+	0xf5, 0x90, 0x83, 0x56, 0x23, 0x54, 0x5f, 0xe8, 0x31, 0xac, 0x71, 0x5d, 0x3f, 0xa0, 0x78, 0x1c,
+	0x13, 0x3a, 0xeb, 0x94, 0xf7, 0xb4, 0xfd, 0xa6, 0xb5, 0x1a, 0x92, 0xeb, 0x93, 0x14, 0x43, 0x9f,
+	0xc3, 0xe6, 0x14, 0xd3, 0x89, 0x17, 0xe1, 0x28, 0xce, 0xa9, 0x56, 0x84, 0x2a, 0xca, 0x44, 0x85,
+	0x05, 0x31, 0x9e, 0x4c, 0x09, 0xf5, 0xe8, 0x2c, 0xb7, 0xa0, 0x2a, 0x17, 0x64, 0xa2, 0x6c, 0x81,
+	0xb1, 0x09, 0x1b, 0xb9, 0x63, 0xb0, 0x29, 0x89, 0x18, 0x36, 0xbe, 0xd7, 0xa0, 0xdd, 0x27, 0x51,
+	0x84, 0xc7, 0x71, 0x7a, 0xb4, 0xc7, 0xb0, 0xc6, 0x70, 0x1c, 0x07, 0xd1, 0x35, 0x73, 0xdf, 0x31,
+	0x12, 0xa5, 0x74, 0x53, 0xf0, 0x25, 0x23, 0x11, 0x7a, 0x01, 0x9b, 0xc4, 0x4b, 0xe2, 0x1b, 0x77,
+	0xac, 0x4c, 0x7a, 0x71, 0x40, 0x22, 0x41, 0xb7, 0x75, 0xb4, 0x2b, 0x3c, 0x71, 0xd1, 0x4b, 0xe2,
+	0x9b, 0x7e, 0x5e, 0x6c, 0x21, 0xb1, 0xa6, 0x80, 0xa1, 0x7d, 0xd0, 0xa5, 0x25, 0x16, 0x7b, 0x31,
+	0x96, 0x3b, 0xca, 0x43, 0xb4, 0x05, 0x6e, 0x73, 0x98, 0xef, 0x69, 0xfc, 0x55, 0x83, 0xf5, 0x8c,
+	0xab, 0xe4, 0x8f, 0x3e, 0x86, 0x76, 0x46, 0x16, 0x53, 0x4a, 0xa8, 0x08, 0x46, 0xd3, 0xca, 0x8e,
+	0x60, 0x72, 0x10, 0x7d, 0x02, 0xfa, 0x58, 0xae, 0x0c, 0x48, 0xa4, 0x14, 0xe5, 0xb1, 0xd6, 0xe7,
+	0xb8, 0x54, 0x7d, 0x04, 0x2d, 0xc9, 0x47, 0x6a, 0xc9, 0x00, 0x80, 0x80, 0xa4, 0xc2, 0x7f, 0x4f,
+	0xf8, 0xcf, 0x65, 0x68, 0xbf, 0x96, 0x29, 0x95, 0x3a, 0x77, 0x0f, 0x6a, 0xec, 0xc6, 0x9b, 0x62,
+	0x41, 0xb3, 0x75, 0x04, 0xc2, 0x53, 0x36, 0x47, 0x2c, 0x29, 0x40, 0x5b, 0x50, 0x0b, 0x83, 0x49,
+	0x10, 0x0b, 0x7e, 0x6b, 0x96, 0xfc, 0x81, 0x7e, 0x05, 0x2b, 0x57, 0x41, 0x18, 0x63, 0xca, 0x3a,
+	0x95, 0xbd, 0xca, 0x7e, 0xeb, 0x08, 0x89, 0x95, 0xca, 0xfa, 0xa9, 0x10, 0x59, 0xa9, 0x0a, 0xfa,
+	0x12, 0x76, 0x29, 0xf6, 0x42, 0x37, 0x0e, 0x26, 0xd8, 0x2d, 0x06, 0xb3, 0x2e, 0x98, 0x6e, 0x71,
+	0xb1, 0x13, 0x4c, 0xb0, 0x9d, 0x0f, 0xea, 0xe7, 0xb0, 0x95, 0x5b, 0x36, 0x3f, 0xdd, 0x8a, 0x58,
+	0xb3, 0x91, 0xad, 0x49, 0x0f, 0x88, 0xb6, 0xa1, 0xfe, 0x8e, 0x8c, 0xdc, 0xc0, 0xef, 0x34, 0x84,
+	0x4a, 0xed, 0x1d, 0x19, 0x0d, 0x7c, 0xf4, 0x0b, 0x58, 0xf5, 0xbd, 0xd8, 0x73, 0x6f, 0x31, 0x65,
+	0x3c, 0x2b, 0x9a, 0xe2, 0x24, 0x2d, 0x8e, 0xbd, 0x91, 0x90, 0xf1, 0x17, 0x0d, 0xd6, 0x0a, 0xe4,
+	0xd1, 0xa7, 0x50, 0xfd, 0x3a, 0x88, 0x7c, 0x75, 0x99, 0x76, 0xef, 0x1e, 0xef, 0xf0, 0x55, 0x10,
+	0xf9, 0x96, 0x50, 0xe2, 0x41, 0x9a, 0x52, 0x32, 0xc5, 0x34, 0x9e, 0xf1, 0xdd, 0x65, 0x28, 0x21,
+	0x85, 0x06, 0x3e, 0xf7, 0xe2, 0xad, 0x17, 0x26, 0x58, 0xc5, 0x4f, 0xfe, 0x30, 0x9e, 0x40, 0x95,
+	0x1b, 0x41, 0x00, 0x75, 0xf3, 0xab, 0xcb, 0xde, 0xd0, 0xd6, 0x4b, 0x68, 0x0d, 0x9a, 0x43, 0xd3,
+	0xb6, 0x5d, 0xe7, 0x45, 0xef, 0x5c, 0xd7, 0x90, 0x0e, 0xab, 0xcf, 0x2d, 0xb3, 0xe7, 0x98, 0x96,
+	0x44, 0xca, 0xc6, 0xdf, 0x34, 0xd8, 0x3e, 0x09, 0xd8, 0x98, 0xdc, 0x62, 0x2a, 0x22, 0xc5, 0xd2,
+	0x60, 0x3e, 0x81, 0xea, 0x84, 0xf8, 0x58, 0x51, 0x7e, 0x24, 0x28, 0x2f, 0xd5, 0x3c, 0x3c, 0x23,
+	0x3e, 0xb6, 0x84, 0x32, 0xfa, 0x04, 0x20, 0x26, 0x2e, 0xc5, 0x57, 0x14, 0xb3, 0x9b, 0x4e, 0x59,
+	0x04, 0x33, 0x9f, 0x06, 0xcd, 0x98, 0x58, 0x52, 0xc8, 0x4f, 0xc9, 0xbc, 0xc9, 0x34, 0xc4, 0x2e,
+	0x0b, 0xde, 0x63, 0x91, 0x64, 0x6b, 0x16, 0x48, 0xc8, 0x0e, 0xde, 0x63, 0xe3, 0xe7, 0x50, 0xe5,
+	0x96, 0xd1, 0x0a, 0x54, 0x7a, 0xc3, 0xa1, 0x5e, 0x42, 0x2d, 0x58, 0xb1, 0xcc, 0x53, 0xcb, 0xb4,
+	0x5f, 0xe8, 0x9a, 0xf1, 0x14, 0x76, 0x16, 0xd9, 0xa8, 0x5b, 0x63, 0x40, 0x5d, 0x24, 0x1b, 0xeb,
+	0x68, 0x77, 0xf6, 0x57, 0x12, 0xe3, 0xbb, 0x32, 0xd4, 0x04, 0x82, 0xda, 0x50, 0x0e, 0x7c, 0x75,
+	0xaf, 0xca, 0x81, 0x8f, 0x10, 0x54, 0x23, 0x6f, 0x82, 0x95, 0xd7, 0xc5, 0x37, 0xda, 0x83, 0x96,
+	0x8f, 0xd9, 0x98, 0x06, 0xd3, 0xac, 0x0e, 0x34, 0xad, 0x3c, 0x84, 0x3e, 0x83, 0x34, 0x3e, 0x01,
+	0x66, 0x9d, 0xaa, 0xd8, 0x57, 0x96, 0xcc, 0xd7, 0x2a, 0x6c, 0x56, 0x4e, 0x81, 0x5f, 0x94, 0x31,
+	0x49, 0xa2, 0xb8, 0x53, 0xcb, 0x5d, 0x94, 0x3e, 0x47, 0x2c, 0x29, 0x40, 0x8f, 0xa1, 0x2e, 0x5d,
+	0xd1, 0xa9, 0x0b, 0x63, 0x2d, 0xa1, 0x62, 0xe1, 0x31, 0xa1, 0xbe, 0xa5, 0x44, 0x3c, 0x0f, 0xbe,
+	0x49, 0x30, 0x9d, 0xa9, 0x1c, 0x96, 0x3f, 0xd0, 0x21, 0x6c, 0x66, 0xa5, 0xde, 0x9d, 0xe0, 0xd8,
+	0x93, 0x79, 0x2e, 0x93, 0x78, 0x23, 0x13, 0x9d, 0xe1, 0xd8, 0x13, 0x79, 0xbe, 0x03, 0x75, 0x51,
+	0x0d, 0x58, 0xa7, 0xb9, 0x57, 0xd9, 0x6f, 0x5a, 0xea, 0x97, 0x11, 0x43, 0xad, 0xaf, 0xb8, 0xe4,
+	0x93, 0x77, 0x7d, 0x4e, 0x36, 0x9f, 0xb4, 0x59, 0x4e, 0x72, 0xc7, 0xd5, 0xd2, 0x9c, 0xfc, 0x42,
+	0xe5, 0xe4, 0x3a, 0xb4, 0x2e, 0xcf, 0x7b, 0x6f, 0x7a, 0x83, 0x61, 0xef, 0x78, 0x68, 0xea, 0x25,
+	0xb4, 0x0a, 0x0d, 0xd3, 0x76, 0x06, 0x67, 0x3d, 0xc7, 0xd4, 0x35, 0xd4, 0x84, 0x9a, 0xf9, 0xb6,
+	0xd7, 0x77, 0xf4, 0xb2, 0xf1, 0xcf, 0x32, 0x34, 0x52, 0x9f, 0xfd, 0x8f, 0x82, 0xf3, 0x31, 0x54,
+	0xe3, 0xd9, 0x54, 0xa6, 0x58, 0xfb, 0x68, 0xa3, 0x10, 0x16, 0x67, 0x36, 0xc5, 0x96, 0x10, 0xf3,
+	0xfb, 0x1e, 0x30, 0xf7, 0x6b, 0x3c, 0x13, 0x51, 0x69, 0x58, 0xb5, 0x80, 0xbd, 0xc2, 0x33, 0x74,
+	0x00, 0x1b, 0x01, 0x73, 0xc7, 0x14, 0xf3, 0x8a, 0x21, 0x82, 0x83, 0xa9, 0x28, 0x34, 0x0d, 0x6b,
+	0x3d, 0x60, 0x7d, 0x81, 0xf7, 0x25, 0xac, 0x74, 0x93, 0xa9, 0x9f, 0xd7, 0x5d, 0x49, 0x75, 0x2f,
+	0x05, 0x9e, 0xea, 0xfe, 0xd8, 0x30, 0xfd, 0x12, 0xda, 0x9c, 0xa6, 0xeb, 0xc5, 0x2e, 0x23, 0x09,
+	0x1d, 0x63, 0x51, 0x79, 0x9a, 0xd6, 0x2a, 0x47, 0x7b, 0xb1, 0x2d, 0x30, 0x7e, 0xab, 0x02, 0xe6,
+	0x46, 0x49, 0x18, 0x7a, 0xa3, 0x10, 0x77, 0x40, 0xec, 0x0d, 0x01, 0x3b, 0x57, 0x08, 0x6f, 0x94,
+	0xe2, 0xde, 0xe4, 0xbb, 0xa2, 0xb1, 0x05, 0x28, 0x0f, 0xaa, 0xf6, 0xf9, 0x2f, 0x0d, 0xea, 0x32,
+	0xe3, 0xd0, 0x01, 0xd4, 0x3d, 0xd1, 0x46, 0x54, 0x12, 0xa0, 0x5c, 0x3a, 0x1e, 0xf6, 0x84, 0xc4,
+	0x52, 0x1a, 0xe8, 0x01, 0x34, 0x45, 0x81, 0xcc, 0xb5, 0xd7, 0x06, 0x07, 0x7e, 0xb0, 0x0a, 0x57,
+	0xee, 0xab, 0xc2, 0x5b, 0x50, 0x1b, 0x7b, 0x09, 0xc3, 0xaa, 0x0b, 0xc9, 0x1f, 0x86, 0x03, 0x75,
+	0xb9, 0x2b, 0xaf, 0x76, 0x97, 0xaf, 0x6d, 0xd3, 0x72, 0xf4, 0x12, 0xff, 0x1e, 0x9c, 0x8b, 0x6f,
+	0x4d, 0xe2, 0x27, 0x3c, 0xbd, 0xca, 0xfc, 0xfb, 0xc4, 0x1c, 0x9a, 0x8e, 0xa9, 0x57, 0x50, 0x17,
+	0x76, 0x2c, 0xb3, 0x37, 0x74, 0x9d, 0xc1, 0x99, 0xe9, 0xda, 0x4e, 0xcf, 0x31, 0xdd, 0xfe, 0xc5,
+	0xd9, 0xd9, 0xc0, 0xd1, 0xab, 0xc6, 0x4b, 0xd8, 0xce, 0x86, 0x88, 0xaf, 0xf8, 0x5d, 0x4a, 0x6b,
+	0xe1, 0xaf, 0xa1, 0x7a, 0x45, 0xe8, 0x44, 0xf5, 0xb5, 0x87, 0xea, 0x06, 0xe4, 0x1a, 0xfd, 0x29,
+	0xa1, 0x13, 0xa5, 0x6c, 0x09, 0x55, 0x23, 0x82, 0x9d, 0x45, 0x5b, 0xaa, 0x3e, 0x1d, 0x15, 0x8c,
+	0x7d, 0x74, 0x9f, 0x31, 0xa9, 0x2d, 0xad, 0xcd, 0x3b, 0x6b, 0xf9, 0x9e, 0xce, 0x6a, 0xfc, 0x49,
+	0x83, 0x6e, 0xb6, 0x61, 0x3f, 0x6b, 0xfb, 0x3f, 0xfd, 0x04, 0xe8, 0x29, 0xa4, 0xe3, 0x83, 0x4b,
+	0xa5, 0x40, 0xed, 0xbe, 0x99, 0xae, 0xce, 0xa5, 0x90, 0xd5, 0x5e, 0x48, 0xa9, 0x6f, 0x35, 0x78,
+	0xb0, 0x94, 0xcf, 0x07, 0x78, 0xe1, 0x59, 0x36, 0xe8, 0xb8, 0x54, 0x49, 0x14, 0xa5, 0xad, 0x22,
+	0x25, 0xb5, 0x6a, 0x7d, 0x31, 0xa3, 0x09, 0x74, 0x72, 0x53, 0xa2, 0x4c, 0xb5, 0x0f, 0xf0, 0xd0,
+	0x7f, 0x8e, 0xca, 0x05, 0xfc, 0x6c, 0xc9, 0x86, 0x3f, 0xdd, 0x05, 0xc6, 0x9b, 0xf9, 0x09, 0x16,
+	0x49, 0x15, 0x2f, 0x9e, 0xb6, 0x70, 0xf1, 0x1e, 0x02, 0xe4, 0xae, 0x9b, 0xbc, 0x96, 0x4d, 0x96,
+	0x4d, 0x73, 0xff, 0xd0, 0xe6, 0x4c, 0xef, 0xec, 0x2d, 0x7a, 0xf5, 0xf8, 0x06, 0x4f, 0x0a, 0xb6,
+	0x41, 0x42, 0xc2, 0xfa, 0x2e, 0xac, 0x24, 0x41, 0xde, 0x74, 0x3d, 0x09, 0x96, 0x6c, 0x5b, 0x59,
+	0xd8, 0xb6, 0x48, 0xb9, 0xba, 0x40, 0x79, 0x1f, 0x74, 0x21, 0x94, 0xfd, 0x48, 0xea, 0xd4, 0xe4,
+	0x2c, 0xca, 0x71, 0x31, 0xb0, 0xb2, 0x85, 0x16, 0x56, 0x2f, 0xb4, 0xb0, 0x19, 0x6c, 0x1f, 0xe3,
+	0xeb, 0x20, 0x12, 0xd3, 0xfa, 0x69, 0x48, 0xfe, 0x90, 0xba, 0xea, 0xb7, 0xb0, 0x56, 0x9c, 0xed,
+	0xb5, 0x1f, 0x9e, 0xed, 0x8b, 0xda, 0x7c, 0x06, 0xa4, 0x58, 0x3e, 0x4b, 0xdc, 0x84, 0x86, 0xea,
+	0xcc, 0xad, 0x14, 0xbb, 0xa4, 0xa1, 0x61, 0xc2, 0xce, 0xe2, 0xd6, 0xca, 0x99, 0x9f, 0xc2, 0x06,
+	0x9f, 0xa4, 0x09, 0x0d, 0xde, 0x0b, 0x6b, 0xc2, 0x82, 0x74, 0xa9, 0x5e, 0x10, 0x70, 0x33, 0xdf,
+	0x69, 0x3c, 0xe0, 0xbc, 0xdb, 0xc7, 0xf8, 0xff, 0x7f, 0x0a, 0xfe, 0x5c, 0xca, 0x54, 0x46, 0xc4,
+	0x4f, 0x9f, 0x6c, 0xd9, 0xba, 0x63, 0xe2, 0xcf, 0x8c, 0x3f, 0x6a, 0x80, 0xee, 0xee, 0xc6, 0x63,
+	0x3b, 0x0e, 0x03, 0xfe, 0xe2, 0xcb, 0x7a, 0x78, 0x43, 0x02, 0x03, 0x9f, 0x1b, 0x56, 0x42, 0x86,
+	0xc7, 0x14, 0xc7, 0xe9, 0x3b, 0x4c, 0x82, 0xb6, 0xc0, 0xd0, 0x67, 0x80, 0x0a, 0x8c, 0x0b, 0xad,
+	0xa2, 0x20, 0x11, 0x39, 0x6c, 0xf2, 0x14, 0xbe, 0xe3, 0x2a, 0xe5, 0xf5, 0x65, 0x0f, 0x1b, 0x6d,
+	0xd9, 0xc3, 0xe6, 0xe0, 0x19, 0x34, 0xd2, 0x77, 0xae, 0x18, 0x4c, 0x78, 0x2a, 0xe9, 0x25, 0xd4,
+	0x80, 0xea, 0xef, 0x3c, 0x1a, 0xe9, 0x1a, 0xff, 0x1a, 0x44, 0x57, 0x44, 0x2f, 0x73, 0xf1, 0x09,
+	0x1e, 0x25, 0xd7, 0x7a, 0x85, 0x7f, 0x3a, 0xd4, 0x1b, 0x63, 0xbd, 0x7a, 0xf0, 0xad, 0x06, 0xab,
+	0xf9, 0xf9, 0x82, 0xf7, 0x1f, 0xdb, 0xb1, 0x06, 0xe7, 0xcf, 0xa5, 0x99, 0xe3, 0x8b, 0x8b, 0xa1,
+	0x5e, 0xe6, 0xe3, 0xec, 0xe0, 0xdc, 0x31, 0x9f, 0x9b, 0x96, 0x5c, 0x7e, 0x3a, 0xbc, 0xe8, 0x39,
+	0x7a, 0x95, 0xe3, 0x27, 0x66, 0x7f, 0x70, 0xd6, 0x1b, 0xea, 0x35, 0xae, 0x2e, 0x9a, 0x58, 0x9d,
+	0x7f, 0xf1, 0x9e, 0xa5, 0xaf, 0xf0, 0xd9, 0x89, 0x63, 0xe2, 0x57, 0x43, 0xe0, 0xe6, 0x5b, 0x47,
+	0x6f, 0x0a, 0xd3, 0xc3, 0x8b, 0x63, 0x1d, 0xf8, 0xd7, 0x4b, 0xfb, 0xe2, 0x5c, 0x6f, 0xf1, 0xe1,
+	0xf9, 0xed, 0xd9, 0x50, 0x5f, 0x3d, 0xfa, 0xbe, 0x0e, 0xcd, 0xd7, 0xe9, 0x50, 0x81, 0x9e, 0x42,
+	0x33, 0xab, 0x4b, 0x68, 0xbb, 0x50, 0x79, 0xd2, 0x82, 0xd8, 0xdd, 0x59, 0x84, 0x55, 0x11, 0x2d,
+	0xa1, 0xdf, 0xc0, 0x8a, 0x2a, 0xb5, 0x68, 0x59, 0x2f, 0xe8, 0x2e, 0xad, 0xc6, 0x46, 0x09, 0x3d,
+	0xcb, 0x9e, 0xe3, 0x36, 0x66, 0xfc, 0xa5, 0xf4, 0xa3, 0x96, 0x7f, 0xa1, 0xa1, 0x57, 0xd0, 0x2e,
+	0x0e, 0xfd, 0xa8, 0x7b, 0xff, 0xbb, 0xa4, 0xfb, 0x60, 0xa9, 0x2c, 0x63, 0xf3, 0x65, 0xf6, 0x48,
+	0xb3, 0x63, 0x8a, 0xbd, 0x89, 0x22, 0x53, 0x7c, 0xd3, 0x76, 0xf3, 0x83, 0xb7, 0xe0, 0xf0, 0x0c,
+	0x60, 0x3e, 0x2b, 0xa1, 0x9d, 0xf9, 0x1e, 0x85, 0x33, 0xec, 0xde, 0xc1, 0xb3, 0x7d, 0x7f, 0x0f,
+	0x9b, 0x4b, 0x1a, 0x23, 0x7a, 0x54, 0x74, 0xf7, 0x9d, 0x16, 0xde, 0xdd, 0xbb, 0x5f, 0x21, 0xb3,
+	0xfd, 0x4a, 0x78, 0x38, 0x37, 0x75, 0x28, 0x07, 0x2d, 0x1d, 0x6b, 0x94, 0x83, 0x96, 0x8f, 0x29,
+	0x46, 0x09, 0x39, 0x85, 0xff, 0x54, 0x64, 0xf3, 0x42, 0x0f, 0x17, 0xb3, 0xa2, 0xd0, 0x45, 0xbb,
+	0x1f, 0xdd, 0x27, 0xce, 0x53, 0x2c, 0x16, 0x46, 0x45, 0x71, 0x69, 0xa1, 0x56, 0x14, 0x97, 0x57,
+	0xd2, 0x94, 0xe2, 0xc2, 0x95, 0xcf, 0x28, 0x2e, 0xaf, 0x9a, 0x19, 0xc5, 0x7b, 0x2a, 0x85, 0x51,
+	0x1a, 0xd5, 0xc5, 0x1f, 0x64, 0x4f, 0xfe, 0x1d, 0x00, 0x00, 0xff, 0xff, 0xf3, 0x92, 0x08, 0xf3,
+	0x33, 0x13, 0x00, 0x00,
 }

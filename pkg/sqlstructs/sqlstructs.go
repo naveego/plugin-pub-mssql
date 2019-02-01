@@ -68,8 +68,16 @@ func UnmarshalRows(rows *sql.Rows, out interface{}) error {
 		for i, name := range columnNames {
 			if f, ok := outElementFields[name]; ok {
 				val := columns[i]
+				if val != nil {
 
-				outElement.Elem().FieldByName(f.Name).Set(reflect.ValueOf(val))
+					rval := reflect.ValueOf(val)
+					switch rval.Kind() {
+					case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+						rval = rval.Convert(f.Type)
+					}
+
+					outElement.Elem().FieldByName(f.Name).Set(rval)
+				}
 			}
 		}
 

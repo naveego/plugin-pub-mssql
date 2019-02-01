@@ -2,23 +2,22 @@ package pub
 
 import (
 	"context"
+	"encoding"
+	"encoding/json"
+	"fmt"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
+	"github.com/naveego/go-json-schema"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"github.com/hashicorp/go-hclog"
 	"log"
-	"encoding/json"
-	"encoding"
-	"fmt"
 	"strings"
 )
 
 type ShapeMetadata struct {
-
 }
 
 type PropertyMetadata struct {
-
 }
 
 type SortableShapes []*Shape
@@ -53,7 +52,71 @@ func (s SortableProperties) Less(i, j int) bool {
 	return strings.Compare(s1Name, s2Name) < 0
 }
 
+func (m *ConfigureRealTimeRequest) WithData(data interface{}) *ConfigureRealTimeRequest{
+	if m.Form == nil {
+		m.Form = &ConfigurationFormRequest{}
+	}
 
+	b, _ := json.MarshalIndent(data, "", "  ")
+	m.Form.DataJson = string(b)
+	return m
+}
+
+func (m *ConfigureRealTimeResponse) WithSchema(schema *jsonschema.JSONSchema) *ConfigureRealTimeResponse {
+	if m.Form == nil {
+		m.Form = &ConfigurationFormResponse{}
+	}
+	m.Form.SchemaJson = schema.String()
+	return m
+}
+func (m *ConfigureRealTimeResponse) WithUI(ui map[string]interface{}) *ConfigureRealTimeResponse {
+	if m.Form == nil {
+		m.Form = &ConfigurationFormResponse{}
+	}
+	j, _ := json.MarshalIndent(ui, "", "  ")
+	m.Form.UiJson = string(j)
+	return m
+}
+
+func (m *ConfigureRealTimeResponse) WithFormErrors(errs ...string) *ConfigureRealTimeResponse {
+	if m.Form == nil {
+		m.Form = &ConfigurationFormResponse{
+			UiJson:"{}",
+			SchemaJson:"{}",
+		}
+	}
+
+	m.Form.Errors = append(m.Form.Errors, errs...)
+	return m
+}
+
+func (m *ConfigureRealTimeResponse) GetDataErrorsJSONAsErrorMap() map[string]interface{} {
+	if m.Form == nil {
+		return nil
+	}
+	if m.Form.DataErrorsJson == "" {
+		return nil
+	}
+
+	var out map[string]interface{}
+	json.Unmarshal([]byte(m.Form.DataErrorsJson), &out)
+
+	return out
+}
+
+func (m *ConfigureRealTimeResponse) GetJSONSchemaForForm() *jsonschema.JSONSchema {
+	if m.Form == nil {
+		return nil
+	}
+	if m.Form.SchemaJson == "" {
+		return nil
+	}
+
+	var js jsonschema.JSONSchema
+	json.Unmarshal([]byte(m.Form.SchemaJson), &js)
+
+	return &js
+}
 
 func (c *Count) Format() string {
 	if c == nil {
@@ -99,6 +162,19 @@ func NewRecord(action Record_Action, data interface{}) (*Record, error) {
 	return r, nil
 }
 
+func (r *Record) UnmarshalData(out interface{}) error {
+	if r.DataJson != "" {
+		return json.Unmarshal([]byte(r.DataJson), &out)
+	}
+	return nil
+}
+func (r *Record) UnmarshalRealTimeState(out interface{}) error {
+	if r.RealTimeStateJson != "" {
+		return json.Unmarshal([]byte(r.RealTimeStateJson), &out)
+	}
+	return nil
+}
+
 // NewServerPlugin returns a plugin.Plugin for use as a server.
 // This is the method to call from the plugin implementation
 // when creating a new plugin.ServeConfig.
@@ -133,8 +209,6 @@ func (p *publisherPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBro
 
 var _ plugin.GRPCPlugin = &publisherPlugin{}
 var _ plugin.Plugin = &publisherPlugin{}
-
-
 
 func AdaptHCLog(log *logrus.Entry) hclog.Logger {
 	return &hclLogAdapter{
@@ -268,5 +342,26 @@ func (l *hclLogAdapter) SetLevel(level hclog.Level) {
 
 func (l *hclLogAdapter) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Logger {
 	panic("not implemented")
+}
+
+
+type ResolvedRecord struct {
+	Action Record_Action
+	DataJson string
+	Data interface{}
+	RealTimeStateJson string
+	RealTimeState interface{}
+}
+
+func (r *Record) Resolve(data interface{}, realTimeState interface{}) (ResolvedRecord, error) {
+
+	switch r.Action {
+	case Record_REAL_TIME_STATE_COMMIT:
+	err := r.UnmarshalRealTimeState(&realTimeState)
+	return ResolvedRecord{RealTimeStateJson:r.RealTimeStateJson, DataJson:r.DataJson, Action:r.Action, RealTimeState:realTimeState}, err
+	default:
+		err := r.UnmarshalData(&data)
+		return ResolvedRecord{RealTimeStateJson:r.RealTimeStateJson, DataJson:r.DataJson, Action:r.Action,Data:data}, err
+	}
 }
 

@@ -1,0 +1,11 @@
+{
+  "pollingInterval": {
+    "ui:help": "Provide a number and a unit (s = second, m = minute, h = hour). Defaults to 5s."
+  },
+  "tables": {
+    "items": {
+      "query": {
+          "ui:help": "The query must select the keys into columns with specific names. The columns from the change tracked table must be named [Dependency.<column>], where <column> is the name of the column. The columns from the view or query must be named [Schema.<column>].",
+      }
+    }
+  }
