@@ -27,11 +27,11 @@ type BatchTrackedTable struct {
 	NonKeys []string
 }
 
-var simplifierRE = regexp.MustCompile("[^A-z09_]")
+var simplifierRE = regexp.MustCompile(`\W+`)
 
-func uniquify(x string) string {
+func UniquifySQLName(x string) string {
 	x = strings.Trim(x, "[]")
-	x =  simplifierRE.ReplaceAllString(x, "")
+	x =  simplifierRE.ReplaceAllString(x, "_")
 	h := md5.New()
 	h.Write([]byte(x))
 	o := h.Sum(nil)
@@ -51,7 +51,7 @@ func compileTemplate(name, input string) *template.Template {
 	t, err := template.New(name).
 		Funcs(sprig.TxtFuncMap()).
 		Funcs(template.FuncMap{
-			"uniquify":  uniquify,
+			"uniquify":     UniquifySQLName,
 			"PrefixColumn": PrefixColumn,
 		}).
 		Parse(input)
