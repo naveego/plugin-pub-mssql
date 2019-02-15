@@ -263,7 +263,7 @@ func (s *Server) ConfigureConnection(ctx context.Context, req *pub.ConfigureConn
 	}, nil
 }
 
-func (s *Server) ConfigureQuery(context.Context, *pub.ConfigureQueryRequest) (*pub.ConfigureQueryResponse, error) {
+func (s *Server) ConfigureQuery(ctx context.Context, req*pub.ConfigureQueryRequest) (*pub.ConfigureQueryResponse, error) {
 	panic("implement me")
 }
 
@@ -289,30 +289,29 @@ func (s *Server) ConfigureRealTime(ctx context.Context, req *pub.ConfigureRealTi
 	return resp, err
 }
 
-func (s *Server) BeginOAuthFlow(context.Context, *pub.BeginOAuthFlowRequest) (*pub.BeginOAuthFlowResponse, error) {
+func (s *Server) BeginOAuthFlow(ctx context.Context, req*pub.BeginOAuthFlowRequest) (*pub.BeginOAuthFlowResponse, error) {
 	panic("implement me")
 }
 
-func (s *Server) CompleteOAuthFlow(context.Context, *pub.CompleteOAuthFlowRequest) (*pub.CompleteOAuthFlowResponse, error) {
+func (s *Server) CompleteOAuthFlow(ctx context.Context, req*pub.CompleteOAuthFlowRequest) (*pub.CompleteOAuthFlowResponse, error) {
 	panic("implement me")
 }
 
-// DiscoverShapes discovers shapes present in the database
-func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequest) (*pub.DiscoverShapesResponse, error) {
+func (s *Server) DiscoverSchemas(ctx context.Context, req*pub.DiscoverSchemasRequest) (*pub.DiscoverSchemasResponse, error) {
 
-	s.log.Debug("Handling DiscoverShapesRequest...")
+	s.log.Debug("Handling DiscoverSchemasRequest...")
 
 	session, err := s.getOpSession(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	var shapes []*pub.Shape
+	var schemas []*pub.Schema
 
-	if req.Mode == pub.DiscoverShapesRequest_ALL {
+	if req.Mode == pub.DiscoverSchemasRequest_ALL {
 		s.log.Debug("Discovering all tables and views...")
-		shapes, err = s.getAllShapesFromSchema(session)
-		s.log.Debug("Discovered tables and views.", "count", len(shapes))
+		schemas, err = s.getAllShapesFromSchema(session)
+		s.log.Debug("Discovered tables and views.", "count", len(schemas))
 
 		if err != nil {
 			return nil, errors.Errorf("could not load tables and views from SQL: %s", err)
@@ -320,16 +319,16 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 	} else {
 		s.log.Debug("Refreshing schemas from request.", "count", len(req.ToRefresh))
 		for _, s := range req.ToRefresh {
-			shapes = append(shapes, s)
+			schemas = append(schemas, s)
 		}
 	}
 
-	resp := &pub.DiscoverShapesResponse{}
+	resp := &pub.DiscoverSchemasResponse{}
 
 	wait := new(sync.WaitGroup)
 
-	for i := range shapes {
-		shape := shapes[i]
+	for i := range schemas {
+		shape := schemas[i]
 		// include this shape in wait group
 		wait.Add(1)
 
@@ -344,7 +343,7 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 			}
 			s.log.Debug("Got details for discovered schema", "id", shape.Id)
 
-			if req.Mode == pub.DiscoverShapesRequest_REFRESH {
+			if req.Mode == pub.DiscoverSchemasRequest_REFRESH {
 				s.log.Debug("Getting count for discovered schema", "id", shape.Id)
 				shape.Count, err = s.getCount(session, shape)
 				if err != nil {
@@ -359,9 +358,9 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 
 			if req.SampleSize > 0 {
 				s.log.Debug("Getting sample for discovered schema", "id", shape.Id, "size", req.SampleSize)
-				publishReq := &pub.PublishRequest{
-					Shape: shape,
-					Limit: req.SampleSize,
+				publishReq := &pub.ReadRequest{
+					Schema: shape,
+					Limit:  req.SampleSize,
 				}
 
 				collector := new(RecordCollector)
@@ -388,16 +387,36 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverShapesRequ
 	// wait until all concurrent shape details have been loaded
 	wait.Wait()
 
-	for _, shape := range shapes {
-		resp.Shapes = append(resp.Shapes, shape)
+	for _, schema := range schemas {
+		resp.Schemas = append(resp.Schemas, schema)
 	}
 
-	sort.Sort(pub.SortableShapes(resp.Shapes))
+	sort.Sort(pub.SortableShapes(resp.Schemas))
 
-	return resp, nil
+	return resp, nil}
+
+func (s *Server) ReadStream(*pub.ReadRequest, pub.Publisher_ReadStreamServer) error {
+	panic("implement me")
 }
 
-func (s *Server) getAllShapesFromSchema(session *OpSession) ([]*pub.Shape, error) {
+func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteRequest) (*pub.ConfigureWriteResponse, error) {
+	panic("implement me")
+}
+
+func (s *Server) PrepareWrite(ctx context.Context, req*pub.PrepareWriteRequest) (*pub.PrepareWriteResponse, error) {
+	panic("implement me")
+}
+
+func (s *Server) WriteStream(pub.Publisher_WriteStreamServer) error {
+	panic("implement me")
+}
+
+// DiscoverShapes discovers shapes present in the database
+func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverSchemasRequest) (*pub.DiscoverSchemasResponse, error) {
+	return s.DiscoverSchemas(ctx, req)
+}
+
+func (s *Server) getAllShapesFromSchema(session *OpSession) ([]*pub.Schema, error) {
 
 	rows, err := session.DB.Query(`SELECT Schema_name(o.schema_id) SchemaName, o.NAME TableName
 FROM   sys.objects o 
@@ -407,10 +426,10 @@ WHERE  o.type IN ( 'U', 'V' )`)
 		return nil, errors.Errorf("could not list tables: %s", err)
 	}
 
-	var shapes []*pub.Shape
+	var shapes []*pub.Schema
 
 	for rows.Next() {
-		shape := new(pub.Shape)
+		shape := new(pub.Schema)
 
 		var (
 			schemaName string
@@ -479,7 +498,7 @@ func describeResultSet(session *OpSession, query string) ([]describeResult, erro
 	return metadata, nil
 }
 
-func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Shape) error {
+func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Schema) error {
 
 	query := shape.Query
 	if query == "" {
@@ -539,7 +558,7 @@ func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Shape) erro
 }
 
 // PublishStream sends records read in request to the agent
-func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_PublishStreamServer) error {
+func (s *Server) PublishStream(req *pub.ReadRequest, stream pub.Publisher_PublishStreamServer) error {
 
 	session, err := s.getOpSession(context.Background())
 	if err != nil {
@@ -579,7 +598,7 @@ func (s *Server) PublishStream(req *pub.PublishRequest, stream pub.Publisher_Pub
 }
 
 // Disconnect disconnects from the server
-func (s *Server) Disconnect(context.Context, *pub.DisconnectRequest) (*pub.DisconnectResponse, error) {
+func (s *Server) Disconnect(ctx context.Context, req*pub.DisconnectRequest) (*pub.DisconnectResponse, error) {
 
 	s.disconnect()
 
@@ -617,7 +636,7 @@ func (s *Server) getOpSession(ctx context.Context) (*OpSession, error) {
 
 var schemaIDParseRE = regexp.MustCompile(`(?:\[([^\]]+)\].)?(?:)(?:\[([^\]]+)\])`)
 
-func (s *Server) getCount(session *OpSession, shape *pub.Shape) (*pub.Count, error) {
+func (s *Server) getCount(session *OpSession, shape *pub.Schema) (*pub.Count, error) {
 
 	var query string
 	var err error
@@ -666,27 +685,27 @@ func (s *Server) getCount(session *OpSession, shape *pub.Shape) (*pub.Count, err
 }
 
 
-func buildQuery(req *pub.PublishRequest) (string, error) {
+func buildQuery(req *pub.ReadRequest) (string, error) {
 
-	if req.Shape.Query != "" {
-		return req.Shape.Query, nil
+	if req.Schema.Query != "" {
+		return req.Schema.Query, nil
 	}
 
 	w := new(strings.Builder)
 	w.WriteString("select ")
 	var columnIDs []string
-	for _, p := range req.Shape.Properties {
+	for _, p := range req.Schema.Properties {
 		columnIDs = append(columnIDs, p.Id)
 	}
 	columns := strings.Join(columnIDs, ", ")
 	fmt.Fprintln(w, columns)
-	fmt.Fprintln(w, "from ", req.Shape.Id)
+	fmt.Fprintln(w, "from ", req.Schema.Id)
 
 	if len(req.Filters) > 0 {
 		fmt.Fprintln(w, "where")
 
-		properties := make(map[string]*pub.Property, len(req.Shape.Properties))
-		for _, p := range req.Shape.Properties {
+		properties := make(map[string]*pub.Property, len(req.Schema.Properties))
+		for _, p := range req.Schema.Properties {
 			properties[p.Id] = p
 		}
 
