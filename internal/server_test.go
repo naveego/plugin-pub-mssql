@@ -14,22 +14,22 @@ import (
 
 )
 
-var discoverShape = func(sut pub.PublisherServer, schema *pub.Shape) *pub.Shape {
-	response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-		Mode:       pub.DiscoverShapesRequest_REFRESH,
+var discoverShape = func(sut pub.PublisherServer, schema *pub.Schema) *pub.Schema {
+	response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverSchemasRequest{
+		Mode:       pub.DiscoverSchemasRequest_REFRESH,
 		SampleSize: 0,
-		ToRefresh: []*pub.Shape{
+		ToRefresh: []*pub.Schema{
 			schema,
 		},
 	})
 	Expect(err).ToNot(HaveOccurred())
-	var out *pub.Shape
-	for _, s := range response.Shapes {
+	var out *pub.Schema
+	for _, s := range response.Schemas {
 		if s.Id == schema.Id {
 			out = s
 		}
 	}
-	Expect(out).ToNot(BeNil(), "should have discovered requested schema %q in %+v", schema.Id, response.Shapes)
+	Expect(out).ToNot(BeNil(), "should have discovered requested schema %q in %+v", schema.Id, response.Schemas)
 	return out
 }
 
@@ -86,12 +86,12 @@ var _ = Describe("Server", func() {
 
 			It("should get tables and views", func() {
 
-				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-					Mode: pub.DiscoverShapesRequest_ALL,
+				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverSchemasRequest{
+					Mode: pub.DiscoverSchemasRequest_ALL,
 				})
 				Expect(err).ToNot(HaveOccurred())
 
-				shapes := response.Shapes
+				shapes := response.Schemas
 
 				var ids []string
 				for _, s := range shapes {
@@ -108,14 +108,14 @@ var _ = Describe("Server", func() {
 			})
 
 			Describe("shape details", func() {
-				var agents *pub.Shape
+				var agents *pub.Schema
 				BeforeEach(func() {
-					response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-						Mode:       pub.DiscoverShapesRequest_ALL,
+					response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverSchemasRequest{
+						Mode:       pub.DiscoverSchemasRequest_ALL,
 						SampleSize: 2,
 					})
 					Expect(err).ToNot(HaveOccurred())
-					for _, s := range response.Shapes {
+					for _, s := range response.Schemas {
 						if s.Id == "[Agents]" {
 							agents = s
 						}
@@ -166,7 +166,7 @@ var _ = Describe("Server", func() {
 
 			It("should update shape", func() {
 
-				refreshShape := &pub.Shape{
+				refreshShape := &pub.Schema{
 					Id:   "[Agents per Working Area]",
 					Name: "Agents per Working Area",
 					Properties: []*pub.Property{
@@ -180,12 +180,12 @@ var _ = Describe("Server", func() {
 					},
 				}
 
-				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-					Mode:      pub.DiscoverShapesRequest_REFRESH,
-					ToRefresh: []*pub.Shape{refreshShape},
+				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverSchemasRequest{
+					Mode:      pub.DiscoverSchemasRequest_REFRESH,
+					ToRefresh: []*pub.Schema{refreshShape},
 				})
 				Expect(err).ToNot(HaveOccurred())
-				shapes := response.Shapes
+				shapes := response.Schemas
 				Expect(shapes).To(HaveLen(1), "only requested shape should be returned")
 
 				shape := shapes[0]
@@ -209,19 +209,19 @@ var _ = Describe("Server", func() {
 			Describe("when shape has query defined", func() {
 				It("should update shape", func() {
 
-					refreshShape := &pub.Shape{
+					refreshShape := &pub.Schema{
 						Id:    "agent_names",
 						Name:  "Agent Names",
 						Query: "SELECT AGENT_CODE, AGENT_NAME AS Name FROM Agents",
 					}
 
-					response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-						Mode:       pub.DiscoverShapesRequest_REFRESH,
-						ToRefresh:  []*pub.Shape{refreshShape},
+					response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverSchemasRequest{
+						Mode:       pub.DiscoverSchemasRequest_REFRESH,
+						ToRefresh:  []*pub.Schema{refreshShape},
 						SampleSize: 5,
 					})
 					Expect(err).ToNot(HaveOccurred())
-					shapes := response.Shapes
+					shapes := response.Schemas
 					Expect(shapes).To(HaveLen(1), "only requested shape should be returned")
 
 					shape := shapes[0]
@@ -253,20 +253,20 @@ var _ = Describe("Server", func() {
 			Describe("when shape has invalid query defined", func() {
 				It("should return useful error", func() {
 
-					refreshShape := &pub.Shape{
+					refreshShape := &pub.Schema{
 						Id:    "bogus_table",
 						Name:  "Bogus Data",
 						Query: "SELECT * FROM Bogus",
 					}
 
-					resp, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-						Mode:       pub.DiscoverShapesRequest_REFRESH,
-						ToRefresh:  []*pub.Shape{refreshShape},
+					resp, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverSchemasRequest{
+						Mode:       pub.DiscoverSchemasRequest_REFRESH,
+						ToRefresh:  []*pub.Schema{refreshShape},
 						SampleSize: 5,
 					})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(resp.Shapes).To(HaveLen(1))
-					shape := resp.Shapes[0]
+					Expect(resp.Schemas).To(HaveLen(1))
+					shape := resp.Schemas[0]
 					Expect(shape.Errors).To(ContainElement(ContainSubstring("Invalid object name")))
 				})
 			})
@@ -282,26 +282,26 @@ var _ = Describe("Server", func() {
 
 		Describe("pre and post publish queries", func() {
 
-			var req *pub.PublishRequest
+			var req *pub.ReadRequest
 
 			setup := func(settings Settings) {
-				var prepost *pub.Shape
+				var prepost *pub.Schema
 				_, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
 				Expect(err).ToNot(HaveOccurred())
 
-				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-					Mode:       pub.DiscoverShapesRequest_ALL,
+				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverSchemasRequest{
+					Mode:       pub.DiscoverSchemasRequest_ALL,
 					SampleSize: 2,
 				})
 				Expect(err).ToNot(HaveOccurred())
-				for _, s := range response.Shapes {
+				for _, s := range response.Schemas {
 					if s.Id == "[PrePost]" {
 						prepost = s
 					}
 				}
 				Expect(prepost).ToNot(BeNil())
-				req = &pub.PublishRequest{
-					Shape: prepost,
+				req = &pub.ReadRequest{
+					Schema: prepost,
 				}
 
 				Expect(db.Exec("DELETE FROM w3.dbo.PrePost")).ToNot(BeNil())
@@ -364,23 +364,23 @@ var _ = Describe("Server", func() {
 
 		Describe("filtering", func() {
 
-			var req *pub.PublishRequest
+			var req *pub.ReadRequest
 			BeforeEach(func() {
-				var agents *pub.Shape
+				var agents *pub.Schema
 
-				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-					Mode:       pub.DiscoverShapesRequest_ALL,
+				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverSchemasRequest{
+					Mode:       pub.DiscoverSchemasRequest_ALL,
 					SampleSize: 2,
 				})
 				Expect(err).ToNot(HaveOccurred())
-				for _, s := range response.Shapes {
+				for _, s := range response.Schemas {
 					if s.Id == "[Agents]" {
 						agents = s
 					}
 				}
 				Expect(agents).ToNot(BeNil())
-				req = &pub.PublishRequest{
-					Shape: agents,
+				req = &pub.ReadRequest{
+					Schema: agents,
 				}
 			})
 
@@ -467,23 +467,23 @@ var _ = Describe("Server", func() {
 
 		Describe("typing", func() {
 
-			var req *pub.PublishRequest
+			var req *pub.ReadRequest
 			BeforeEach(func() {
-				var types *pub.Shape
+				var types *pub.Schema
 
-				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-					Mode:       pub.DiscoverShapesRequest_ALL,
+				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverSchemasRequest{
+					Mode:       pub.DiscoverSchemasRequest_ALL,
 					SampleSize: 2,
 				})
 				Expect(err).ToNot(HaveOccurred())
-				for _, s := range response.Shapes {
+				for _, s := range response.Schemas {
 					if s.Id == "[Types]" {
 						types = s
 					}
 				}
 				Expect(types).ToNot(BeNil())
-				req = &pub.PublishRequest{
-					Shape: types,
+				req = &pub.ReadRequest{
+					Schema: types,
 				}
 			})
 
@@ -531,10 +531,10 @@ var _ = Describe("Server", func() {
 				It("should not be connected after disconnect", func() {
 					Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
 
-					_, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{})
+					_, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverSchemasRequest{})
 					Expect(err).To(MatchError(ContainSubstring("not connected")))
 
-					err = sut.PublishStream(&pub.PublishRequest{}, nil)
+					err = sut.PublishStream(&pub.ReadRequest{}, nil)
 					Expect(err).To(MatchError(ContainSubstring("not connected")))
 				})
 

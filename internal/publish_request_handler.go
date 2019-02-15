@@ -28,7 +28,7 @@ const (
 )
 
 type PublishRequest struct {
-	PluginRequest    *pub.PublishRequest
+	PluginRequest    *pub.ReadRequest
 	OpSession        *OpSession
 	RealTimeSettings *RealTimeSettings
 	Store            store.BoltStore
@@ -211,7 +211,7 @@ func InitializeRealTimeComponentsMiddleware() PublishMiddleware {
 			session := req.OpSession
 			log := session.Log.Named("InitializeRealTimeComponentsMiddleware")
 
-			shape := req.PluginRequest.Shape
+			shape := req.PluginRequest.Schema
 			var realTimeSettings RealTimeSettings
 			var realTimeState RealTimeState
 			err = json.Unmarshal([]byte(req.PluginRequest.RealTimeSettingsJson), &realTimeSettings)
@@ -280,7 +280,7 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 			session := req.OpSession
 			log := session.Log.Named("GetRecordsRealTimeMiddleware")
 			realTimeState := req.RealTimeState
-			shape := req.PluginRequest.Shape
+			shape := req.PluginRequest.Schema
 
 			minVersion := realTimeState.Version
 			maxVersion, err := getChangeTrackingVersion(session)
@@ -325,7 +325,7 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 				}
 				if len(trackedSchemaIDs) == 0 {
 					// no tracked source tables, the schema itself is tracked:
-					trackedSchemaIDs = []string{req.PluginRequest.Shape.Id}
+					trackedSchemaIDs = []string{req.PluginRequest.Schema.Id}
 				}
 
 				for _, schemaID := range trackedSchemaIDs {
@@ -390,7 +390,7 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 				depSchema := session.SchemaInfo[table.SchemaID]
 				args := templates.ChangeDetectionQueryArgs{
 					BridgeQuery:               table.Query,
-					SchemaArgs:                MetaSchemaFromShape(req.PluginRequest.Shape),
+					SchemaArgs:                MetaSchemaFromShape(req.PluginRequest.Schema),
 					DependencyArgs:            depSchema,
 					ChangeKeyPrefix:           ChangeKeyPrefix,
 					ChangeOperationColumnName: ChangeOperationColumnName,
@@ -536,7 +536,11 @@ func StoreChangeTrackingDataMiddleware() PublishMiddleware {
 
 					switch result {
 					case StoreNoop:
+						// We still propagate the record here because the plugin doesn't
+						// know whether the record has successfully been captured by go-between, even if
+						// the plugin has already sent this record to go-between in the past.
 						log.Trace("record has not changed", "keys", schemaKeys)
+						req.Action = pub.Record_UPSERT
 					case StoreAdded:
 						log.Trace("record has been inserted", "keys", schemaKeys)
 						req.Action = pub.Record_INSERT
@@ -683,7 +687,7 @@ func buildSchemaDataQueryArgs(req PublishRequest, allRowKeys []meta.RowKeys) (te
 		RowKeys:               allRowKeys,
 		DeletedFlagColumnName: DeletedFlagColumnName,
 	}
-	templateArgs.SchemaArgs = MetaSchemaFromShape(req.PluginRequest.Shape)
+	templateArgs.SchemaArgs = MetaSchemaFromShape(req.PluginRequest.Schema)
 	templateArgs.SchemaArgs.Query, err = buildQuery(req.PluginRequest)
 	if err != nil {
 		return templateArgs, errors.Wrap(err, "build schema query")
@@ -713,7 +717,7 @@ func commitVersionToHandler(req PublishRequest, version int, handler PublishHand
 	return version, handler.Handle(req)
 }
 
-func BuildHandlerAndRequest(session *OpSession, externalRequest *pub.PublishRequest, handler PublishHandler) (PublishHandler, PublishRequest, error) {
+func BuildHandlerAndRequest(session *OpSession, externalRequest *pub.ReadRequest, handler PublishHandler) (PublishHandler, PublishRequest, error) {
 
 	middlewares := []PublishMiddleware{
 		SetRecordMiddleware(),
@@ -738,13 +742,13 @@ func BuildHandlerAndRequest(session *OpSession, externalRequest *pub.PublishRequ
 	req := PublishRequest{
 		OpSession:     session,
 		PluginRequest: externalRequest,
-		Schema:        MetaSchemaFromShape(externalRequest.Shape),
+		Schema:        MetaSchemaFromShape(externalRequest.Schema),
 	}
 
 	return handler, req, nil
 }
 
-func getItemsAndHandle(session *OpSession, externalRequest *pub.PublishRequest, handler PublishHandler) error {
+func getItemsAndHandle(session *OpSession, externalRequest *pub.ReadRequest, handler PublishHandler) error {
 
 	var err error
 	var query string
@@ -787,7 +791,7 @@ func handleRows(req PublishRequest, args templates.SchemaDataQueryArgs, rows *sq
 	}
 
 	session := req.OpSession
-	shape := req.PluginRequest.Shape
+	shape := req.PluginRequest.Schema
 
 	shapePropertiesMap := map[string]*pub.Property{}
 	for _, p := range shape.Properties {

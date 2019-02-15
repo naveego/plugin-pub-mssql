@@ -208,10 +208,10 @@ func GetRealTimeSchemas() (form *jsonschema.JSONSchema, ui SchemaMap) {
 					"ui:options": SchemaMap{
 						"rows":3,
 					},
-					"ui:help": `The query must select the keys into columns with specific names. 
-The columns from the change tracked table must be named <pre style="display:inline;">[Dependency.{column}]</pre>, 
-where <pre style="display:inline;">{column}</pre> is the name of the column. The columns from the view or query 
-must be named <pre style="display:inline;">[Schema.{column}]</pre>.`,
+					"ui:help": "The query must select the keys into columns with specific names." +
+						"The columns from the change tracked table must be named `[Dependency.{column}]`," +
+						"where `{column}` is the name of the column. The columns from the view or query " +
+						"must be named `[Schema.{column}]`",
 				},
 			},
 		},

@@ -11,6 +11,7 @@ services:
       SA_PASSWORD: n5o_ADMIN
     logging:
       driver: json-file
+    network_mode: bridge
 
 
 

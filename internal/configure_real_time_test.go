@@ -38,10 +38,10 @@ var _ = Describe("ConfigureRealTime", func() {
 	})
 	Describe("ConfigureRealTime", func() {
 
-		var configureRealTime = func(schema *pub.Shape, settings RealTimeSettings) *pub.ConfigureRealTimeResponse {
+		var configureRealTime = func(schema *pub.Schema, settings RealTimeSettings) *pub.ConfigureRealTimeResponse {
 			shape := discoverShape(sut, schema)
 			req := (&pub.ConfigureRealTimeRequest{
-				Shape: shape,
+				Schema: shape,
 			}).WithData(settings)
 			resp, err := sut.ConfigureRealTime(context.Background(), req)
 			Expect(err).ToNot(HaveOccurred())
@@ -55,7 +55,7 @@ var _ = Describe("ConfigureRealTime", func() {
 		Describe("when schema is table", func() {
 			Describe("when table has change tracking enabled", func() {
 				It("should return a form schema with only the polling property", func() {
-					resp := configureRealTime(&pub.Shape{Id: "[RealTime]"}, RealTimeSettings{})
+					resp := configureRealTime(&pub.Schema{Id: "[RealTime]"}, RealTimeSettings{})
 					jsonSchemaForForm := resp.GetJSONSchemaForForm()
 					Expect(jsonSchemaForForm.Properties).To(HaveLen(1))
 					Expect(jsonSchemaForForm.Description).ToNot(BeEmpty())
@@ -63,7 +63,7 @@ var _ = Describe("ConfigureRealTime", func() {
 			})
 			Describe("when table does not have change tracking enabled", func() {
 				It("should return an form schema with an error", func() {
-					resp := configureRealTime(&pub.Shape{Id: "[Agents]"}, RealTimeSettings{})
+					resp := configureRealTime(&pub.Schema{Id: "[Agents]"}, RealTimeSettings{})
 					Expect(resp.Form.Errors).To(ContainElement(ContainSubstring("Table does not have change tracking enabled.")))
 				})
 			})
@@ -73,7 +73,7 @@ var _ = Describe("ConfigureRealTime", func() {
 
 			It("should have error if table does not have change tracking enabled", func() {
 
-				resp := configureRealTime(&pub.Shape{Id: "[RealTimeDuplicateView]"}, RealTimeSettings{
+				resp := configureRealTime(&pub.Schema{Id: "[RealTimeDuplicateView]"}, RealTimeSettings{
 					Tables: []RealTimeTableSettings{
 						{SchemaID: "[Customers]"},
 					},
@@ -93,7 +93,7 @@ var _ = Describe("ConfigureRealTime", func() {
 						{SchemaID: "[RealTime]"},
 					},
 				}
-				resp := configureRealTime(&pub.Shape{Id: "[RealTimeDuplicateView]"}, expectedSettings)
+				resp := configureRealTime(&pub.Schema{Id: "[RealTimeDuplicateView]"}, expectedSettings)
 				unmarshallString(resp.Form.DataJson, &actual)
 				Expect(actual).To(BeEquivalentTo(expectedSettings))
 			})
@@ -111,7 +111,7 @@ var _ = Describe("ConfigureRealTime", func() {
 							},
 						},
 					}
-					resp := configureRealTime(&pub.Shape{
+					resp := configureRealTime(&pub.Schema{
 						Id: "[RealTimeDuplicateView]",
 						Properties:[]*pub.Property{
 							{Name:"id", Id:"[id]", IsKey:true, Type:pub.PropertyType_INTEGER, TypeAtSource:"int"},
@@ -143,7 +143,7 @@ var _ = Describe("ConfigureRealTime", func() {
 						},
 					}
 					var errorMap ErrorMap
-					resp := configureRealTime(&pub.Shape{Id: "[RealTimeDuplicateView]"}, expectedSettings)
+					resp := configureRealTime(&pub.Schema{Id: "[RealTimeDuplicateView]"}, expectedSettings)
 					unmarshallString(resp.Form.DataErrorsJson, &errorMap)
 					errs := errorMap.GetErrors("tables", "0", "query")
 					Expect(errs).To(BeEmpty())
@@ -151,7 +151,7 @@ var _ = Describe("ConfigureRealTime", func() {
 			})
 
 			It("should include tables as the enum for the table property", func() {
-				resp := configureRealTime(&pub.Shape{Id: "[RealTimeDuplicateView]"}, RealTimeSettings{})
+				resp := configureRealTime(&pub.Schema{Id: "[RealTimeDuplicateView]"}, RealTimeSettings{})
 				jsonSchemaForForm := resp.GetJSONSchemaForForm()
 				jsm := GetMapFromJSONSchema(jsonSchemaForForm)
 				Expect(jsm).To(And(

@@ -118,21 +118,21 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 		DataErrors: ErrorMap{},
 	}
 
-	schemaInfo := session.SchemaInfo[req.Shape.Id]
+	schemaInfo := session.SchemaInfo[req.Schema.Id]
 	if schemaInfo == nil || !schemaInfo.IsTable {
-		schemaInfo = MetaSchemaFromShape(req.Shape)
+		schemaInfo = MetaSchemaFromShape(req.Schema)
 	} else {
 		// If the schema is a table and it has change tracking, we have nothing else to configure.
 		// Otherwise, we'll show the user an error telling them to configure change tracking for the table.
 
-		err = r.ensureTableChangeTrackingEnabled(session, req.Shape.Id)
+		err = r.ensureTableChangeTrackingEnabled(session, req.Schema.Id)
 		if err != nil {
 			resp.Errors = []string{fmt.Sprintf("The schema is a table, but real time configuration failed: %s", err)}
 			return resp.ToResponse(), nil
 		} else {
 
 			delete(jsonSchema.Properties, "tables")
-			jsonSchema.Property.Description = fmt.Sprintf(`The table %s has change tracking enabled and is ready for real time publishing.`, req.Shape.Id)
+			jsonSchema.Property.Description = fmt.Sprintf("The table `%s` has change tracking enabled and is ready for real time publishing.", req.Schema.Id)
 
 			return resp.ToResponse(), nil
 		}
@@ -175,7 +175,7 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 
 			depSchema := session.SchemaInfo[table.SchemaID]
 			if depSchema == nil {
-				tableErrors.GetOrAddChild("schemaID").AddError("Invalid table %q.", table.SchemaID)
+				tableErrors.GetOrAddChild("schemaID").AddError("Invalid table `%s`.", table.SchemaID)
 				continue
 			}
 			for _, k := range depSchema.Keys() {
@@ -205,7 +205,7 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 					}
 					sort.Strings(missing)
 					if len(missing) > 0 {
-						tableErrors.GetOrAddChild("query").AddError(`One or more required columns not found in query. Missing column(s): %s`, strings.Join(missing, ", "))
+						tableErrors.GetOrAddChild("query").AddError("One or more required columns not found in query. Missing column(s): `%s`", strings.Join(missing, ", "))
 					}
 				}
 			}

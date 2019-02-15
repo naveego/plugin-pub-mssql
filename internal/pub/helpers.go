@@ -20,7 +20,7 @@ type ShapeMetadata struct {
 type PropertyMetadata struct {
 }
 
-type SortableShapes []*Shape
+type SortableShapes []*Schema
 
 func (s SortableShapes) Len() int {
 	return len(s)

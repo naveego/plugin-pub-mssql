@@ -149,22 +149,22 @@ var _ = Describe("PublishStream with Real Time", func() {
 		Expect(sut.Disconnect(context.Background(), new(pub.DisconnectRequest))).ToNot(BeNil())
 	})
 
-	var discoverShape = func(schema *pub.Shape) *pub.Shape {
-		response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverShapesRequest{
-			Mode:       pub.DiscoverShapesRequest_REFRESH,
+	var discoverShape = func(schema *pub.Schema) *pub.Schema {
+		response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverSchemasRequest{
+			Mode:       pub.DiscoverSchemasRequest_REFRESH,
 			SampleSize: 0,
-			ToRefresh: []*pub.Shape{
+			ToRefresh: []*pub.Schema{
 				schema,
 			},
 		})
 		Expect(err).ToNot(HaveOccurred())
-		var out *pub.Shape
-		for _, s := range response.Shapes {
+		var out *pub.Schema
+		for _, s := range response.Schemas {
 			if s.Id == schema.Id {
 				out = s
 			}
 		}
-		Expect(out).ToNot(BeNil(), "should have discovered requested schema %q in %+v", schema.Id, response.Shapes)
+		Expect(out).ToNot(BeNil(), "should have discovered requested schema %q in %+v", schema.Id, response.Schemas)
 		return out
 	}
 
@@ -177,7 +177,7 @@ var _ = Describe("PublishStream with Real Time", func() {
 		}).To(BeRecordMatching(pub.Record_UPSERT, expected))
 	})
 
-	DescribeTable("simple real time", func(shape *pub.Shape, settings RealTimeSettings) {
+	DescribeTable("simple real time", func(shape *pub.Schema, settings RealTimeSettings) {
 
 		schema := discoverShape(shape)
 
@@ -191,9 +191,9 @@ var _ = Describe("PublishStream with Real Time", func() {
 
 		go func() {
 			defer GinkgoRecover()
-			err := sut.PublishStream(&pub.PublishRequest{
+			err := sut.PublishStream(&pub.ReadRequest{
 				JobId:                jobID,
-				Shape:                schema,
+				Schema:               schema,
 				RealTimeSettingsJson: settings.String(),
 				RealTimeStateJson:    "",
 			}, stream)
@@ -302,8 +302,8 @@ var _ = Describe("PublishStream with Real Time", func() {
 		})
 
 	},
-		Entry("when schema is table", &pub.Shape{Id: "[RealTime]"}, RealTimeSettings{PollingInterval: "100ms"}),
-		Entry("when schema is view", &pub.Shape{Id: "[RealTimeDuplicateView]"}, RealTimeSettings{
+		Entry("when schema is table", &pub.Schema{Id: "[RealTime]"}, RealTimeSettings{PollingInterval: "100ms"}),
+		Entry("when schema is view", &pub.Schema{Id: "[RealTimeDuplicateView]"}, RealTimeSettings{
 			PollingInterval: "100ms",
 			Tables: []RealTimeTableSettings{
 				{
@@ -314,7 +314,7 @@ JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
 				},
 			},
 		}),
-		Entry("when schema is query", &pub.Shape{
+		Entry("when schema is query", &pub.Schema{
 			Id:    "duplicateQuery",
 			Query: "select * from realtime",
 		}, RealTimeSettings{
