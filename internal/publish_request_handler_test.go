@@ -338,7 +338,7 @@ JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
 		}),
 	)
 
-	FDescribe("complex views", func(){
+	Describe("complex views", func(){
 
 		It("should work with other schemas", func() {
 
