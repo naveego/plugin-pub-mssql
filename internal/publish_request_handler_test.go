@@ -43,6 +43,11 @@ var _ = Describe("PublishRequestHandler helpers", func() {
 	})
 })
 
+type DeveloperRecord struct {
+	ID          int    `sql:"id" json:"[id]"`
+	Name    string `sql:"name" json:"[name]"`
+}
+
 type RealTimeRecord struct {
 	ID          int    `sql:"id" json:"[id]"`
 	OwnValue    string `sql:"ownValue" json:"[ownValue]"`
@@ -75,6 +80,7 @@ type RealTimeSpreadViewRecord struct {
 }
 
 var (
+	developersRecords              []DeveloperRecord
 	realTimeRecords              []RealTimeRecord
 	realTimeDuplicateViewRecords []RealTimeDuplicateViewRecord
 	realTimeDerivedViewRecords   []RealTimeDerivedViewRecord
@@ -123,6 +129,10 @@ var _ = Describe("PublishStream with Real Time", func() {
 			rows, err = db.Query("SELECT * FROM w3.dbo.RealTimeSpreadView")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sqlstructs.UnmarshalRows(rows, &realTimeSpreadViewRecords)).To(Succeed())
+
+			rows, err = db.Query("SELECT * FROM w3.dev.Developers")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sqlstructs.UnmarshalRows(rows, &developersRecords)).To(Succeed())
 		})
 
 		sut = NewServer(log)
@@ -328,7 +338,65 @@ JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
 		}),
 	)
 
-	Describe("complex views", func(){
+	FDescribe("complex views", func(){
+
+		It("should work with other schemas", func() {
+
+			schema := discoverShape(&pub.Schema{Id: "[dev].[Developers]"})
+			settings := RealTimeSettings{PollingInterval: "100ms"}
+
+			var (
+				expectedInsertedRecord DeveloperRecord
+				// expectedUpdatedRecord  DeveloperRecord
+				// expectedDeletedRecord  DeveloperRecord
+			)
+
+			expectedVersion := getChangeTrackingVersion()
+
+			go func() {
+				defer GinkgoRecover()
+				err := sut.PublishStream(&pub.ReadRequest{
+					JobId:                jobID,
+					Schema:               schema,
+					RealTimeSettingsJson: settings.String(),
+					RealTimeStateJson:    "",
+				}, stream)
+				Expect(err).ToNot(HaveOccurred())
+			}()
+
+			defer func() {
+				Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
+			}()
+
+			By("detecting that no state exists, all records should be loaded", func() {
+				for _, expected := range developersRecords {
+					var actualRecord *pub.Record
+					Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+					Expect(actualRecord).To(BeRecordMatching(pub.Record_INSERT, expected))
+				}
+			})
+
+			By("committing most recent version, the state should be stored", func() {
+				var actualRecord *pub.Record
+				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+				Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
+			})
+
+			By("running the publish periodically, a new record should be detected when it is written", func() {
+
+				Expect(db.Exec("INSERT INTO dev.Developers VALUES (5, 'test')")).ToNot(BeNil())
+				expectedInsertedRecord = DeveloperRecord{
+					ID:       5,
+					Name:"test",
+				}
+				var actualRecord *pub.Record
+				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+				Expect(actualRecord).To(BeRecordMatching(pub.Record_INSERT, expectedInsertedRecord))
+				Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Insert in [dev].[Developers] at [id]=%d", 5)))
+			})
+
+
+		})
 
 	})
 })

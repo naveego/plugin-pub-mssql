@@ -5,6 +5,7 @@ import (
 	. "github.com/naveego/plugin-pub-mssql/internal/templates"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/extensions/table"
 )
 
 var _ = Describe("Templates", func() {
@@ -22,4 +23,12 @@ var _ = Describe("Templates", func() {
 		Expect(actual).To(ContainSubstring("[Schema.key1]"))
 		Expect(actual).To(ContainSubstring("[Schema.key2]"))
 	})
+
+	DescribeTable("UniquifySQLID", func(input, expected string){
+		Expect(UniquifySQLName(input)).To(Equal(expected))
+	},
+	Entry("basic", "[table]", "[table_aab9]"),
+	Entry("with schema", "[schema].[table]", "[schema_table_1a7b]"),
+
+	)
 })
