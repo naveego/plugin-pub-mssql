@@ -4,6 +4,7 @@ import (
 	"github.com/LK4D4/joincontext"
 	"github.com/naveego/plugin-pub-mssql/internal/meta"
 	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
+	"io"
 	"io/ioutil"
 	"os"
 	"sync"
@@ -46,6 +47,7 @@ type Session struct {
 	Publishing bool
 	Log        hclog.Logger
 	Settings   *Settings
+	WriteSettings *WriteSettings
 	// tables that were discovered during connect
 	SchemaInfo     map[string]*meta.Schema
 	RealTimeHelper *RealTimeHelper
@@ -395,20 +397,256 @@ func (s *Server) DiscoverSchemas(ctx context.Context, req*pub.DiscoverSchemasReq
 
 	return resp, nil}
 
-func (s *Server) ReadStream(*pub.ReadRequest, pub.Publisher_ReadStreamServer) error {
-	panic("implement me")
+// ReadStream same as PublishStream calls PublishStream
+func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStreamServer) error {
+	return s.PublishStream(req, stream)
 }
 
+// ConfigureWrite
 func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteRequest) (*pub.ConfigureWriteResponse, error) {
-	panic("implement me")
+	session, err := s.getOpSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// first request build ui
+	if req.Form.DataJson == "" {
+		return &pub.ConfigureWriteResponse{
+			Form: &pub.ConfigurationFormResponse{
+				DataJson: `{"storedProcedure":"","parameters":[]}`,
+				DataErrorsJson: "",
+				Errors: nil,
+				SchemaJson: `{
+	"type": "object",
+	"properties": {
+		"storedProcedure": {
+			"type": "string",
+			"title": "Stored Procedure Name",
+			"description": "The name of the stored procedure"
+		},
+		"parameters": {
+			"type": "array",
+			"title": "Parameters",
+			"description": "Parameters for the stored procedure",
+			"items": {
+				"type": "string",
+				"default": ""
+			}
+		}
+	},
+	"required": [
+		"storedProcedure",
+		"parameters"
+	]
+}`,
+				UiJson: `{
+	"ui:order": [
+		"storedProcedure",
+        "parameters"
+	],
+	"parameters": {
+		"items": {
+			"ui:emptyValue": ""
+		}
+	},
+}`,
+				StateJson: "",
+			},
+			Schema: nil,
+		}, nil
+	}
+
+	// build schema
+	// get form data
+	var formData map[string]interface{}
+	if err := json.Unmarshal([]byte(req.Form.DataJson), &formData); err != nil {
+		return nil, err
+	}
+
+	// check if stored procedure exists
+	query := fmt.Sprintf("SELECT 1 FROM sys.procedures WHERE Name = @storedProc")
+	stmt, err := session.DB.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+
+	row := stmt.QueryRow(sql.Named("storedProc", formData["storedProcedure"]))
+
+	err = row.Scan()
+	if err != nil {
+		return nil, err
+	}
+
+	// check params for stored procedure
+	query = `SELECT PARAMETER_NAME as Name 
+FROM INFORMATION_SCHEMA.PARAMETERS
+WHERE SPECIFIC_NAME = @storedProc
+`
+	stmt, err = session.DB.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := stmt.Query(sql.Named("storedProc", formData["storedProcedure"]))
+	if err != nil {
+		return nil, err
+	}
+
+	var name string
+	for rows.Next() {
+		err := rows.Scan(&name)
+		if err != nil {
+			return nil, err
+		}
+
+		found := false
+		for _, param := range formData["parameters"].([]string) {
+			if param ==  name {
+				found = true
+			}
+		}
+
+		if !found {
+			return nil, errors.Errorf("parameter: %s not found", name)
+		}
+	}
+
+	properties := make([]*pub.Property, 0)
+	for _, prop := range formData["parameters"].([]string) {
+		properties = append(properties, &pub.Property{
+			Id: prop,
+		})
+	}
+
+	return &pub.ConfigureWriteResponse{
+		Schema: &pub.Schema{
+			Id: formData["storedProcedure"].(string),
+			Query: formData["storedProcedure"].(string),
+			Properties: properties,
+		},
+	}, nil
 }
 
+// PrepareWrite sets up the plugin to be able to write back
 func (s *Server) PrepareWrite(ctx context.Context, req*pub.PrepareWriteRequest) (*pub.PrepareWriteResponse, error) {
-	panic("implement me")
+	session, err := s.getOpSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	session.WriteSettings = &WriteSettings{
+		Schema: req.Schema,
+		CommitSLA: req.CommitSlaSeconds,
+	}
+
+	return &pub.PrepareWriteResponse{}, nil
 }
 
-func (s *Server) WriteStream(pub.Publisher_WriteStreamServer) error {
-	panic("implement me")
+// WriteStream writes a stream of records back to the source system
+func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
+	session, err := s.getOpSession(context.Background())
+	if err != nil {
+		return err
+	}
+
+	defer session.Cancel()
+
+	// get and process each record
+	for {
+		// get record and exit if no more records or error
+		record, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		var recordData map[string]interface{}
+		if err := json.Unmarshal([]byte(record.DataJson), &recordData); err != nil {
+			return errors.WithStack(err)
+		}
+
+		// process record and send ack
+		c1 := make(chan string, 1)
+		go func() {
+			schema := session.WriteSettings.Schema
+			//var key, updateKey string
+
+			// check if source is newer than write back record
+			//for _, prop := range schema.Properties {
+			//	if prop.IsUpdateCounter {
+			//		updateKey = prop.Id
+			//	}
+			//	if prop.IsKey {
+			//		key = prop.Id
+			//	}
+			//}
+			//
+			//if updateKey != "" && key != "" {
+			//	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s=%s", updateKey, schema.Id, key, recordData[key])
+			//
+			//	row := session.DB.QueryRow(query)
+			//
+			//	recDate := recordData[key]
+			//	var srcDate string
+			//	err := row.Scan(&srcDate)
+			//	if err != nil {
+			//		c1 <- fmt.Sprintf("could not check source system date: %s", err)
+			//	}
+			//
+			//	recTime, err := time.Parse(time.RFC3339, recDate.(string))
+			//	if err != nil {
+			//		c1 <- fmt.Sprintf("could not check source system date: %s", err)
+			//	}
+			//
+			//	srcTime, err := time.Parse(time.RFC3339, srcDate)
+			//	if err != nil {
+			//		c1 <- fmt.Sprintf("could not check source system date: %s", err)
+			//	}
+			//
+			//	if recTime.Before(srcTime) {
+			//		c1 <- "source system is newer than requested write back"
+			//	}
+			//}
+
+			// build params for stored procedure
+			var args []interface{}
+			for _, prop := range schema.Properties {
+				args = append(args, sql.Named(prop.Id, recordData[prop.Id]))
+			}
+
+			// call stored procedure and capture any error
+			_, err := session.DB.Exec(schema.Query, args...)
+			if err != nil {
+				c1 <- fmt.Sprintf("could not write back: %s", err)
+			}
+
+			c1 <- ""
+		}()
+
+		// send ack when done writing or on timeout
+		select {
+		// done writing
+		case sendErr := <-c1:
+			err := stream.Send(&pub.RecordAck{
+				CorrelationId: record.CorrelationId,
+				Error: sendErr,
+			})
+			if err != nil {
+				return err
+			}
+		// timeout
+		case <-time.After(time.Duration(session.WriteSettings.CommitSLA) * time.Second):
+			err := stream.Send(&pub.RecordAck{
+				CorrelationId: record.CorrelationId,
+				Error: "timed out",
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
 }
 
 // DiscoverShapes discovers shapes present in the database
