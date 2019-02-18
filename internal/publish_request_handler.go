@@ -210,6 +210,7 @@ func InitializeRealTimeComponentsMiddleware() PublishMiddleware {
 			var err error
 			session := req.OpSession
 			log := session.Log.Named("InitializeRealTimeComponentsMiddleware")
+			log.Debug("Handler starting.")
 
 			requestedSchema := req.PluginRequest.Schema
 			var realTimeSettings RealTimeSettings
@@ -227,6 +228,8 @@ func InitializeRealTimeComponentsMiddleware() PublishMiddleware {
 
 			req.RealTimeSettings = &realTimeSettings
 			req.RealTimeState = &realTimeState
+
+			log.With("real_time_state", req.RealTimeState, "raw", req.PluginRequest.RealTimeStateJson).Info("Initialized with real time state.")
 
 			if len(realTimeSettings.Tables) == 0 {
 				schema := session.SchemaInfo[requestedSchema.Id]

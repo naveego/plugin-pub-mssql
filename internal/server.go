@@ -393,17 +393,53 @@ func (s *Server) DiscoverSchemas(ctx context.Context, req*pub.DiscoverSchemasReq
 
 	sort.Sort(pub.SortableShapes(resp.Schemas))
 
-	return resp, nil}
+	return resp, nil
+}
 
-func (s *Server) ReadStream(*pub.ReadRequest, pub.Publisher_ReadStreamServer) error {
+func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStreamServer) error {
+
+	session, err := s.getOpSession(context.Background())
+	if err != nil {
+		return err
+	}
+
+	defer session.Cancel()
+
+	jsonReq, _ := json.Marshal(req)
+
+	s.log.Debug("Got PublishStream request.", "req", string(jsonReq))
+
+	if session.Settings.PrePublishQuery != "" {
+		_, err := session.DB.Exec(session.Settings.PrePublishQuery)
+		if err != nil {
+			return errors.Errorf("error running pre-publish query: %s", err)
+		}
+	}
+
+
+	handler, innerRequest, err := BuildHandlerAndRequest(session, req, PublishToStreamHandler(stream))
+
+	err = handler.Handle(innerRequest)
+
+	if session.Settings.PostPublishQuery != "" {
+		_, postPublishErr := session.DB.Exec(session.Settings.PostPublishQuery)
+		if postPublishErr != nil {
+			if err != nil {
+				postPublishErr = errors.Errorf("%s (publish had already stopped with error: %s)", postPublishErr, err)
+			}
+
+			return errors.Errorf("error running post-publish query: %s", postPublishErr)
+		}
+	}
+
+	return err
+}
+
+func (s *Server) ConfigureWrite(ctx context.Context, req *pub.ConfigureWriteRequest) (*pub.ConfigureWriteResponse, error) {
 	panic("implement me")
 }
 
-func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteRequest) (*pub.ConfigureWriteResponse, error) {
-	panic("implement me")
-}
-
-func (s *Server) PrepareWrite(ctx context.Context, req*pub.PrepareWriteRequest) (*pub.PrepareWriteResponse, error) {
+func (s *Server) PrepareWrite(ctx context.Context, req *pub.PrepareWriteRequest) (*pub.PrepareWriteResponse, error) {
 	panic("implement me")
 }
 
@@ -559,42 +595,7 @@ func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Schema) err
 
 // PublishStream sends records read in request to the agent
 func (s *Server) PublishStream(req *pub.ReadRequest, stream pub.Publisher_PublishStreamServer) error {
-
-	session, err := s.getOpSession(context.Background())
-	if err != nil {
-		return err
-	}
-
-	defer session.Cancel()
-
-	jsonReq, _ := json.Marshal(req)
-
-	s.log.Debug("Got PublishStream request.", "req", string(jsonReq))
-
-	if session.Settings.PrePublishQuery != "" {
-		_, err := session.DB.Exec(session.Settings.PrePublishQuery)
-		if err != nil {
-			return errors.Errorf("error running pre-publish query: %s", err)
-		}
-	}
-
-
-	handler, innerRequest, err := BuildHandlerAndRequest(session, req, PublishToStreamHandler(stream))
-
-	err = handler.Handle(innerRequest)
-
-	if session.Settings.PostPublishQuery != "" {
-		_, postPublishErr := session.DB.Exec(session.Settings.PostPublishQuery)
-		if postPublishErr != nil {
-			if err != nil {
-				postPublishErr = errors.Errorf("%s (publish had already stopped with error: %s)", postPublishErr, err)
-			}
-
-			return errors.Errorf("error running post-publish query: %s", postPublishErr)
-		}
-	}
-
-	return err
+	return s.ReadStream(req, stream)
 }
 
 // Disconnect disconnects from the server
