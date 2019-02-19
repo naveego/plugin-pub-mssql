@@ -542,7 +542,145 @@ var _ = Describe("Server", func() {
 
 		})
 	})
+
+	Describe("Write Backs", func() {
+
+		BeforeEach(func() {
+			Expect(sut.Connect(context.Background(), pub.NewConnectRequest(settings))).ToNot(BeNil())
+		})
+
+		Describe("ConfigureWrite", func() {
+
+			var req *pub.ConfigureWriteRequest
+			BeforeEach(func() {
+				req = &pub.ConfigureWriteRequest{}
+			})
+
+			It("should return a json form schema on the first call", func() {
+				response, err := sut.ConfigureWrite(context.Background(), req)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(response.Form).ToNot(BeNil())
+				Expect(response.Form.SchemaJson).ToNot(BeNil())
+				Expect(response.Form.UiJson).ToNot(BeNil())
+				Expect(response.Schema).To(BeNil())
+			})
+
+			It("should return a schema when a valid stored procedure is input", func() {
+				req.Form.DataJson = `{"storedProcedure":"TEST"}`
+
+				response, err := sut.ConfigureWrite(context.Background(), req)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(response.Form).ToNot(BeNil())
+				Expect(response.Schema).ToNot(BeNil())
+
+				Expect(response.Schema.Id).To(Equal("TEST"))
+				Expect(response.Schema.Query).To(Equal("TEST"))
+				Expect(response.Schema.Properties).To(HaveLen(1))
+				Expect(response.Schema.Properties[0]).To(Equal("@AgentId"))
+			})
+
+			It("should return an error when an invalid stored procedure is input", func() {
+				req.Form.DataJson = `{"storedProcedure":"NOT A PROC"}`
+
+				response, err := sut.ConfigureWrite(context.Background(), req)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(response.Form).ToNot(BeNil())
+				Expect(response.Schema).ToNot(BeNil())
+				Expect(response.Form.Errors).To(HaveLen(1))
+				Expect(response.Form.Errors[0]).To(ContainSubstring("stored procedure does not exist"))
+			})
+		})
+
+		Describe("PrepareWrite", func() {
+
+			var req *pub.PrepareWriteRequest
+			BeforeEach(func() {
+				req = &pub.PrepareWriteRequest{
+					Schema: &pub.Schema{},
+					CommitSlaSeconds: 1,
+				}
+			})
+
+			It("should prepare the plugin to write", func() {
+				response, err := sut.PrepareWrite(context.Background(), req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+			})
+		})
+
+		Describe("WriteStream", func() {
+
+			var records []*pub.Record
+			BeforeEach(func() {
+				req :=  &pub.PrepareWriteRequest{
+					Schema: &pub.Schema{
+						Id: "TEST",
+						Query: "TEST",
+						Properties: []*pub.Property {
+							{
+								Id: "@AgentId",
+							},
+						},
+					},
+					CommitSlaSeconds: 1,
+				}
+
+				response, err := sut.PrepareWrite(context.Background(), req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+
+				records = append(records, &pub.Record{
+					DataJson: `{"@AgentId":"A001"}`,
+					CorrelationId: "test",
+				})
+			})
+
+			It("should be able to call a stored procedure to write a record", func() {
+				stream := new(writeStream)
+				Expect(sut.WriteStream(stream)).To(Succeed())
+			})
+		})
+	})
 })
+
+type writeStream struct {
+
+}
+
+func (p *writeStream) Send(ack *pub.RecordAck) error {
+	panic("implement me")
+}
+
+func (p *writeStream) Recv() (*pub.Record, error) {
+	panic("implement me")
+}
+
+func (writeStream) SetHeader(metadata.MD) error {
+	panic("implement me")
+}
+
+func (writeStream) SendHeader(metadata.MD) error {
+	panic("implement me")
+}
+
+func (writeStream) SetTrailer(metadata.MD) {
+	panic("implement me")
+}
+
+func (writeStream) Context() context.Context {
+	panic("implement me")
+}
+
+func (writeStream) SendMsg(m interface{}) error {
+	panic("implement me")
+}
+
+func (writeStream) RecvMsg(m interface{}) error {
+	panic("implement me")
+}
 
 type publisherStream struct {
 	records []*pub.Record

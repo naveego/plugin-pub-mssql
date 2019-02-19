@@ -533,3 +533,14 @@ CREATE TABLE w3.dbo.PrePost
 (
   Message VARCHAR(50)
 )
+
+GO
+
+CREATE OR ALTER PROCEDURE TEST
+@AgentId char(4)
+AS
+BEGIN
+  update w3.dbo.Agents SET AGENT_NAME = 'test'
+  where AGENT_CODE = @AgentId
+END
+GO

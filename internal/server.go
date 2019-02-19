@@ -412,7 +412,7 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 	var errArray []string
 
 	// first request return ui json schema form
-	if req.Form.DataJson == "" {
+	if req.Form == nil || req.Form.DataJson == "" {
 		return &pub.ConfigureWriteResponse{
 			Form: &pub.ConfigurationFormResponse{
 				DataJson: `{"storedProcedure":""}`,
@@ -436,7 +436,7 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 		"storedProcedure"
 	]
 }`,
-				StateJson: "",
+				StateJson: req.Form.StateJson,
 			},
 			Schema: nil,
 		}, nil
@@ -509,6 +509,7 @@ WHERE SPECIFIC_NAME = @storedProc
 		Form: &pub.ConfigurationFormResponse{
 			DataJson: req.Form.DataJson,
 			Errors: errArray,
+			StateJson: req.Form.StateJson,
 		},
 		Schema: &pub.Schema{
 			Id: formData["storedProcedure"].(string),
@@ -544,6 +545,11 @@ func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
 
 	// get and process each record
 	for {
+		// return if not configured
+		if session.WriteSettings == nil {
+			return nil
+		}
+
 		// get record and exit if no more records or error
 		record, err := stream.Recv()
 		if err == io.EOF {
