@@ -409,6 +409,8 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 		return nil, err
 	}
 
+	var errArray []string
+
 	// first request return ui json schema form
 	if req.Form.DataJson == "" {
 		return &pub.ConfigureWriteResponse{
@@ -441,24 +443,34 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 	}
 
 	// build schema
+	var query string
+	var properties []*pub.Property
+	var name string
+	var row *sql.Row
+	var stmt *sql.Stmt
+	var rows *sql.Rows
+
 	// get form data
 	var formData map[string]interface{}
 	if err := json.Unmarshal([]byte(req.Form.DataJson), &formData); err != nil {
-		return nil, err
+		errArray = append(errArray, fmt.Sprintf("error reading form data: %s", err))
+		goto Done
 	}
 
 	// check if stored procedure exists
-	query := `SELECT 1 FROM sys.procedures WHERE Name = @storedProc`
-	stmt, err := session.DB.Prepare(query)
+	query = `SELECT 1 FROM sys.procedures WHERE Name = @storedProc`
+	stmt, err = session.DB.Prepare(query)
 	if err != nil {
-		return nil, err
+		errArray = append(errArray, fmt.Sprintf("error checking stored procedure: %s", err))
+		goto Done
 	}
 
-	row := stmt.QueryRow(sql.Named("storedProc", formData["storedProcedure"]))
+	row = stmt.QueryRow(sql.Named("storedProc", formData["storedProcedure"]))
 
 	err = row.Scan()
 	if err != nil {
-		return nil, err
+		errArray = append(errArray, fmt.Sprintf("stored procedure does not exist: %s", err))
+		goto Done
 	}
 
 	// get params for stored procedure
@@ -468,21 +480,22 @@ WHERE SPECIFIC_NAME = @storedProc
 `
 	stmt, err = session.DB.Prepare(query)
 	if err != nil {
-		return nil, err
+		errArray = append(errArray, fmt.Sprintf("error getting parameters for stored procedure: %s", err))
+		goto Done
 	}
 
-	rows, err := stmt.Query(sql.Named("storedProc", formData["storedProcedure"]))
+	rows, err = stmt.Query(sql.Named("storedProc", formData["storedProcedure"]))
 	if err != nil {
-		return nil, err
+		errArray = append(errArray, fmt.Sprintf("error getting parameters for stored procedure: %s", err))
+		goto Done
 	}
 
 	// add all params to properties of schema
-	var properties []*pub.Property
-	var name string
 	for rows.Next() {
 		err := rows.Scan(&name)
 		if err != nil {
-			return nil, err
+			errArray = append(errArray, fmt.Sprintf("error getting parameters for stored procedure: %s", err))
+			goto Done
 		}
 
 		properties = append(properties, &pub.Property{
@@ -490,10 +503,12 @@ WHERE SPECIFIC_NAME = @storedProc
 		})
 	}
 
+	Done:
 	// return write back schema
 	return &pub.ConfigureWriteResponse{
 		Form: &pub.ConfigurationFormResponse{
 			DataJson: req.Form.DataJson,
+			Errors: errArray,
 		},
 		Schema: &pub.Schema{
 			Id: formData["storedProcedure"].(string),
