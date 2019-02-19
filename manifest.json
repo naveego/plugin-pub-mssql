@@ -9,10 +9,12 @@
   "kind": "publisher",
   "os": "$GOOS",
   "arch": "$GOARCH",
+  "canConfigure": true,
   "canProduceMultipleSchemas": true,
   "canAcceptQueryBasedSchemas": true,
   "canConfigureRealTime": true,
-  "canConfigure": true,
+  "canConfigureWrite": true,
+  "canWrite": true,
   "querySchema": {
     "ui": {
       "ui:widget": "code",

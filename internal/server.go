@@ -251,7 +251,7 @@ ORDER BY TABLE_NAME`)
 }
 
 func (s *Server) ConnectSession(*pub.ConnectRequest, pub.Publisher_ConnectSessionServer) error {
-	panic("not supported")
+	return errors.New("Not supported.")
 }
 
 func (s *Server) ConfigureConnection(ctx context.Context, req *pub.ConfigureConnectionRequest) (*pub.ConfigureConnectionResponse, error) {
@@ -265,8 +265,8 @@ func (s *Server) ConfigureConnection(ctx context.Context, req *pub.ConfigureConn
 	}, nil
 }
 
-func (s *Server) ConfigureQuery(ctx context.Context, req*pub.ConfigureQueryRequest) (*pub.ConfigureQueryResponse, error) {
-	panic("implement me")
+func (s *Server) ConfigureQuery(ctx context.Context, req *pub.ConfigureQueryRequest) (*pub.ConfigureQueryResponse, error) {
+	return nil, errors.New("Not implemented.")
 }
 
 func (s *Server) ConfigureRealTime(ctx context.Context, req *pub.ConfigureRealTimeRequest) (*pub.ConfigureRealTimeResponse, error) {
@@ -292,11 +292,11 @@ func (s *Server) ConfigureRealTime(ctx context.Context, req *pub.ConfigureRealTi
 }
 
 func (s *Server) BeginOAuthFlow(ctx context.Context, req*pub.BeginOAuthFlowRequest) (*pub.BeginOAuthFlowResponse, error) {
-	panic("implement me")
+	return nil, errors.New("Not supported.")
 }
 
 func (s *Server) CompleteOAuthFlow(ctx context.Context, req*pub.CompleteOAuthFlowRequest) (*pub.CompleteOAuthFlowResponse, error) {
-	panic("implement me")
+	return nil, errors.New("Not supported.")
 }
 
 func (s *Server) DiscoverSchemas(ctx context.Context, req*pub.DiscoverSchemasRequest) (*pub.DiscoverSchemasResponse, error) {
