@@ -409,11 +409,11 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 		return nil, err
 	}
 
-	// first request build ui
+	// first request return ui json schema form
 	if req.Form.DataJson == "" {
 		return &pub.ConfigureWriteResponse{
 			Form: &pub.ConfigurationFormResponse{
-				DataJson: `{"storedProcedure":"","parameters":[]}`,
+				DataJson: `{"storedProcedure":""}`,
 				DataErrorsJson: "",
 				Errors: nil,
 				SchemaJson: `{
@@ -423,32 +423,16 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 			"type": "string",
 			"title": "Stored Procedure Name",
 			"description": "The name of the stored procedure"
-		},
-		"parameters": {
-			"type": "array",
-			"title": "Parameters",
-			"description": "Parameters for the stored procedure",
-			"items": {
-				"type": "string",
-				"default": ""
-			}
 		}
 	},
 	"required": [
-		"storedProcedure",
-		"parameters"
+		"storedProcedure"
 	]
 }`,
 				UiJson: `{
 	"ui:order": [
-		"storedProcedure",
-        "parameters"
-	],
-	"parameters": {
-		"items": {
-			"ui:emptyValue": ""
-		}
-	},
+		"storedProcedure"
+	]
 }`,
 				StateJson: "",
 			},
@@ -464,7 +448,7 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 	}
 
 	// check if stored procedure exists
-	query := fmt.Sprintf("SELECT 1 FROM sys.procedures WHERE Name = @storedProc")
+	query := `SELECT 1 FROM sys.procedures WHERE Name = @storedProc`
 	stmt, err := session.DB.Prepare(query)
 	if err != nil {
 		return nil, err
@@ -477,7 +461,7 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 		return nil, err
 	}
 
-	// check params for stored procedure
+	// get params for stored procedure
 	query = `SELECT PARAMETER_NAME as Name 
 FROM INFORMATION_SCHEMA.PARAMETERS
 WHERE SPECIFIC_NAME = @storedProc
@@ -492,6 +476,8 @@ WHERE SPECIFIC_NAME = @storedProc
 		return nil, err
 	}
 
+	// add all params to properties of schema
+	var properties []*pub.Property
 	var name string
 	for rows.Next() {
 		err := rows.Scan(&name)
@@ -499,26 +485,16 @@ WHERE SPECIFIC_NAME = @storedProc
 			return nil, err
 		}
 
-		found := false
-		for _, param := range formData["parameters"].([]string) {
-			if param ==  name {
-				found = true
-			}
-		}
-
-		if !found {
-			return nil, errors.Errorf("parameter: %s not found", name)
-		}
-	}
-
-	properties := make([]*pub.Property, 0)
-	for _, prop := range formData["parameters"].([]string) {
 		properties = append(properties, &pub.Property{
-			Id: prop,
+			Id: name,
 		})
 	}
 
+	// return write back schema
 	return &pub.ConfigureWriteResponse{
+		Form: &pub.ConfigurationFormResponse{
+			DataJson: req.Form.DataJson,
+		},
 		Schema: &pub.Schema{
 			Id: formData["storedProcedure"].(string),
 			Query: formData["storedProcedure"].(string),
@@ -571,44 +547,6 @@ func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
 		c1 := make(chan string, 1)
 		go func() {
 			schema := session.WriteSettings.Schema
-			//var key, updateKey string
-
-			// check if source is newer than write back record
-			//for _, prop := range schema.Properties {
-			//	if prop.IsUpdateCounter {
-			//		updateKey = prop.Id
-			//	}
-			//	if prop.IsKey {
-			//		key = prop.Id
-			//	}
-			//}
-			//
-			//if updateKey != "" && key != "" {
-			//	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s=%s", updateKey, schema.Id, key, recordData[key])
-			//
-			//	row := session.DB.QueryRow(query)
-			//
-			//	recDate := recordData[key]
-			//	var srcDate string
-			//	err := row.Scan(&srcDate)
-			//	if err != nil {
-			//		c1 <- fmt.Sprintf("could not check source system date: %s", err)
-			//	}
-			//
-			//	recTime, err := time.Parse(time.RFC3339, recDate.(string))
-			//	if err != nil {
-			//		c1 <- fmt.Sprintf("could not check source system date: %s", err)
-			//	}
-			//
-			//	srcTime, err := time.Parse(time.RFC3339, srcDate)
-			//	if err != nil {
-			//		c1 <- fmt.Sprintf("could not check source system date: %s", err)
-			//	}
-			//
-			//	if recTime.Before(srcTime) {
-			//		c1 <- "source system is newer than requested write back"
-			//	}
-			//}
 
 			// build params for stored procedure
 			var args []interface{}
