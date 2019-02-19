@@ -395,11 +395,46 @@ func (s *Server) DiscoverSchemas(ctx context.Context, req*pub.DiscoverSchemasReq
 
 	sort.Sort(pub.SortableShapes(resp.Schemas))
 
-	return resp, nil}
+	return resp, nil
+}
 
-// ReadStream same as PublishStream calls PublishStream
 func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStreamServer) error {
-	return s.PublishStream(req, stream)
+
+	session, err := s.getOpSession(context.Background())
+	if err != nil {
+		return err
+	}
+
+	defer session.Cancel()
+
+	jsonReq, _ := json.Marshal(req)
+
+	s.log.Debug("Got PublishStream request.", "req", string(jsonReq))
+
+	if session.Settings.PrePublishQuery != "" {
+		_, err := session.DB.Exec(session.Settings.PrePublishQuery)
+		if err != nil {
+			return errors.Errorf("error running pre-publish query: %s", err)
+		}
+	}
+
+
+	handler, innerRequest, err := BuildHandlerAndRequest(session, req, PublishToStreamHandler(stream))
+
+	err = handler.Handle(innerRequest)
+
+	if session.Settings.PostPublishQuery != "" {
+		_, postPublishErr := session.DB.Exec(session.Settings.PostPublishQuery)
+		if postPublishErr != nil {
+			if err != nil {
+				postPublishErr = errors.Errorf("%s (publish had already stopped with error: %s)", postPublishErr, err)
+			}
+
+			return errors.Errorf("error running post-publish query: %s", postPublishErr)
+		}
+	}
+
+	return err
 }
 
 // ConfigureWrite
@@ -756,42 +791,7 @@ func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Schema) err
 
 // PublishStream sends records read in request to the agent
 func (s *Server) PublishStream(req *pub.ReadRequest, stream pub.Publisher_PublishStreamServer) error {
-
-	session, err := s.getOpSession(context.Background())
-	if err != nil {
-		return err
-	}
-
-	defer session.Cancel()
-
-	jsonReq, _ := json.Marshal(req)
-
-	s.log.Debug("Got PublishStream request.", "req", string(jsonReq))
-
-	if session.Settings.PrePublishQuery != "" {
-		_, err := session.DB.Exec(session.Settings.PrePublishQuery)
-		if err != nil {
-			return errors.Errorf("error running pre-publish query: %s", err)
-		}
-	}
-
-
-	handler, innerRequest, err := BuildHandlerAndRequest(session, req, PublishToStreamHandler(stream))
-
-	err = handler.Handle(innerRequest)
-
-	if session.Settings.PostPublishQuery != "" {
-		_, postPublishErr := session.DB.Exec(session.Settings.PostPublishQuery)
-		if postPublishErr != nil {
-			if err != nil {
-				postPublishErr = errors.Errorf("%s (publish had already stopped with error: %s)", postPublishErr, err)
-			}
-
-			return errors.Errorf("error running post-publish query: %s", postPublishErr)
-		}
-	}
-
-	return err
+	return s.ReadStream(req, stream)
 }
 
 // Disconnect disconnects from the server
