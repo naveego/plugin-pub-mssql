@@ -552,6 +552,7 @@ WHERE SPECIFIC_NAME = @storedProc
 			Id: formData["storedProcedure"].(string),
 			Query: formData["storedProcedure"].(string),
 			Properties: properties,
+			DataFlowDirection: pub.Schema_WRITE,
 		},
 	}, nil
 }
