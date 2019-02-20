@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/metadata"
-
+	"io"
 )
 
 var discoverShape = func(sut pub.PublisherServer, schema *pub.Schema) *pub.Schema {
@@ -567,7 +567,9 @@ var _ = Describe("Server", func() {
 			})
 
 			It("should return a schema when a valid stored procedure is input", func() {
-				req.Form.DataJson = `{"storedProcedure":"TEST"}`
+				req.Form = &pub.ConfigurationFormRequest{
+					DataJson: `{"storedProcedure":"TEST"}`,
+				}
 
 				response, err := sut.ConfigureWrite(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
@@ -578,11 +580,13 @@ var _ = Describe("Server", func() {
 				Expect(response.Schema.Id).To(Equal("TEST"))
 				Expect(response.Schema.Query).To(Equal("TEST"))
 				Expect(response.Schema.Properties).To(HaveLen(1))
-				Expect(response.Schema.Properties[0]).To(Equal("@AgentId"))
+				Expect(response.Schema.Properties[0].Id).To(Equal("AgentId"))
 			})
 
 			It("should return an error when an invalid stored procedure is input", func() {
-				req.Form.DataJson = `{"storedProcedure":"NOT A PROC"}`
+				req.Form = &pub.ConfigurationFormRequest{
+					DataJson: `{"storedProcedure":"NOT A PROC"}`,
+				}
 
 				response, err := sut.ConfigureWrite(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
@@ -614,48 +618,75 @@ var _ = Describe("Server", func() {
 		Describe("WriteStream", func() {
 
 			var records []*pub.Record
+			var stream *writeStream
+			var req *pub.PrepareWriteRequest
 			BeforeEach(func() {
-				req :=  &pub.PrepareWriteRequest{
+				req =  &pub.PrepareWriteRequest{
 					Schema: &pub.Schema{
 						Id: "TEST",
 						Query: "TEST",
 						Properties: []*pub.Property {
 							{
-								Id: "@AgentId",
+								Id: "AgentId",
 							},
 						},
 					},
 					CommitSlaSeconds: 1,
 				}
 
+				records = append(records, &pub.Record{
+					DataJson: `{"AgentId":"A001"}`,
+					CorrelationId: "test",
+				})
+
+				stream = &writeStream{
+					records: records,
+					index: 0,
+				}
+			})
+
+			It("should be able to call a stored procedure to write a record", func() {
 				response, err := sut.PrepareWrite(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(response).ToNot(BeNil())
 
-				records = append(records, &pub.Record{
-					DataJson: `{"@AgentId":"A001"}`,
-					CorrelationId: "test",
-				})
-			})
-
-			It("should be able to call a stored procedure to write a record", func() {
-				stream := new(writeStream)
 				Expect(sut.WriteStream(stream)).To(Succeed())
+
+				Expect(stream.recordAcks).To(HaveLen(1))
+				Expect(stream.recordAcks[0].CorrelationId).To(Equal("test"))
 			})
 		})
 	})
 })
 
 type writeStream struct {
-
+	records 	[]*pub.Record
+	recordAcks 	[]*pub.RecordAck
+	index 		int
+	err     	error
 }
 
 func (p *writeStream) Send(ack *pub.RecordAck) error {
-	panic("implement me")
+	if p.err != nil {
+		return p.err
+	}
+
+	p.recordAcks = append(p.recordAcks, ack)
+	return nil
 }
 
 func (p *writeStream) Recv() (*pub.Record, error) {
-	panic("implement me")
+	if p.err != nil {
+		return nil, p.err
+	}
+
+	if len(p.records) > p.index {
+		record := p.records[p.index]
+		p.index++
+		return record, nil
+	}
+
+	return nil, io.EOF
 }
 
 func (writeStream) SetHeader(metadata.MD) error {

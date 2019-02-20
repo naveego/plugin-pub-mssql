@@ -1,11 +1,10 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="go test internal" type="GoTestRunConfiguration" factoryName="Go Test" nameIsGenerated="true">
+  <configuration default="false" name="go test github.com/naveego/plugin-pub-mssql/internal" type="GoTestRunConfiguration" factoryName="Go Test" nameIsGenerated="true">
     <module name="plugin-pub-mssql" />
     <working_directory value="$PROJECT_DIR$/internal" />
-    <parameters value="-ginkgo.progress" />
     <framework value="gotest" />
-    <kind value="DIRECTORY" />
-    <package value="github.com/naveego/plugin-pub-mssql" />
+    <kind value="PACKAGE" />
+    <package value="github.com/naveego/plugin-pub-mssql/internal" />
     <directory value="$PROJECT_DIR$/internal" />
     <filePath value="$PROJECT_DIR$/" />
     <method v="2" />

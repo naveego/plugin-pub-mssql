@@ -436,7 +436,7 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 		"storedProcedure"
 	]
 }`,
-				StateJson: req.Form.StateJson,
+				StateJson: "",
 			},
 			Schema: nil,
 		}, nil
@@ -445,6 +445,7 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 	// build schema
 	var query string
 	var properties []*pub.Property
+	var data string
 	var name string
 	var row *sql.Row
 	var stmt *sql.Stmt
@@ -467,7 +468,8 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 
 	row = stmt.QueryRow(sql.Named("storedProc", formData["storedProcedure"]))
 
-	err = row.Scan()
+
+	err = row.Scan(&data)
 	if err != nil {
 		errArray = append(errArray, fmt.Sprintf("stored procedure does not exist: %s", err))
 		goto Done
@@ -499,7 +501,7 @@ WHERE SPECIFIC_NAME = @storedProc
 		}
 
 		properties = append(properties, &pub.Property{
-			Id: name,
+			Id: strings.TrimPrefix(name, "@"),
 		})
 	}
 
@@ -521,12 +523,12 @@ WHERE SPECIFIC_NAME = @storedProc
 
 // PrepareWrite sets up the plugin to be able to write back
 func (s *Server) PrepareWrite(ctx context.Context, req*pub.PrepareWriteRequest) (*pub.PrepareWriteResponse, error) {
-	session, err := s.getOpSession(ctx)
-	if err != nil {
-		return nil, err
-	}
+	//session, err := s.getOpSession(ctx)
+	//if err != nil {
+	//	return nil, err
+	//}
 
-	session.WriteSettings = &WriteSettings{
+	s.session.WriteSettings = &WriteSettings{
 		Schema: req.Schema,
 		CommitSLA: req.CommitSlaSeconds,
 	}
