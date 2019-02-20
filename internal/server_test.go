@@ -579,8 +579,11 @@ var _ = Describe("Server", func() {
 
 				Expect(response.Schema.Id).To(Equal("TEST"))
 				Expect(response.Schema.Query).To(Equal("TEST"))
-				Expect(response.Schema.Properties).To(HaveLen(1))
+				Expect(response.Schema.Properties).To(HaveLen(3))
 				Expect(response.Schema.Properties[0].Id).To(Equal("AgentId"))
+				Expect(response.Schema.Properties[1].Id).To(Equal("Name"))
+				Expect(response.Schema.Properties[2].Id).To(Equal("Commission"))
+				Expect(response.Schema.Properties[2].Type).To(Equal(pub.PropertyType_FLOAT))
 			})
 
 			It("should return an error when an invalid stored procedure is input", func() {

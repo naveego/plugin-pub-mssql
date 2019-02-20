@@ -537,10 +537,14 @@ CREATE TABLE w3.dbo.PrePost
 GO
 
 CREATE OR ALTER PROCEDURE TEST
-@AgentId char(4)
+@AgentId char(4),
+@Name varchar(40),
+@Commission float
 AS
 BEGIN
-  update w3.dbo.Agents SET AGENT_NAME = 'test'
+  update w3.dbo.Agents
+  SET AGENT_NAME = @Name,
+      COMMISSION = @Commission
   where AGENT_CODE = @AgentId
 END
 GO

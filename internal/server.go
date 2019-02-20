@@ -42,17 +42,18 @@ type Config struct {
 }
 
 type Session struct {
-	Ctx        context.Context
-	Cancel     func()
-	Publishing bool
-	Log        hclog.Logger
-	Settings   *Settings
+	Ctx           context.Context
+	Cancel        func()
+	Publishing    bool
+	Log           hclog.Logger
+	Settings      *Settings
 	WriteSettings *WriteSettings
 	// tables that were discovered during connect
-	SchemaInfo     map[string]*meta.Schema
-	RealTimeHelper *RealTimeHelper
-	Config Config
-	DB             *sql.DB
+	SchemaInfo       map[string]*meta.Schema
+	StoredProcedures []string
+	RealTimeHelper   *RealTimeHelper
+	Config           Config
+	DB               *sql.DB
 }
 
 type OpSession struct {
@@ -243,6 +244,27 @@ ORDER BY TABLE_NAME`)
 		columnInfo.IsKey = constraint != nil && *constraint == "PRIMARY KEY"
 	}
 
+	rows, err = session.DB.Query("SELECT ROUTINE_SCHEMA, ROUTINE_NAME FROM information_schema.routines WHERE routine_type = 'PROCEDURE'")
+	if err != nil {
+		return nil, errors.Errorf("could not read stored procedures from database: %s", err)
+	}
+
+	for rows.Next() {
+		var schema, name string
+		var safeName string
+		err = rows.Scan(&schema, &name)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not read stored procedure schema")
+		}
+		if schema == "dbo" {
+			safeName = makeSQLNameSafe(name)
+		} else {
+			safeName = fmt.Sprintf("%s.%s", makeSQLNameSafe(schema), makeSQLNameSafe(name))
+		}
+		session.StoredProcedures = append(session.StoredProcedures, safeName)
+	}
+	sort.Strings(session.StoredProcedures)
+
 	s.session = session
 
 	s.log.Debug("Connect completed successfully.")
@@ -291,15 +313,15 @@ func (s *Server) ConfigureRealTime(ctx context.Context, req *pub.ConfigureRealTi
 	return resp, err
 }
 
-func (s *Server) BeginOAuthFlow(ctx context.Context, req*pub.BeginOAuthFlowRequest) (*pub.BeginOAuthFlowResponse, error) {
+func (s *Server) BeginOAuthFlow(ctx context.Context, req *pub.BeginOAuthFlowRequest) (*pub.BeginOAuthFlowResponse, error) {
 	return nil, errors.New("Not supported.")
 }
 
-func (s *Server) CompleteOAuthFlow(ctx context.Context, req*pub.CompleteOAuthFlowRequest) (*pub.CompleteOAuthFlowResponse, error) {
+func (s *Server) CompleteOAuthFlow(ctx context.Context, req *pub.CompleteOAuthFlowRequest) (*pub.CompleteOAuthFlowResponse, error) {
 	return nil, errors.New("Not supported.")
 }
 
-func (s *Server) DiscoverSchemas(ctx context.Context, req*pub.DiscoverSchemasRequest) (*pub.DiscoverSchemasResponse, error) {
+func (s *Server) DiscoverSchemas(ctx context.Context, req *pub.DiscoverSchemasRequest) (*pub.DiscoverSchemasResponse, error) {
 
 	s.log.Debug("Handling DiscoverSchemasRequest...")
 
@@ -418,7 +440,6 @@ func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStrea
 		}
 	}
 
-
 	handler, innerRequest, err := BuildHandlerAndRequest(session, req, PublishToStreamHandler(stream))
 
 	err = handler.Handle(innerRequest)
@@ -438,7 +459,7 @@ func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStrea
 }
 
 // ConfigureWrite
-func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteRequest) (*pub.ConfigureWriteResponse, error) {
+func (s *Server) ConfigureWrite(ctx context.Context, req *pub.ConfigureWriteRequest) (*pub.ConfigureWriteResponse, error) {
 	session, err := s.getOpSession(ctx)
 	if err != nil {
 		return nil, err
@@ -446,31 +467,30 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 
 	var errArray []string
 
-	// first request return ui json schema form
-	if req.Form == nil || req.Form.DataJson == "" {
-		return &pub.ConfigureWriteResponse{
-			Form: &pub.ConfigurationFormResponse{
-				DataJson: `{"storedProcedure":""}`,
-				DataErrorsJson: "",
-				Errors: nil,
-				SchemaJson: `{
+	storedProcedures, _ := json.Marshal(session.StoredProcedures)
+	schemaJSON := fmt.Sprintf(`{
 	"type": "object",
 	"properties": {
 		"storedProcedure": {
 			"type": "string",
 			"title": "Stored Procedure Name",
-			"description": "The name of the stored procedure"
+			"description": "The name of the stored procedure",
+			"enum": %s
 		}
 	},
 	"required": [
 		"storedProcedure"
 	]
-}`,
-				UiJson: `{
-	"ui:order": [
-		"storedProcedure"
-	]
-}`,
+}`, storedProcedures)
+
+	// first request return ui json schema form
+	if req.Form == nil || req.Form.DataJson == "" {
+		return &pub.ConfigureWriteResponse{
+			Form: &pub.ConfigurationFormResponse{
+				DataJson:       `{"storedProcedure":""}`,
+				DataErrorsJson: "",
+				Errors:         nil,
+				SchemaJson: schemaJSON ,
 				StateJson: "",
 			},
 			Schema: nil,
@@ -481,28 +501,37 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 	var query string
 	var properties []*pub.Property
 	var data string
-	var name string
 	var row *sql.Row
 	var stmt *sql.Stmt
 	var rows *sql.Rows
+	var sprocSchema, sprocName string
 
 	// get form data
-	var formData map[string]interface{}
+	var formData ConfigureWriteFormData
 	if err := json.Unmarshal([]byte(req.Form.DataJson), &formData); err != nil {
 		errArray = append(errArray, fmt.Sprintf("error reading form data: %s", err))
 		goto Done
 	}
 
+	if formData.StoredProcedure == "" {
+		goto Done
+	}
+
+	sprocSchema, sprocName = decomposeSafeName(formData.StoredProcedure)
 	// check if stored procedure exists
-	query = `SELECT 1 FROM sys.procedures WHERE Name = @storedProc`
+	query = `SELECT 1
+FROM information_schema.routines
+WHERE routine_type = 'PROCEDURE'
+AND SPECIFIC_SCHEMA = @schema
+AND SPECIFIC_NAME = @name
+`
 	stmt, err = session.DB.Prepare(query)
 	if err != nil {
 		errArray = append(errArray, fmt.Sprintf("error checking stored procedure: %s", err))
 		goto Done
 	}
 
-	row = stmt.QueryRow(sql.Named("storedProc", formData["storedProcedure"]))
-
+	row = stmt.QueryRow(sql.Named("schema", sprocSchema), sql.Named("name", sprocName))
 
 	err = row.Scan(&data)
 	if err != nil {
@@ -511,60 +540,71 @@ func (s *Server) ConfigureWrite(ctx context.Context, req*pub.ConfigureWriteReque
 	}
 
 	// get params for stored procedure
-	query = `SELECT PARAMETER_NAME as Name 
+	query = `SELECT PARAMETER_NAME AS Name, DATA_TYPE AS Type
 FROM INFORMATION_SCHEMA.PARAMETERS
-WHERE SPECIFIC_NAME = @storedProc
+WHERE SPECIFIC_SCHEMA = @schema
+AND SPECIFIC_NAME = @name
 `
 	stmt, err = session.DB.Prepare(query)
 	if err != nil {
-		errArray = append(errArray, fmt.Sprintf("error getting parameters for stored procedure: %s", err))
+		errArray = append(errArray, fmt.Sprintf("error preparing to get parameters for stored procedure: %s", err))
 		goto Done
 	}
 
-	rows, err = stmt.Query(sql.Named("storedProc", formData["storedProcedure"]))
+	rows, err = stmt.Query(sql.Named("schema", sprocSchema), sql.Named("name", sprocName))
 	if err != nil {
 		errArray = append(errArray, fmt.Sprintf("error getting parameters for stored procedure: %s", err))
 		goto Done
 	}
 
+
 	// add all params to properties of schema
 	for rows.Next() {
-		err := rows.Scan(&name)
+		var colName, colType string
+		err := rows.Scan(&colName, &colType)
 		if err != nil {
 			errArray = append(errArray, fmt.Sprintf("error getting parameters for stored procedure: %s", err))
 			goto Done
 		}
 
 		properties = append(properties, &pub.Property{
-			Id: strings.TrimPrefix(name, "@"),
+			Id: strings.TrimPrefix(colName, "@"),
+			TypeAtSource: colType,
+			Type: convertSQLType(colType, 0),
 		})
 	}
 
-	Done:
+Done:
 	// return write back schema
 	return &pub.ConfigureWriteResponse{
 		Form: &pub.ConfigurationFormResponse{
-			DataJson: req.Form.DataJson,
-			Errors: errArray,
+			DataJson:  req.Form.DataJson,
+			Errors:    errArray,
 			StateJson: req.Form.StateJson,
+			SchemaJson:schemaJSON,
 		},
 		Schema: &pub.Schema{
-			Id: formData["storedProcedure"].(string),
-			Query: formData["storedProcedure"].(string),
+			Id:         formData.StoredProcedure,
+			Query:      formData.StoredProcedure,
+			DataFlowDirection: pub.Schema_WRITE,
 			Properties: properties,
 		},
 	}, nil
 }
 
+type ConfigureWriteFormData struct {
+	StoredProcedure string `json:"storedProcedure,omitempty"`
+}
+
 // PrepareWrite sets up the plugin to be able to write back
-func (s *Server) PrepareWrite(ctx context.Context, req*pub.PrepareWriteRequest) (*pub.PrepareWriteResponse, error) {
-	//session, err := s.getOpSession(ctx)
-	//if err != nil {
-	//	return nil, err
-	//}
+func (s *Server) PrepareWrite(ctx context.Context, req *pub.PrepareWriteRequest) (*pub.PrepareWriteResponse, error) {
+	// session, err := s.getOpSession(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	s.session.WriteSettings = &WriteSettings{
-		Schema: req.Schema,
+		Schema:    req.Schema,
 		CommitSLA: req.CommitSlaSeconds,
 	}
 
@@ -627,7 +667,7 @@ func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
 		case sendErr := <-c1:
 			err := stream.Send(&pub.RecordAck{
 				CorrelationId: record.CorrelationId,
-				Error: sendErr,
+				Error:         sendErr,
 			})
 			if err != nil {
 				return err
@@ -636,7 +676,7 @@ func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
 		case <-time.After(time.Duration(session.WriteSettings.CommitSLA) * time.Second):
 			err := stream.Send(&pub.RecordAck{
 				CorrelationId: record.CorrelationId,
-				Error: "timed out",
+				Error:         "timed out",
 			})
 			if err != nil {
 				return err
@@ -797,7 +837,7 @@ func (s *Server) PublishStream(req *pub.ReadRequest, stream pub.Publisher_Publis
 }
 
 // Disconnect disconnects from the server
-func (s *Server) Disconnect(ctx context.Context, req*pub.DisconnectRequest) (*pub.DisconnectResponse, error) {
+func (s *Server) Disconnect(ctx context.Context, req *pub.DisconnectRequest) (*pub.DisconnectResponse, error) {
 
 	s.disconnect()
 
@@ -882,7 +922,6 @@ func (s *Server) getCount(session *OpSession, shape *pub.Schema) (*pub.Count, er
 		Value: int32(count),
 	}, nil
 }
-
 
 func buildQuery(req *pub.ReadRequest) (string, error) {
 
@@ -998,4 +1037,25 @@ func formatTypeAtSource(t string, maxLength, precision, scale int) string {
 	default:
 		return t
 	}
+}
+
+func decomposeSafeName(safeName string) (schema, name string) {
+	segs := strings.Split(safeName, ".")
+	switch len(segs) {
+	case 0:
+		return "", ""
+	case 1:
+		return "dbo", strings.Trim(segs[0], "[]")
+	case 2:
+		return strings.Trim(segs[0], "[]"), strings.Trim(segs[0], "[]")
+	default:
+		return "", ""
+	}
+}
+
+func makeSQLNameSafe(name string) string {
+	if ok, _ := regexp.MatchString(`\W`, name); !ok {
+		return name
+	}
+	return fmt.Sprintf("[%s]", name)
 }
