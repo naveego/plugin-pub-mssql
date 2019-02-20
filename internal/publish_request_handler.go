@@ -210,8 +210,9 @@ func InitializeRealTimeComponentsMiddleware() PublishMiddleware {
 			var err error
 			session := req.OpSession
 			log := session.Log.Named("InitializeRealTimeComponentsMiddleware")
+			log.Debug("Handler starting.")
 
-			shape := req.PluginRequest.Schema
+			requestedSchema := req.PluginRequest.Schema
 			var realTimeSettings RealTimeSettings
 			var realTimeState RealTimeState
 			err = json.Unmarshal([]byte(req.PluginRequest.RealTimeSettingsJson), &realTimeSettings)
@@ -228,10 +229,12 @@ func InitializeRealTimeComponentsMiddleware() PublishMiddleware {
 			req.RealTimeSettings = &realTimeSettings
 			req.RealTimeState = &realTimeState
 
+			log.With("real_time_state", req.RealTimeState, "raw", req.PluginRequest.RealTimeStateJson).Info("Initialized with real time state.")
+
 			if len(realTimeSettings.Tables) == 0 {
-				schema := session.SchemaInfo[shape.Id]
+				schema := session.SchemaInfo[requestedSchema.Id]
 				if schema == nil || !schema.IsTable {
-					return errors.Errorf("schema %s is not a table, but no real time table settings are configured", schema.ID)
+					return errors.Errorf("schema `%s` is not a table, but no real time table settings are configured", requestedSchema.Id)
 				}
 				query, err := templates.RenderSelfBridgeQuery(templates.SelfBridgeQueryArgs{
 					SchemaInfo: schema})
