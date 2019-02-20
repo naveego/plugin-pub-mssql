@@ -579,6 +579,7 @@ var _ = Describe("Server", func() {
 
 				Expect(response.Schema.Id).To(Equal("TEST"))
 				Expect(response.Schema.Query).To(Equal("TEST"))
+				Expect(response.Schema.DataFlowDirection).To(Equal(pub.Schema_WRITE))
 				Expect(response.Schema.Properties).To(HaveLen(1))
 				Expect(response.Schema.Properties[0].Id).To(Equal("AgentId"))
 			})
