@@ -548,3 +548,16 @@ BEGIN
   where AGENT_CODE = @AgentId
 END
 GO
+
+CREATE OR ALTER PROCEDURE dev.TEST
+@AgentId char(4),
+@Name varchar(40),
+@Commission float
+AS
+BEGIN
+  update w3.dbo.Agents
+  SET AGENT_NAME = @Name,
+      COMMISSION = @Commission
+  where AGENT_CODE = @AgentId
+END
+GO

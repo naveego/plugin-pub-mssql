@@ -1047,7 +1047,7 @@ func decomposeSafeName(safeName string) (schema, name string) {
 	case 1:
 		return "dbo", strings.Trim(segs[0], "[]")
 	case 2:
-		return strings.Trim(segs[0], "[]"), strings.Trim(segs[0], "[]")
+		return strings.Trim(segs[0], "[]"), strings.Trim(segs[1], "[]")
 	default:
 		return "", ""
 	}

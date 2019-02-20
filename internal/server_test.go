@@ -586,6 +586,26 @@ var _ = Describe("Server", func() {
 				Expect(response.Schema.Properties[2].Type).To(Equal(pub.PropertyType_FLOAT))
 			})
 
+			It("should return a schema when a valid stored procedure with schema is input", func() {
+				req.Form = &pub.ConfigurationFormRequest{
+					DataJson: `{"storedProcedure":"dev.TEST"}`,
+				}
+
+				response, err := sut.ConfigureWrite(context.Background(), req)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(response.Form).ToNot(BeNil())
+				Expect(response.Schema).ToNot(BeNil())
+
+				Expect(response.Schema.Id).To(Equal("dev.TEST"))
+				Expect(response.Schema.Query).To(Equal("dev.TEST"))
+				Expect(response.Schema.Properties).To(HaveLen(3))
+				Expect(response.Schema.Properties[0].Id).To(Equal("AgentId"))
+				Expect(response.Schema.Properties[1].Id).To(Equal("Name"))
+				Expect(response.Schema.Properties[2].Id).To(Equal("Commission"))
+				Expect(response.Schema.Properties[2].Type).To(Equal(pub.PropertyType_FLOAT))
+			})
+
 			It("should return an error when an invalid stored procedure is input", func() {
 				req.Form = &pub.ConfigurationFormRequest{
 					DataJson: `{"storedProcedure":"NOT A PROC"}`,
