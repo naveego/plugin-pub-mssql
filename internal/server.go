@@ -334,7 +334,7 @@ func (s *Server) DiscoverSchemas(ctx context.Context, req *pub.DiscoverSchemasRe
 
 	if req.Mode == pub.DiscoverSchemasRequest_ALL {
 		s.log.Debug("Discovering all tables and views...")
-		schemas, err = s.getAllShapesFromSchema(session)
+		schemas, err = s.getAllSchemas(session)
 		s.log.Debug("Discovered tables and views.", "count", len(schemas))
 
 		if err != nil {
@@ -571,6 +571,7 @@ AND SPECIFIC_NAME = @name
 			Id: strings.TrimPrefix(colName, "@"),
 			TypeAtSource: colType,
 			Type: convertSQLType(colType, 0),
+			Name: strings.TrimPrefix(colName, "@"),
 		})
 	}
 
@@ -690,7 +691,7 @@ func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverSchemasReq
 	return s.DiscoverSchemas(ctx, req)
 }
 
-func (s *Server) getAllShapesFromSchema(session *OpSession) ([]*pub.Schema, error) {
+func (s *Server) getAllSchemas(session *OpSession) ([]*pub.Schema, error) {
 
 	rows, err := session.DB.Query(`SELECT Schema_name(o.schema_id) SchemaName, o.NAME TableName
 FROM   sys.objects o 
@@ -700,10 +701,10 @@ WHERE  o.type IN ( 'U', 'V' )`)
 		return nil, errors.Errorf("could not list tables: %s", err)
 	}
 
-	var shapes []*pub.Schema
+	var schemas []*pub.Schema
 
 	for rows.Next() {
-		shape := new(pub.Schema)
+		schema := new(pub.Schema)
 
 		var (
 			schemaName string
@@ -715,17 +716,19 @@ WHERE  o.type IN ( 'U', 'V' )`)
 		}
 
 		if schemaName == "dbo" {
-			shape.Id = GetSchemaID(schemaName, tableName)
-			shape.Name = tableName
+			schema.Id = GetSchemaID(schemaName, tableName)
+			schema.Name = tableName
 		} else {
-			shape.Id = GetSchemaID(schemaName, tableName)
-			shape.Name = fmt.Sprintf("%s.%s", schemaName, tableName)
+			schema.Id = GetSchemaID(schemaName, tableName)
+			schema.Name = fmt.Sprintf("%s.%s", schemaName, tableName)
 		}
 
-		shapes = append(shapes, shape)
+		schema.DataFlowDirection = pub.Schema_READ
+
+		schemas = append(schemas, schema)
 	}
 
-	return shapes, nil
+	return schemas, nil
 }
 
 func GetSchemaID(schemaName, tableName string) string {
