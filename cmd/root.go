@@ -53,6 +53,18 @@ Runs the publisher in externally controlled mode.`, version.Version.String()),
 			}
 		}()
 
+		originalPPID := os.Getppid()
+		go func(){
+			for {
+				<-time.After(5 * time.Second)
+				ppid := os.Getppid()
+				if ppid != originalPPID {
+					log.Error("Parent process appears to have exited. We will now exit too.", "original_ppid", originalPPID, "ppid", ppid)
+					os.Exit(0)
+				}
+			}
+		}()
+
 		server := internal.NewServer(log)
 
 		plugin.Serve(&plugin.ServeConfig{

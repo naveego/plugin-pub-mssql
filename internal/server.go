@@ -4,6 +4,7 @@ import (
 	"github.com/LK4D4/joincontext"
 	"github.com/naveego/plugin-pub-mssql/internal/meta"
 	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
+	"io"
 	"io/ioutil"
 	"os"
 	"sync"
@@ -41,16 +42,18 @@ type Config struct {
 }
 
 type Session struct {
-	Ctx        context.Context
-	Cancel     func()
-	Publishing bool
-	Log        hclog.Logger
-	Settings   *Settings
+	Ctx           context.Context
+	Cancel        func()
+	Publishing    bool
+	Log           hclog.Logger
+	Settings      *Settings
+	WriteSettings *WriteSettings
 	// tables that were discovered during connect
-	SchemaInfo     map[string]*meta.Schema
-	RealTimeHelper *RealTimeHelper
-	Config Config
-	DB             *sql.DB
+	SchemaInfo       map[string]*meta.Schema
+	StoredProcedures []string
+	RealTimeHelper   *RealTimeHelper
+	Config           Config
+	DB               *sql.DB
 }
 
 type OpSession struct {
@@ -241,6 +244,27 @@ ORDER BY TABLE_NAME`)
 		columnInfo.IsKey = constraint != nil && *constraint == "PRIMARY KEY"
 	}
 
+	rows, err = session.DB.Query("SELECT ROUTINE_SCHEMA, ROUTINE_NAME FROM information_schema.routines WHERE routine_type = 'PROCEDURE'")
+	if err != nil {
+		return nil, errors.Errorf("could not read stored procedures from database: %s", err)
+	}
+
+	for rows.Next() {
+		var schema, name string
+		var safeName string
+		err = rows.Scan(&schema, &name)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not read stored procedure schema")
+		}
+		if schema == "dbo" {
+			safeName = makeSQLNameSafe(name)
+		} else {
+			safeName = fmt.Sprintf("%s.%s", makeSQLNameSafe(schema), makeSQLNameSafe(name))
+		}
+		session.StoredProcedures = append(session.StoredProcedures, safeName)
+	}
+	sort.Strings(session.StoredProcedures)
+
 	s.session = session
 
 	s.log.Debug("Connect completed successfully.")
@@ -249,7 +273,7 @@ ORDER BY TABLE_NAME`)
 }
 
 func (s *Server) ConnectSession(*pub.ConnectRequest, pub.Publisher_ConnectSessionServer) error {
-	panic("not supported")
+	return errors.New("Not supported.")
 }
 
 func (s *Server) ConfigureConnection(ctx context.Context, req *pub.ConfigureConnectionRequest) (*pub.ConfigureConnectionResponse, error) {
@@ -263,8 +287,8 @@ func (s *Server) ConfigureConnection(ctx context.Context, req *pub.ConfigureConn
 	}, nil
 }
 
-func (s *Server) ConfigureQuery(ctx context.Context, req*pub.ConfigureQueryRequest) (*pub.ConfigureQueryResponse, error) {
-	panic("implement me")
+func (s *Server) ConfigureQuery(ctx context.Context, req *pub.ConfigureQueryRequest) (*pub.ConfigureQueryResponse, error) {
+	return nil, errors.New("Not implemented.")
 }
 
 func (s *Server) ConfigureRealTime(ctx context.Context, req *pub.ConfigureRealTimeRequest) (*pub.ConfigureRealTimeResponse, error) {
@@ -289,15 +313,15 @@ func (s *Server) ConfigureRealTime(ctx context.Context, req *pub.ConfigureRealTi
 	return resp, err
 }
 
-func (s *Server) BeginOAuthFlow(ctx context.Context, req*pub.BeginOAuthFlowRequest) (*pub.BeginOAuthFlowResponse, error) {
-	panic("implement me")
+func (s *Server) BeginOAuthFlow(ctx context.Context, req *pub.BeginOAuthFlowRequest) (*pub.BeginOAuthFlowResponse, error) {
+	return nil, errors.New("Not supported.")
 }
 
-func (s *Server) CompleteOAuthFlow(ctx context.Context, req*pub.CompleteOAuthFlowRequest) (*pub.CompleteOAuthFlowResponse, error) {
-	panic("implement me")
+func (s *Server) CompleteOAuthFlow(ctx context.Context, req *pub.CompleteOAuthFlowRequest) (*pub.CompleteOAuthFlowResponse, error) {
+	return nil, errors.New("Not supported.")
 }
 
-func (s *Server) DiscoverSchemas(ctx context.Context, req*pub.DiscoverSchemasRequest) (*pub.DiscoverSchemasResponse, error) {
+func (s *Server) DiscoverSchemas(ctx context.Context, req *pub.DiscoverSchemasRequest) (*pub.DiscoverSchemasResponse, error) {
 
 	s.log.Debug("Handling DiscoverSchemasRequest...")
 
@@ -416,7 +440,6 @@ func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStrea
 		}
 	}
 
-
 	handler, innerRequest, err := BuildHandlerAndRequest(session, req, PublishToStreamHandler(stream))
 
 	err = handler.Handle(innerRequest)
@@ -435,16 +458,231 @@ func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStrea
 	return err
 }
 
+// ConfigureWrite
 func (s *Server) ConfigureWrite(ctx context.Context, req *pub.ConfigureWriteRequest) (*pub.ConfigureWriteResponse, error) {
-	panic("implement me")
+	session, err := s.getOpSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var errArray []string
+
+	storedProcedures, _ := json.Marshal(session.StoredProcedures)
+	schemaJSON := fmt.Sprintf(`{
+	"type": "object",
+	"properties": {
+		"storedProcedure": {
+			"type": "string",
+			"title": "Stored Procedure Name",
+			"description": "The name of the stored procedure",
+			"enum": %s
+		}
+	},
+	"required": [
+		"storedProcedure"
+	]
+}`, storedProcedures)
+
+	// first request return ui json schema form
+	if req.Form == nil || req.Form.DataJson == "" {
+		return &pub.ConfigureWriteResponse{
+			Form: &pub.ConfigurationFormResponse{
+				DataJson:       `{"storedProcedure":""}`,
+				DataErrorsJson: "",
+				Errors:         nil,
+				SchemaJson: schemaJSON ,
+				StateJson: "",
+			},
+			Schema: nil,
+		}, nil
+	}
+
+	// build schema
+	var query string
+	var properties []*pub.Property
+	var data string
+	var row *sql.Row
+	var stmt *sql.Stmt
+	var rows *sql.Rows
+	var sprocSchema, sprocName string
+
+	// get form data
+	var formData ConfigureWriteFormData
+	if err := json.Unmarshal([]byte(req.Form.DataJson), &formData); err != nil {
+		errArray = append(errArray, fmt.Sprintf("error reading form data: %s", err))
+		goto Done
+	}
+
+	if formData.StoredProcedure == "" {
+		goto Done
+	}
+
+	sprocSchema, sprocName = decomposeSafeName(formData.StoredProcedure)
+	// check if stored procedure exists
+	query = `SELECT 1
+FROM information_schema.routines
+WHERE routine_type = 'PROCEDURE'
+AND SPECIFIC_SCHEMA = @schema
+AND SPECIFIC_NAME = @name
+`
+	stmt, err = session.DB.Prepare(query)
+	if err != nil {
+		errArray = append(errArray, fmt.Sprintf("error checking stored procedure: %s", err))
+		goto Done
+	}
+
+	row = stmt.QueryRow(sql.Named("schema", sprocSchema), sql.Named("name", sprocName))
+
+	err = row.Scan(&data)
+	if err != nil {
+		errArray = append(errArray, fmt.Sprintf("stored procedure does not exist: %s", err))
+		goto Done
+	}
+
+	// get params for stored procedure
+	query = `SELECT PARAMETER_NAME AS Name, DATA_TYPE AS Type
+FROM INFORMATION_SCHEMA.PARAMETERS
+WHERE SPECIFIC_SCHEMA = @schema
+AND SPECIFIC_NAME = @name
+`
+	stmt, err = session.DB.Prepare(query)
+	if err != nil {
+		errArray = append(errArray, fmt.Sprintf("error preparing to get parameters for stored procedure: %s", err))
+		goto Done
+	}
+
+	rows, err = stmt.Query(sql.Named("schema", sprocSchema), sql.Named("name", sprocName))
+	if err != nil {
+		errArray = append(errArray, fmt.Sprintf("error getting parameters for stored procedure: %s", err))
+		goto Done
+	}
+
+
+	// add all params to properties of schema
+	for rows.Next() {
+		var colName, colType string
+		err := rows.Scan(&colName, &colType)
+		if err != nil {
+			errArray = append(errArray, fmt.Sprintf("error getting parameters for stored procedure: %s", err))
+			goto Done
+		}
+
+		properties = append(properties, &pub.Property{
+			Id: strings.TrimPrefix(colName, "@"),
+			TypeAtSource: colType,
+			Type: convertSQLType(colType, 0),
+		})
+	}
+
+Done:
+	// return write back schema
+	return &pub.ConfigureWriteResponse{
+		Form: &pub.ConfigurationFormResponse{
+			DataJson:  req.Form.DataJson,
+			Errors:    errArray,
+			StateJson: req.Form.StateJson,
+			SchemaJson:schemaJSON,
+		},
+		Schema: &pub.Schema{
+			Id:         formData.StoredProcedure,
+			Query:      formData.StoredProcedure,
+			DataFlowDirection: pub.Schema_WRITE,
+			Properties: properties,
+		},
+	}, nil
 }
 
+type ConfigureWriteFormData struct {
+	StoredProcedure string `json:"storedProcedure,omitempty"`
+}
+
+// PrepareWrite sets up the plugin to be able to write back
 func (s *Server) PrepareWrite(ctx context.Context, req *pub.PrepareWriteRequest) (*pub.PrepareWriteResponse, error) {
-	panic("implement me")
+	// session, err := s.getOpSession(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	s.session.WriteSettings = &WriteSettings{
+		Schema:    req.Schema,
+		CommitSLA: req.CommitSlaSeconds,
+	}
+
+	return &pub.PrepareWriteResponse{}, nil
 }
 
-func (s *Server) WriteStream(pub.Publisher_WriteStreamServer) error {
-	panic("implement me")
+// WriteStream writes a stream of records back to the source system
+func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
+	session, err := s.getOpSession(context.Background())
+	if err != nil {
+		return err
+	}
+
+	defer session.Cancel()
+
+	// get and process each record
+	for {
+		// return if not configured
+		if session.WriteSettings == nil {
+			return nil
+		}
+
+		// get record and exit if no more records or error
+		record, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		var recordData map[string]interface{}
+		if err := json.Unmarshal([]byte(record.DataJson), &recordData); err != nil {
+			return errors.WithStack(err)
+		}
+
+		// process record and send ack
+		c1 := make(chan string, 1)
+		go func() {
+			schema := session.WriteSettings.Schema
+
+			// build params for stored procedure
+			var args []interface{}
+			for _, prop := range schema.Properties {
+				args = append(args, sql.Named(prop.Id, recordData[prop.Id]))
+			}
+
+			// call stored procedure and capture any error
+			_, err := session.DB.Exec(schema.Query, args...)
+			if err != nil {
+				c1 <- fmt.Sprintf("could not write back: %s", err)
+			}
+
+			c1 <- ""
+		}()
+
+		// send ack when done writing or on timeout
+		select {
+		// done writing
+		case sendErr := <-c1:
+			err := stream.Send(&pub.RecordAck{
+				CorrelationId: record.CorrelationId,
+				Error:         sendErr,
+			})
+			if err != nil {
+				return err
+			}
+		// timeout
+		case <-time.After(time.Duration(session.WriteSettings.CommitSLA) * time.Second):
+			err := stream.Send(&pub.RecordAck{
+				CorrelationId: record.CorrelationId,
+				Error:         "timed out",
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
 }
 
 // DiscoverShapes discovers shapes present in the database
@@ -599,7 +837,7 @@ func (s *Server) PublishStream(req *pub.ReadRequest, stream pub.Publisher_Publis
 }
 
 // Disconnect disconnects from the server
-func (s *Server) Disconnect(ctx context.Context, req*pub.DisconnectRequest) (*pub.DisconnectResponse, error) {
+func (s *Server) Disconnect(ctx context.Context, req *pub.DisconnectRequest) (*pub.DisconnectResponse, error) {
 
 	s.disconnect()
 
@@ -684,7 +922,6 @@ func (s *Server) getCount(session *OpSession, shape *pub.Schema) (*pub.Count, er
 		Value: int32(count),
 	}, nil
 }
-
 
 func buildQuery(req *pub.ReadRequest) (string, error) {
 
@@ -800,4 +1037,25 @@ func formatTypeAtSource(t string, maxLength, precision, scale int) string {
 	default:
 		return t
 	}
+}
+
+func decomposeSafeName(safeName string) (schema, name string) {
+	segs := strings.Split(safeName, ".")
+	switch len(segs) {
+	case 0:
+		return "", ""
+	case 1:
+		return "dbo", strings.Trim(segs[0], "[]")
+	case 2:
+		return strings.Trim(segs[0], "[]"), strings.Trim(segs[1], "[]")
+	default:
+		return "", ""
+	}
+}
+
+func makeSQLNameSafe(name string) string {
+	if ok, _ := regexp.MatchString(`\W`, name); !ok {
+		return name
+	}
+	return fmt.Sprintf("[%s]", name)
 }
