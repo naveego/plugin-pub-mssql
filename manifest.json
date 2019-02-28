@@ -2,7 +2,7 @@
   "id": "pub-mssql",
   "displayName": "Microsoft SQL Server Publisher",
   "description": "Publisher which pulls data from an MS SQL Server instance.",
-  "version": "3.0.0-beta3",
+  "version": "3.0.0-beta6",
   "apiVersion": 2,
   "iconFile": "icon.png",
   "executable": "plugin-pub-mssql",
