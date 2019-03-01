@@ -644,6 +644,7 @@ var _ = Describe("Server", func() {
 			var stream *writeStream
 			var req *pub.PrepareWriteRequest
 			BeforeEach(func() {
+				Expect(sut.Connect(context.Background(), pub.NewConnectRequest(settings))).ToNot(BeNil())
 				req =  &pub.PrepareWriteRequest{
 					Schema: &pub.Schema{
 						Id: "TEST",
@@ -652,13 +653,19 @@ var _ = Describe("Server", func() {
 							{
 								Id: "AgentId",
 							},
+							{
+								Id: "Name",
+							},
+							{
+								Id: "Commission",
+							},
 						},
 					},
 					CommitSlaSeconds: 1,
 				}
 
 				records = append(records, &pub.Record{
-					DataJson: `{"AgentId":"A001"}`,
+					DataJson: `{"AgentId":"A001","Name":"TEST","Commission":"0.24"}`,
 					CorrelationId: "test",
 				})
 
@@ -677,6 +684,7 @@ var _ = Describe("Server", func() {
 
 				Expect(stream.recordAcks).To(HaveLen(1))
 				Expect(stream.recordAcks[0].CorrelationId).To(Equal("test"))
+				Expect(stream.recordAcks[0].Error).To(Equal(""))
 			})
 		})
 	})
@@ -725,7 +733,7 @@ func (writeStream) SetTrailer(metadata.MD) {
 }
 
 func (writeStream) Context() context.Context {
-	panic("implement me")
+	return context.Background()
 }
 
 func (writeStream) SendMsg(m interface{}) error {
