@@ -670,6 +670,8 @@ func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
 						return
 					}
 					value, err = time.Parse(time.RFC3339, stringValue)
+				default:
+					value = rawValue
 				}
 
 				args = append(args, sql.Named(prop.Id, value))
