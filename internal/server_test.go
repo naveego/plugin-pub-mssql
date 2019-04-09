@@ -206,6 +206,50 @@ var _ = Describe("Server", func() {
 				}))
 			})
 
+			It("should accept user-defined keys", func() {
+
+				refreshShape := &pub.Schema{
+					Id:   "[Agents per Working Area]",
+					Name: "Agents per Working Area",
+					Properties: []*pub.Property{
+						{
+							Id:           "[WORKING_AREA]",
+							Name:         "WORKING_AREA",
+							Type:         pub.PropertyType_STRING,
+							TypeAtSource: "varchar(35)",
+							IsKey: true,
+							IsNullable:   true,
+						},
+					},
+				}
+
+				response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverSchemasRequest{
+					Mode:      pub.DiscoverSchemasRequest_REFRESH,
+					ToRefresh: []*pub.Schema{refreshShape},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				shapes := response.Schemas
+				Expect(shapes).To(HaveLen(1), "only requested shape should be returned")
+
+				shape := shapes[0]
+				properties := shape.Properties
+				Expect(properties).To(ContainElement(&pub.Property{
+					Id:           "[WORKING_AREA]",
+					Name:         "WORKING_AREA",
+					Type:         pub.PropertyType_STRING,
+					TypeAtSource: "varchar(35)",
+					IsKey:true,
+					IsNullable:   true,
+				}))
+				Expect(properties).To(ContainElement(&pub.Property{
+					Id:           "[COUNT]",
+					Name:         "COUNT",
+					Type:         pub.PropertyType_INTEGER,
+					TypeAtSource: "int",
+					IsNullable:   true,
+				}))
+			})
+
 			Describe("when shape has query defined", func() {
 				It("should update shape", func() {
 

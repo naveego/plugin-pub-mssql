@@ -352,38 +352,38 @@ func (s *Server) DiscoverSchemas(ctx context.Context, req *pub.DiscoverSchemasRe
 	wait := new(sync.WaitGroup)
 
 	for i := range schemas {
-		shape := schemas[i]
+		schema := schemas[i]
 		// include this shape in wait group
 		wait.Add(1)
 
 		// concurrently get details for shape
 		go func() {
-			s.log.Debug("Getting details for discovered schema", "id", shape.Id)
-			err := s.populateShapeColumns(session, shape)
+			s.log.Debug("Getting details for discovered schema", "id", schema.Id)
+			err := s.populateShapeColumns(session, schema)
 			if err != nil {
-				s.log.With("shape", shape.Id).With("err", err).Error("Error discovering columns")
-				shape.Errors = append(shape.Errors, fmt.Sprintf("Could not discover columns: %s", err))
+				s.log.With("shape", schema.Id).With("err", err).Error("Error discovering columns")
+				schema.Errors = append(schema.Errors, fmt.Sprintf("Could not discover columns: %s", err))
 				goto Done
 			}
-			s.log.Debug("Got details for discovered schema", "id", shape.Id)
+			s.log.Debug("Got details for discovered schema", "id", schema.Id)
 
 			if req.Mode == pub.DiscoverSchemasRequest_REFRESH {
-				s.log.Debug("Getting count for discovered schema", "id", shape.Id)
-				shape.Count, err = s.getCount(session, shape)
+				s.log.Debug("Getting count for discovered schema", "id", schema.Id)
+				schema.Count, err = s.getCount(session, schema)
 				if err != nil {
-					s.log.With("shape", shape.Id).With("err", err).Error("Error getting row count.")
-					shape.Errors = append(shape.Errors, fmt.Sprintf("Could not get row count for shape: %s", err))
+					s.log.With("shape", schema.Id).With("err", err).Error("Error getting row count.")
+					schema.Errors = append(schema.Errors, fmt.Sprintf("Could not get row count for shape: %s", err))
 					goto Done
 				}
-				s.log.Debug("Got count for discovered schema", "id", shape.Id, "count", shape.Count.String())
+				s.log.Debug("Got count for discovered schema", "id", schema.Id, "count", schema.Count.String())
 			} else {
-				shape.Count = &pub.Count{Kind: pub.Count_UNAVAILABLE}
+				schema.Count = &pub.Count{Kind: pub.Count_UNAVAILABLE}
 			}
 
 			if req.SampleSize > 0 {
-				s.log.Debug("Getting sample for discovered schema", "id", shape.Id, "size", req.SampleSize)
+				s.log.Debug("Getting sample for discovered schema", "id", schema.Id, "size", req.SampleSize)
 				publishReq := &pub.ReadRequest{
-					Schema: shape,
+					Schema: schema,
 					Limit:  req.SampleSize,
 				}
 
@@ -393,15 +393,15 @@ func (s *Server) DiscoverSchemas(ctx context.Context, req *pub.DiscoverSchemasRe
 				err = handler.Handle(innerRequest)
 
 				for _, record := range collector.Records {
-					shape.Sample = append(shape.Sample, record)
+					schema.Sample = append(schema.Sample, record)
 				}
 
 				if err != nil {
-					s.log.With("shape", shape.Id).With("err", err).Error("Error collecting sample.")
-					shape.Errors = append(shape.Errors, fmt.Sprintf("Could not collect sample: %s", err))
+					s.log.With("shape", schema.Id).With("err", err).Error("Error collecting sample.")
+					schema.Errors = append(schema.Errors, fmt.Sprintf("Could not collect sample: %s", err))
 					goto Done
 				}
-				s.log.Debug("Got sample for discovered schema", "id", shape.Id, "size", len(shape.Sample))
+				s.log.Debug("Got sample for discovered schema", "id", schema.Id, "size", len(schema.Sample))
 			}
 		Done:
 			wait.Done()
@@ -811,6 +811,13 @@ func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Schema) err
 		return err
 	}
 
+	userDefinedKeyProperties := map[string]bool{}
+	for _, p := range shape.Properties {
+		if p != nil && p.IsKey {
+			userDefinedKeyProperties[p.Name] = true
+		}
+	}
+
 	unnamedColumnIndex := 0
 
 	for _, m := range metadata {
@@ -850,7 +857,9 @@ func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Schema) err
 		property.Type = convertSQLType(property.TypeAtSource, int(maxLength))
 
 		property.IsNullable = m.IsNullable
-		property.IsKey = m.IsPartOfUniqueKey
+		if len(userDefinedKeyProperties) == 0 {
+			property.IsKey = m.IsPartOfUniqueKey
+		}
 	}
 
 	return nil

@@ -73,7 +73,7 @@ GO
 
 CREATE OR ALTER VIEW dbo.[RealTimeDuplicateView] (id, ownValue, mergeValue, spreadValue)
 AS
-SELECT id, ownValue, mergeValue, spreadValue
+SELECT id + 0 as id, ownValue, mergeValue, spreadValue
 FROM w3.dbo.RealTime
 
 GO
@@ -561,3 +561,9 @@ BEGIN
   where AGENT_CODE = @AgentId
 END
 GO
+
+
+-- create login SpecialPassword with password = 'Abc123!@#$%^&*'
+alter login SpecialPassword with password = 'Roan$Password'
+-- create user SpecialPassword for login SpecialPassword
+-- alter role db_owner add member SpecialPassword

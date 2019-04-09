@@ -44,8 +44,8 @@ var _ = Describe("PublishRequestHandler helpers", func() {
 })
 
 type DeveloperRecord struct {
-	ID          int    `sql:"id" json:"[id]"`
-	Name    string `sql:"name" json:"[name]"`
+	ID   int    `sql:"id" json:"[id]"`
+	Name string `sql:"name" json:"[name]"`
 }
 
 type RealTimeRecord struct {
@@ -63,9 +63,9 @@ type RealTimeDuplicateViewRecord struct {
 }
 
 type RealTimeDerivedViewRecord struct {
-	ID          int    `sql:"id" json:"[id]"`
-	OwnValue  string `sql:"ownValue" json:"[ownValue]"`
-	Data  string `sql:"data" json:"[data]"`
+	ID       int    `sql:"id" json:"[id]"`
+	OwnValue string `sql:"ownValue" json:"[ownValue]"`
+	Data     string `sql:"data" json:"[data]"`
 }
 
 type RealTimeMergeViewRecord struct {
@@ -80,7 +80,7 @@ type RealTimeSpreadViewRecord struct {
 }
 
 var (
-	developersRecords              []DeveloperRecord
+	developersRecords            []DeveloperRecord
 	realTimeRecords              []RealTimeRecord
 	realTimeDuplicateViewRecords []RealTimeDuplicateViewRecord
 	realTimeDerivedViewRecords   []RealTimeDerivedViewRecord
@@ -313,7 +313,19 @@ var _ = Describe("PublishStream with Real Time", func() {
 
 	},
 		Entry("when schema is table", &pub.Schema{Id: "[RealTime]"}, RealTimeSettings{PollingInterval: "100ms"}),
-		Entry("when schema is view", &pub.Schema{Id: "[RealTimeDuplicateView]"}, RealTimeSettings{
+		Entry("when schema is view", &pub.Schema{
+			Id: "[RealTimeDuplicateView]",
+			Properties: []*pub.Property{
+				{
+					Id:           "[id]",
+					Name:         "id",
+					Type:         pub.PropertyType_INTEGER,
+					TypeAtSource: "int",
+					IsKey:        true,
+					IsNullable:   false,
+				},
+			},
+		}, RealTimeSettings{
 			PollingInterval: "100ms",
 			Tables: []RealTimeTableSettings{
 				{
@@ -338,7 +350,7 @@ JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
 		}),
 	)
 
-	Describe("complex views", func(){
+	Describe("complex views", func() {
 
 		It("should work with other schemas", func() {
 
@@ -386,15 +398,14 @@ JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
 
 				Expect(db.Exec("INSERT INTO dev.Developers VALUES (5, 'test')")).ToNot(BeNil())
 				expectedInsertedRecord = DeveloperRecord{
-					ID:       5,
-					Name:"test",
+					ID:   5,
+					Name: "test",
 				}
 				var actualRecord *pub.Record
 				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
 				Expect(actualRecord).To(BeRecordMatching(pub.Record_INSERT, expectedInsertedRecord))
 				Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Insert in [dev].[Developers] at [id]=%d", 5)))
 			})
-
 
 		})
 
