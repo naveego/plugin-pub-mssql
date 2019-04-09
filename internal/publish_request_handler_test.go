@@ -62,6 +62,13 @@ type RealTimeDuplicateViewRecord struct {
 	SpreadValue string `sql:"spreadValue" json:"[spreadValue]"`
 }
 
+type RealTimeRenamedViewRecord struct {
+	ID          int    `sql:"pk" json:"[pk]"`
+	OwnValue    string `sql:"ownValue" json:"[ownValue]"`
+	MergeValue  string `sql:"mergeValue" json:"[mergeValue]"`
+	SpreadValue string `sql:"spreadValue" json:"[spreadValue]"`
+}
+
 type RealTimeDerivedViewRecord struct {
 	ID       int    `sql:"id" json:"[id]"`
 	OwnValue string `sql:"ownValue" json:"[ownValue]"`
@@ -83,6 +90,7 @@ var (
 	developersRecords            []DeveloperRecord
 	realTimeRecords              []RealTimeRecord
 	realTimeDuplicateViewRecords []RealTimeDuplicateViewRecord
+	realTimeRenamedViewRecords []RealTimeRenamedViewRecord
 	realTimeDerivedViewRecords   []RealTimeDerivedViewRecord
 	realTimeMergeViewRecords     []RealTimeMergeViewRecord
 	realTimeSpreadViewRecords    []RealTimeSpreadViewRecord
@@ -117,6 +125,10 @@ var _ = Describe("PublishStream with Real Time", func() {
 			rows, err = db.Query("SELECT * FROM w3.dbo.RealTimeDuplicateView")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sqlstructs.UnmarshalRows(rows, &realTimeDuplicateViewRecords)).To(Succeed())
+
+			rows, err = db.Query("SELECT * FROM w3.dbo.RealTimeRenamedView")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sqlstructs.UnmarshalRows(rows, &realTimeRenamedViewRecords)).To(Succeed())
 
 			rows, err = db.Query("SELECT * FROM w3.dbo.RealTimeDerivedView")
 			Expect(err).ToNot(HaveOccurred())
@@ -349,6 +361,85 @@ JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
 			},
 		}),
 	)
+
+	DescribeTable("real time with view with renamed columns", func(shape *pub.Schema, settings RealTimeSettings) {
+
+		schema := discoverShape(shape)
+
+		var (
+			expectedInsertedRecord RealTimeRenamedViewRecord
+		)
+
+		expectedVersion := getChangeTrackingVersion()
+
+		go func() {
+			defer GinkgoRecover()
+			err := sut.PublishStream(&pub.ReadRequest{
+				JobId:                jobID,
+				Schema:               schema,
+				RealTimeSettingsJson: settings.String(),
+				RealTimeStateJson:    "",
+			}, stream)
+			Expect(err).ToNot(HaveOccurred())
+		}()
+
+		defer func() {
+			Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
+		}()
+
+		By("detecting that no state exists, all records should be loaded", func() {
+			for _, expected := range realTimeRenamedViewRecords {
+				var actualRecord *pub.Record
+				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+				Expect(actualRecord).To(BeRecordMatching(pub.Record_INSERT, expected))
+			}
+		})
+
+		By("committing most recent version, the state should be stored", func() {
+			var actualRecord *pub.Record
+			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
+		})
+
+		var actualID int64
+		By("running the publish periodically, a new record should be detected when it is written", func() {
+
+			row := db.QueryRow("INSERT INTO RealTime VALUES ('inserted', NULL, NULL); SELECT SCOPE_IDENTITY()")
+			Expect(row.Scan(&actualID)).To(Succeed())
+			expectedInsertedRecord = RealTimeRenamedViewRecord{
+				ID:       int(actualID),
+				OwnValue: "inserted",
+			}
+			var actualRecord *pub.Record
+			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+			Expect(actualRecord).To(BeRecordMatching(pub.Record_INSERT, expectedInsertedRecord))
+			Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Insert in [RealTime] at [id]=%d", actualID)))
+		})
+
+	},
+		Entry("when schema is view with a different ID", &pub.Schema{
+			Id: "[RealTimeRenamedView]",
+			Properties: []*pub.Property{
+				{
+					Id:           "[pk]",
+					Name:         "pk",
+					Type:         pub.PropertyType_INTEGER,
+					TypeAtSource: "int",
+					IsKey:        true,
+					IsNullable:   false,
+				},
+			},
+		}, RealTimeSettings{
+			PollingInterval: "100ms",
+			Tables: []RealTimeTableSettings{
+				{
+					SchemaID: "[RealTime]",
+					Query: `SELECT [RealTime].id as [Schema.pk], [RealTime].id as [Dependency.id]
+FROM RealTime`,
+				},
+			},
+		}),
+		)
 
 	Describe("complex views", func() {
 

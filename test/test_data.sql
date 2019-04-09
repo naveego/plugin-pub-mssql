@@ -78,6 +78,13 @@ FROM w3.dbo.RealTime
 
 GO
 
+CREATE OR ALTER VIEW dbo.[RealTimeRenamedView] (pk, ownValue, mergeValue, spreadValue)
+AS
+SELECT id + 0 as pk, ownValue, mergeValue, spreadValue
+FROM w3.dbo.RealTime
+
+GO
+
 CREATE TABLE w3.dbo.RealTimeAux
 (
   id         INT NOT NULL IDENTITY PRIMARY KEY,
