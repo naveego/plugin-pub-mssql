@@ -166,10 +166,9 @@ DECLARE @ChangeKeys table(
 )
 
 INSERT INTO @ChangeKeys ({{ join ", " .SchemaArgs.Keys}})
-VALUES
-	({{ range first .RowKeys }}{{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }}{{ range rest .RowKeys }}, {{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }})
-{{- range rest .RowKeys }}
-	, ({{ range . }}{{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }}{{ range rest .RowKeys }}, {{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }})
+VALUES	
+{{- range $i, $row := .RowKeys }}
+	{{ if ne $i 0 }} ,{{- end}} ({{ with first $row }}{{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }}{{ range rest $row }}, {{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }})
 {{- end }}
 
 {{- end }}

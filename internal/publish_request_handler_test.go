@@ -76,8 +76,8 @@ type RealTimeDerivedViewRecord struct {
 }
 
 type RealTimeMergeViewRecord struct {
-	MergeValue string `sql:"mergeValue"`
-	Count      int    `sql:"count"`
+	MergeValue string `sql:"mergeValue" json:"[mergeValue]"`
+	Count      int    `sql:"count" json:"[count]"`
 }
 type RealTimeSpreadViewRecord struct {
 	Row         int    `sql:"row"`
@@ -90,7 +90,7 @@ var (
 	developersRecords            []DeveloperRecord
 	realTimeRecords              []RealTimeRecord
 	realTimeDuplicateViewRecords []RealTimeDuplicateViewRecord
-	realTimeRenamedViewRecords []RealTimeRenamedViewRecord
+	realTimeRenamedViewRecords   []RealTimeRenamedViewRecord
 	realTimeDerivedViewRecords   []RealTimeDerivedViewRecord
 	realTimeMergeViewRecords     []RealTimeMergeViewRecord
 	realTimeSpreadViewRecords    []RealTimeSpreadViewRecord
@@ -439,19 +439,40 @@ FROM RealTime`,
 				},
 			},
 		}),
-		)
+	)
 
 	Describe("complex views", func() {
 
-		It("should work with other schemas", func() {
+		It("should work when table->view is many->one", func() {
 
-			schema := discoverShape(&pub.Schema{Id: "[dev].[Developers]"})
-			settings := RealTimeSettings{PollingInterval: "100ms"}
+			schema := discoverShape(&pub.Schema{
+				Id: "[RealTimeMergeView]",
+				Properties: []*pub.Property{
+					{
+						Id:           "[mergeValue]",
+						Name:         "mergeValue",
+						Type:         pub.PropertyType_STRING,
+						TypeAtSource: "varchar(10)",
+						IsKey:        true,
+						IsNullable:   false,
+					},
+				},
+			})
+
+			settings := RealTimeSettings{
+				PollingInterval: "100ms",
+				Tables: []RealTimeTableSettings{
+					{
+						SchemaID: "[RealTime]",
+						Query: `SELECT [RealTime].mergeValue as [Schema.mergeValue], [RealTime].id as [Dependency.id] 
+FROM RealTime`,
+					},
+				},
+			}
 
 			var (
-				expectedInsertedRecord DeveloperRecord
-				// expectedUpdatedRecord  DeveloperRecord
-				// expectedDeletedRecord  DeveloperRecord
+				actualID int
+				expectedInsertedRecord RealTimeMergeViewRecord
 			)
 
 			expectedVersion := getChangeTrackingVersion()
@@ -472,11 +493,24 @@ FROM RealTime`,
 			}()
 
 			By("detecting that no state exists, all records should be loaded", func() {
-				for _, expected := range developersRecords {
+				var actualRecords []RealTimeMergeViewRecord
+
+				for _, r := range realTimeRecords {
+					if r.MergeValue == "" {
+						// we only expect merge view records for records with merge values
+						continue
+					}
 					var actualRecord *pub.Record
 					Eventually(stream.out, timeout).Should(Receive(&actualRecord))
-					Expect(actualRecord).To(BeRecordMatching(pub.Record_INSERT, expected))
+					var actualViewRecord RealTimeMergeViewRecord
+					Expect(actualRecord.UnmarshalData(&actualViewRecord)).To(Succeed())
+					actualRecords = append(actualRecords, actualViewRecord)
 				}
+
+				for _, expected := range realTimeMergeViewRecords {
+					Expect(actualRecords).To(ContainElement(expected))
+				}
+
 			})
 
 			By("committing most recent version, the state should be stored", func() {
@@ -486,18 +520,50 @@ FROM RealTime`,
 			})
 
 			By("running the publish periodically, a new record should be detected when it is written", func() {
-
-				Expect(db.Exec("INSERT INTO dev.Developers VALUES (5, 'test')")).ToNot(BeNil())
-				expectedInsertedRecord = DeveloperRecord{
-					ID:   5,
-					Name: "test",
+				row := db.QueryRow("INSERT INTO w3.dbo.RealTime VALUES ('m-insert', 'inserted', 'c'); SELECT SCOPE_IDENTITY()")
+				Expect(row.Scan(&actualID)).To(Succeed())
+				expectedInsertedRecord = RealTimeMergeViewRecord{
+					MergeValue: "inserted",
+					Count:      1,
 				}
 				var actualRecord *pub.Record
 				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
 				Expect(actualRecord).To(BeRecordMatching(pub.Record_INSERT, expectedInsertedRecord))
-				Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Insert in [dev].[Developers] at [id]=%d", 5)))
+				Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Insert in [RealTime] at [id]=%d", actualID)))
 			})
 
+			By("committing most recent version, the state should be stored", func() {
+				expectedVersion = getChangeTrackingVersion()
+				var actualRecord *pub.Record
+				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+				Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
+			})
+
+			By("running the publish periodically, a changed record should be detected when it is updated", func() {
+
+				result, err := db.Exec("UPDATE w3.dbo.RealTime SET mergeValue = 'updated' WHERE id = @id", sql.Named("id", actualID))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+
+				var actualRecords []*pub.Record
+				var actualRecord *pub.Record
+				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+				actualRecords = append(actualRecords, actualRecord)
+				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+				actualRecords = append(actualRecords, actualRecord)
+
+				Expect(actualRecords).To(ContainElement(BeRecordMatching(pub.Record_DELETE, RealTimeMergeViewRecord{
+					MergeValue:      "inserted",
+					// Count should be zero value, because only the key values are included in a delete record
+					// Count: 1,
+				})))
+				Expect(actualRecords).To(ContainElement(BeRecordMatching(pub.Record_INSERT, RealTimeMergeViewRecord{
+					MergeValue:      "updated",
+					Count: 1,
+				})))
+
+				Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Update in [RealTime] at [id]=%d", actualID)))
+			})
 		})
 
 	})

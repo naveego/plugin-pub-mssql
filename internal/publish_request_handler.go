@@ -667,7 +667,12 @@ func ProcessChangesMiddleware() PublishMiddleware {
 
 			query, err := templates.RenderSchemaDataQuery(templateArgs)
 			if err != nil {
-				return errors.Wrap(err, "render schema data changes query")
+				templateArgsJSON, _ := json.MarshalIndent(templateArgs, "", "  ")
+				if len(templateArgsJSON) > 2000 {
+					templateArgsJSON = templateArgsJSON[:2000]
+				}
+
+				return errors.Wrapf(err, "render schema data changes query with template args %s", string(templateArgsJSON))
 			}
 
 			log.Trace("Rendered schema data changes query")

@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go v1.15.44 // indirect
 	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/coreos/go-semver v0.2.0
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.1
 	github.com/denisenkom/go-mssqldb v0.0.0-20180707235734-242fa5aa1b45
 	github.com/go-ini/ini v1.38.2 // indirect
 	github.com/golang/protobuf v1.2.0
