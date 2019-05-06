@@ -1,73 +1,73 @@
 IF NOT EXISTS(SELECT name
               FROM master.dbo.sysdatabases
               WHERE name = N'w3')
-  BEGIN
-    CREATE DATABASE w3
+    BEGIN
+        CREATE DATABASE w3
 
-    ALTER DATABASE [w3] SET CHANGE_TRACKING = ON (CHANGE_RETENTION = 14 DAYS)
+        ALTER DATABASE [w3] SET CHANGE_TRACKING = ON (CHANGE_RETENTION = 14 DAYS)
 
-  END
+    END
 GO
 
 IF NOT exists(SELECT *
               FROM w3.sys.schemas
               WHERE name = 'fact')
-  BEGIN
-    EXEC sp_executesql N'CREATE SCHEMA fact'
-  END;
+    BEGIN
+        EXEC sp_executesql N'CREATE SCHEMA fact'
+    END;
 IF NOT exists(SELECT *
               FROM w3.sys.schemas
               WHERE name = 'dev')
-  BEGIN
-    EXEC sp_executesql N'CREATE SCHEMA dev'
-  END;
+    BEGIN
+        EXEC sp_executesql N'CREATE SCHEMA dev'
+    END;
 
 
 GO
 ;
 
 IF OBJECT_ID('w3.fact.Orders', 'U') IS NOT NULL
-  DROP TABLE w3.fact.Orders;
+    DROP TABLE w3.fact.Orders;
 IF OBJECT_ID('w3.dbo.Customers', 'U') IS NOT NULL
-  DROP TABLE w3.dbo.Customers;
+    DROP TABLE w3.dbo.Customers;
 IF OBJECT_ID('w3.dbo.Agents', 'U') IS NOT NULL
-  DROP TABLE w3.dbo.Agents;
+    DROP TABLE w3.dbo.Agents;
 IF OBJECT_ID('w3.dbo.Types', 'U') IS NOT NULL
-  DROP TABLE w3.dbo.Types;
+    DROP TABLE w3.dbo.Types;
 
 IF OBJECT_ID('w3.dbo.PrePost', 'U') IS NOT NULL
-  DROP TABLE w3.dbo.PrePost;
+    DROP TABLE w3.dbo.PrePost;
 
 IF OBJECT_ID('w3.dbo.CompositeKey', 'U') IS NOT NULL
-  DROP TABLE w3.dbo.CompositeKey;
+    DROP TABLE w3.dbo.CompositeKey;
 
 IF OBJECT_ID('w3.dbo.RealTime', 'U') IS NOT NULL
-  DROP TABLE w3.dbo.RealTime;
+    DROP TABLE w3.dbo.RealTime;
 IF OBJECT_ID('w3.dbo.RealTimeAux', 'U') IS NOT NULL
-  DROP TABLE w3.dbo.RealTimeAux;
+    DROP TABLE w3.dbo.RealTimeAux;
 
 CREATE TABLE w3.dbo.CompositeKey
 (
-  id1   INT NOT NULL,
-  id2   INT NOT NULL,
-  value VARCHAR(10),
-  PRIMARY KEY (id1, id2),
+    id1   INT NOT NULL,
+    id2   INT NOT NULL,
+    value VARCHAR(10),
+    PRIMARY KEY (id1, id2),
 )
 
 ALTER TABLE w3.dbo.CompositeKey
-  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
+    ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
 
 
 CREATE TABLE w3.dbo.RealTime
 (
-  id          INT         NOT NULL IDENTITY PRIMARY KEY,
-  ownValue    VARCHAR(10) UNIQUE,
-  mergeValue  VARCHAR(10) NULL,
-  spreadValue VARCHAR(10) NULL,
+    id          INT         NOT NULL IDENTITY PRIMARY KEY,
+    ownValue    VARCHAR(10) UNIQUE,
+    mergeValue  VARCHAR(10) NULL,
+    spreadValue VARCHAR(10) NULL,
 )
 
 ALTER TABLE w3.dbo.RealTime
-  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
+    ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
 
 GO
 
@@ -80,9 +80,9 @@ GO
 
 CREATE TABLE w3.dbo.RealTimeAux
 (
-  id         INT NOT NULL IDENTITY PRIMARY KEY,
-  realTimeID INT NOT NULL,
-  data       VARCHAR(10),
+    id         INT NOT NULL IDENTITY PRIMARY KEY,
+    realTimeID INT NOT NULL,
+    data       VARCHAR(10),
 )
 
 GO
@@ -90,21 +90,21 @@ GO
 
 
 ALTER TABLE w3.dbo.RealTimeAux
-  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
+    ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
 
 GO
 
-CREATE OR ALTER VIEW  dbo.[RealTimeDerivedView] (id, ownValue, data)
+CREATE OR ALTER VIEW dbo.[RealTimeDerivedView] (id, ownValue, data)
 AS
 SELECT RT.id, RT.ownValue, RTA.data
 FROM w3.dbo.RealTime RT
-       JOIN w3.dbo.RealTimeAux RTA
-            ON RTA.realTimeID = RT.id
+         JOIN w3.dbo.RealTimeAux RTA
+              ON RTA.realTimeID = RT.id
 
 
 GO
 
-CREATE OR ALTER VIEW  dbo.[RealTimeMergeView] (mergeValue, count)
+CREATE OR ALTER VIEW dbo.[RealTimeMergeView] (mergeValue, count)
 AS
 SELECT mergeValue, count(1)
 FROM w3.dbo.RealTime
@@ -113,11 +113,11 @@ GROUP BY mergeValue
 GO
 
 
-CREATE OR ALTER VIEW  dbo.[RealTimeSpreadView] (row, id, ownValue, spreadValue)
+CREATE OR ALTER VIEW dbo.[RealTimeSpreadView] (row, id, ownValue, spreadValue)
 AS
 SELECT ROW_NUMBER() OVER (ORDER BY A.id ASC), A.id, A.ownValue, A.spreadValue
 FROM w3.dbo.RealTime A
-       JOIN w3.dbo.RealTime B ON A.spreadValue = b.spreadValue
+         JOIN w3.dbo.RealTime B ON A.spreadValue = b.spreadValue
 WHERE A.spreadValue IS NOT NULL
 GO
 ;
@@ -135,7 +135,6 @@ INSERT INTO w3.dbo.RealTime
 VALUES ('test', 'a', NULL)
 
 
-
 INSERT INTO w3.dbo.RealTimeAux
 VALUES (1, 'a1-data'),
        (2, 'a2-data'),
@@ -144,22 +143,22 @@ VALUES (1, 'a1-data'),
 GO
 
 IF OBJECT_ID('w3.dev.Assignments', 'U') IS NOT NULL
-  DROP TABLE w3.dev.Assignments;
+    DROP TABLE w3.dev.Assignments;
 IF OBJECT_ID('w3.dev.Developers', 'U') IS NOT NULL
-  DROP TABLE w3.dev.Developers;
+    DROP TABLE w3.dev.Developers;
 IF OBJECT_ID('w3.dev.Tasks', 'U') IS NOT NULL
-  DROP TABLE w3.dev.Tasks;
+    DROP TABLE w3.dev.Tasks;
 IF OBJECT_ID('w3.dev.Sprints', 'U') IS NOT NULL
-  DROP TABLE w3.dev.Sprints;
+    DROP TABLE w3.dev.Sprints;
 
 CREATE TABLE w3.dev.Developers
 (
-  id   INT NOT NULL PRIMARY KEY,
-  name VARCHAR(20) UNIQUE,
+    id   INT NOT NULL PRIMARY KEY,
+    name VARCHAR(20) UNIQUE,
 
 )
 ALTER TABLE w3.dev.Developers
-  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
+    ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
 
 INSERT INTO w3.dev.Developers (id, name)
 VALUES (1, 'chris'),
@@ -169,12 +168,12 @@ VALUES (1, 'chris'),
 
 CREATE TABLE w3.dev.Tasks
 (
-  id   INT NOT NULL PRIMARY KEY,
-  name VARCHAR(100) UNIQUE,
-  size INT
+    id   INT NOT NULL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE,
+    size INT
 )
 ALTER TABLE w3.dev.Tasks
-  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
+    ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
 
 INSERT INTO w3.dev.Tasks (id, name, size)
 VALUES (1, 'DQ Check Execution', 5),
@@ -190,11 +189,11 @@ VALUES (1, 'DQ Check Execution', 5),
 
 CREATE TABLE w3.dev.Sprints
 (
-  id   INT NOT NULL PRIMARY KEY,
-  name VARCHAR(20) UNIQUE,
+    id   INT NOT NULL PRIMARY KEY,
+    name VARCHAR(20) UNIQUE,
 )
 ALTER TABLE w3.dev.Sprints
-  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
+    ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
 INSERT INTO w3.dev.Sprints (id, name)
 VALUES (1, '2019s1'),
        (2, '2019s2')
@@ -202,17 +201,17 @@ VALUES (1, '2019s1'),
 
 CREATE TABLE w3.dev.Assignments
 (
-  id          INT NOT NULL IDENTITY PRIMARY KEY,
-  developerID INT NOT NULL,
-  taskID      INT NOT NULL,
-  sprintID    INT NULL,
-  FOREIGN KEY (developerID) REFERENCES w3.dev.Developers (id),
-  FOREIGN KEY (taskID) REFERENCES w3.dev.Tasks (id),
-  FOREIGN KEY (sprintID) REFERENCES w3.dev.Sprints (id)
+    id          INT NOT NULL IDENTITY PRIMARY KEY,
+    developerID INT NOT NULL,
+    taskID      INT NOT NULL,
+    sprintID    INT NULL,
+    FOREIGN KEY (developerID) REFERENCES w3.dev.Developers (id),
+    FOREIGN KEY (taskID) REFERENCES w3.dev.Tasks (id),
+    FOREIGN KEY (sprintID) REFERENCES w3.dev.Sprints (id)
 )
 
 ALTER TABLE w3.dev.Assignments
-  ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
+    ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF)
 
 INSERT INTO w3.dev.Assignments (developerID, taskID, sprintID)
 VALUES (1, 1, 1),
@@ -232,31 +231,31 @@ GO
 
 CREATE TABLE w3.dbo.Types
 (
-  "int"            INT NOT NULL PRIMARY KEY,
-  "bigint"         BIGINT,
-  "numeric"        NUMERIC(18, 5),
-  "bit"            BIT,
-  "smallint"       SMALLINT,
-  "decimal"        DECIMAL(18, 4),
-  "smallmoney"     SMALLMONEY,
-  "tinyint"        TINYINT,
-  "money"          MONEY,
-  "float"          FLOAT,
-  "real"           REAL,
-  "date"           DATE,
-  "datetimeoffset" DATETIMEOFFSET,
-  "datetime2"      DATETIME2,
-  "smalldatetime"  SMALLDATETIME,
-  "datetime"       DATETIME,
-  "time"           TIME,
-  "char"           CHAR(6),
-  "varchar"        VARCHAR(10),
-  "text"           TEXT,
-  "nchar"          NCHAR(6),
-  "nvarchar"       NVARCHAR(10),
-  "ntext"          NTEXT,
-  "binary"         BINARY(3),
-  "varbinary"      VARBINARY(100),
+    "int"            INT NOT NULL PRIMARY KEY,
+    "bigint"         BIGINT,
+    "numeric"        NUMERIC(18, 5),
+    "bit"            BIT,
+    "smallint"       SMALLINT,
+    "decimal"        DECIMAL(18, 4),
+    "smallmoney"     SMALLMONEY,
+    "tinyint"        TINYINT,
+    "money"          MONEY,
+    "float"          FLOAT,
+    "real"           REAL,
+    "date"           DATE,
+    "datetimeoffset" DATETIMEOFFSET,
+    "datetime2"      DATETIME2,
+    "smalldatetime"  SMALLDATETIME,
+    "datetime"       DATETIME,
+    "time"           TIME,
+    "char"           CHAR(6),
+    "varchar"        VARCHAR(10),
+    "text"           TEXT,
+    "nchar"          NCHAR(6),
+    "nvarchar"       NVARCHAR(10),
+    "ntext"          NTEXT,
+    "binary"         BINARY(3),
+    "varbinary"      VARBINARY(100),
 )
 
 
@@ -296,13 +295,13 @@ GO
 
 CREATE TABLE w3.dbo.Agents
 (
-  "AGENT_CODE"   CHAR(4) NOT NULL PRIMARY KEY,
-  "AGENT_NAME"   VARCHAR(40),
-  "WORKING_AREA" VARCHAR(35),
-  "COMMISSION"   FLOAT,
-  "PHONE_NO"     CHAR(12),
-  "UPDATED_AT"   DATETIMEOFFSET,
-  "BIOGRAPHY"    VARCHAR(MAX)
+    "AGENT_CODE"   CHAR(4) NOT NULL PRIMARY KEY,
+    "AGENT_NAME"   VARCHAR(40),
+    "WORKING_AREA" VARCHAR(35),
+    "COMMISSION"   FLOAT,
+    "PHONE_NO"     CHAR(12),
+    "UPDATED_AT"   DATETIMEOFFSET,
+    "BIOGRAPHY"    VARCHAR(MAX)
 )
 
 
@@ -339,18 +338,18 @@ GO
 
 CREATE TABLE w3.dbo.Customers
 (
-  "CUST_CODE"       VARCHAR(6)     NOT NULL PRIMARY KEY,
-  "CUST_NAME"       VARCHAR(40)    NOT NULL,
-  "CUST_CITY"       VARCHAR(MAX),
-  "WORKING_AREA"    VARCHAR(35)    NOT NULL,
-  "CUST_COUNTRY"    VARCHAR(20)    NOT NULL,
-  "GRADE"           NUMERIC,
-  "OPENING_AMT"     NUMERIC(12, 2) NOT NULL,
-  "RECEIVE_AMT"     NUMERIC(12, 2) NOT NULL,
-  "PAYMENT_AMT"     NUMERIC(12, 2) NOT NULL,
-  "OUTSTANDING_AMT" NUMERIC(12, 2) NOT NULL,
-  "PHONE_NO"        VARCHAR(17)    NOT NULL,
-  "AGENT_CODE"      CHAR(4)        NOT NULL REFERENCES w3.dbo.Agents
+    "CUST_CODE"       VARCHAR(6)     NOT NULL PRIMARY KEY,
+    "CUST_NAME"       VARCHAR(40)    NOT NULL,
+    "CUST_CITY"       VARCHAR(MAX),
+    "WORKING_AREA"    VARCHAR(35)    NOT NULL,
+    "CUST_COUNTRY"    VARCHAR(20)    NOT NULL,
+    "GRADE"           NUMERIC,
+    "OPENING_AMT"     NUMERIC(12, 2) NOT NULL,
+    "RECEIVE_AMT"     NUMERIC(12, 2) NOT NULL,
+    "PAYMENT_AMT"     NUMERIC(12, 2) NOT NULL,
+    "OUTSTANDING_AMT" NUMERIC(12, 2) NOT NULL,
+    "PHONE_NO"        VARCHAR(17)    NOT NULL,
+    "AGENT_CODE"      CHAR(4)        NOT NULL REFERENCES w3.dbo.Agents
 );
 
 GO
@@ -436,13 +435,13 @@ GO
 
 CREATE TABLE w3.fact.Orders
 (
-  "ORD_NUM"         NUMERIC(6, 0)  NOT NULL PRIMARY KEY,
-  "ORD_AMOUNT"      NUMERIC(12, 2) NOT NULL,
-  "ADVANCE_AMOUNT"  NUMERIC(12, 2) NULL,
-  "ORD_DATE"        DATE           NOT NULL,
-  "CUST_CODE"       VARCHAR(6)     NOT NULL REFERENCES w3.dbo.Customers,
-  "AGENT_CODE"      CHAR(4)        NOT NULL REFERENCES w3.dbo.Agents,
-  "ORD_DESCRIPTION" VARCHAR(60)    NOT NULL
+    "ORD_NUM"         NUMERIC(6, 0)  NOT NULL PRIMARY KEY,
+    "ORD_AMOUNT"      NUMERIC(12, 2) NOT NULL,
+    "ADVANCE_AMOUNT"  NUMERIC(12, 2) NULL,
+    "ORD_DATE"        DATE           NOT NULL,
+    "CUST_CODE"       VARCHAR(6)     NOT NULL REFERENCES w3.dbo.Customers,
+    "AGENT_CODE"      CHAR(4)        NOT NULL REFERENCES w3.dbo.Agents,
+    "ORD_DESCRIPTION" VARCHAR(60)    NOT NULL
 );
 
 GO
@@ -531,33 +530,195 @@ GO
 
 CREATE TABLE w3.dbo.PrePost
 (
-  Message VARCHAR(50)
+    Message VARCHAR(50)
 )
 
 GO
 
-CREATE OR ALTER PROCEDURE TEST
-@AgentId char(4),
-@Name varchar(40),
-@Commission float
+CREATE OR ALTER PROCEDURE TEST @AgentId CHAR(4),
+                               @Name VARCHAR(40),
+                               @Commission FLOAT
 AS
 BEGIN
-  update w3.dbo.Agents
-  SET AGENT_NAME = @Name,
-      COMMISSION = @Commission
-  where AGENT_CODE = @AgentId
+    UPDATE w3.dbo.Agents
+    SET AGENT_NAME = @Name,
+        COMMISSION = @Commission
+    WHERE AGENT_CODE = @AgentId
 END
 GO
 
-CREATE OR ALTER PROCEDURE dev.TEST
-@AgentId char(4),
-@Name varchar(40),
-@Commission float
+CREATE OR ALTER PROCEDURE dev.TEST @AgentId CHAR(4),
+                                   @Name VARCHAR(40),
+                                   @Commission FLOAT
 AS
 BEGIN
-  update w3.dbo.Agents
-  SET AGENT_NAME = @Name,
-      COMMISSION = @Commission
-  where AGENT_CODE = @AgentId
+    UPDATE w3.dbo.Agents
+    SET AGENT_NAME = @Name,
+        COMMISSION = @Commission
+    WHERE AGENT_CODE = @AgentId
 END
 GO
+
+
+IF TYPE_ID(N'AccountNumber') IS NULL
+    BEGIN
+
+        CREATE TYPE [AccountNumber] FROM NVARCHAR(15) NULL;
+        CREATE TYPE [Flag] FROM BIT NOT NULL;
+        CREATE TYPE [NameStyle] FROM BIT NOT NULL;
+        CREATE TYPE [Name] FROM NVARCHAR(50) NULL;
+
+        CREATE TYPE [OrderNumber] FROM NVARCHAR(25) NULL;
+        CREATE TYPE [Phone] FROM NVARCHAR(25) NULL;
+    END
+
+GO
+
+
+IF NOT exists(SELECT *
+              FROM w3.sys.schemas
+              WHERE name = 'HumanResources')
+    BEGIN
+        EXEC sp_executesql N'CREATE SCHEMA HumanResources'
+    END;
+
+IF NOT exists(SELECT *
+              FROM w3.sys.schemas
+              WHERE name = 'Person')
+    BEGIN
+        EXEC sp_executesql N'CREATE SCHEMA Person'
+    END;
+
+
+/******************************************88
+
+
+The tables below are copied from the Adventureworks2012 database.
+
+
+ */
+
+IF OBJECT_ID('w3.HumanResources.Employee', 'U') IS NOT NULL
+    DROP TABLE w3.HumanResources.[Employee];
+
+
+IF OBJECT_ID('w3.Person.Person', 'U') IS NOT NULL
+    DROP TABLE w3.Person.Person;
+
+
+CREATE TABLE Person.Person
+(
+    BusinessEntityID      INT                               NOT NULL
+        CONSTRAINT PK_Person_BusinessEntityID
+            PRIMARY KEY,
+    PersonType            NVARCHAR(2),
+    NameStyle NameStyle,
+    Title                 NVARCHAR(8),
+    FirstName             NAME                              NOT NULL,
+    MiddleName            NAME,
+    LastName              NAME                              NOT NULL,
+    Suffix                NVARCHAR(10),
+    EmailPromotion        INT
+        CONSTRAINT DF_Person_EmailPromotion DEFAULT 0       NOT NULL
+        CONSTRAINT CK_Person_EmailPromotion
+            CHECK ([EmailPromotion] >= 0 AND [EmailPromotion] <= 2),
+    AdditionalContactInfo XML,
+    Demographics          XML,
+    rowguid               UNIQUEIDENTIFIER
+        CONSTRAINT DF_Person_rowguid DEFAULT newid()        NOT NULL,
+    ModifiedDate          DATETIME
+        CONSTRAINT DF_Person_ModifiedDate DEFAULT getdate() NOT NULL
+)
+GO
+
+INSERT INTO w3.Person.Person (BusinessEntityID, PersonType, NameStyle, Title, FirstName, MiddleName,
+                                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
+                                              rowguid, ModifiedDate)
+VALUES (1, 'EM', 0, NULL, 'Terri', 'Lee', 'Duffy', NULL, 0, NULL,
+        '<IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey"><TotalPurchaseYTD>0</TotalPurchaseYTD></IndividualSurvey>',
+        '92C4279F-1207-48A3-8448-4636514EB7E2', '2003-02-08 00:00:00.000');
+INSERT INTO w3.Person.Person (BusinessEntityID, PersonType, NameStyle, Title, FirstName, MiddleName,
+                                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
+                                              rowguid, ModifiedDate)
+VALUES (2, 'EM', 0, NULL, 'Terri', 'Lee', 'Duffy', NULL, 1, NULL,
+        '<IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey"><TotalPurchaseYTD>0</TotalPurchaseYTD></IndividualSurvey>',
+        'D8763459-8AA8-47CC-AFF7-C9079AF79033', '2002-02-24 00:00:00.000');
+INSERT INTO w3.Person.Person (BusinessEntityID, PersonType, NameStyle, Title, FirstName, MiddleName,
+                                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
+                                              rowguid, ModifiedDate)
+VALUES (3, 'EM', 0, NULL, 'Roberto', NULL, 'Tamburello', NULL, 0, NULL,
+        '<IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey"><TotalPurchaseYTD>0</TotalPurchaseYTD></IndividualSurvey>',
+        'E1A2555E-0828-434B-A33B-6F38136A37DE', '2001-12-05 00:00:00.000');
+INSERT INTO w3.Person.Person (BusinessEntityID, PersonType, NameStyle, Title, FirstName, MiddleName,
+                                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
+                                              rowguid, ModifiedDate)
+VALUES (4, 'EM', 0, NULL, 'Rob', NULL, 'Walters', NULL, 0, NULL,
+        '<IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey"><TotalPurchaseYTD>0</TotalPurchaseYTD></IndividualSurvey>',
+        'F2D7CE06-38B3-4357-805B-F4B6B71C01FF', '2001-12-29 00:00:00.000');
+INSERT INTO w3.Person.Person (BusinessEntityID, PersonType, NameStyle, Title, FirstName, MiddleName,
+                                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
+                                              rowguid, ModifiedDate)
+VALUES (5, 'EM', 0, 'Ms.', 'Gail', 'A', 'Erickson', NULL, 0, NULL,
+        '<IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey"><TotalPurchaseYTD>0</TotalPurchaseYTD></IndividualSurvey>',
+        'F3A3F6B4-AE3B-430C-A754-9F2231BA6FEF', '2002-01-30 00:00:00.000');
+
+
+CREATE TABLE w3.HumanResources.[Employee]
+(
+    BusinessEntityID    INT                         NOT NULL
+        CONSTRAINT PK_Employee_BusinessEntityID
+            PRIMARY KEY
+        CONSTRAINT FK_Employee_Person_BusinessEntityID
+            REFERENCES Person.Person (BusinessEntityID),
+    [NationalIDNumber]  [nvarchar](15)              NOT NULL,
+    [LoginID]           [nvarchar](256)             NOT NULL,
+    [OrganizationNode]  [hierarchyid]               NULL,
+    [OrganizationLevel] AS OrganizationNode.GetLevel(),
+    [JobTitle]          [nvarchar](50)              NOT NULL,
+    [BirthDate]         [date]                      NOT NULL,
+    [MaritalStatus]     [nchar](1)                  NOT NULL,
+    [Gender]            [nchar](1)                  NOT NULL,
+    [HireDate]          [date]                      NOT NULL,
+    [SalariedFlag]      [Flag]                      NOT NULL
+        CONSTRAINT [DF_Employee_SalariedFlag] DEFAULT (1),
+    [VacationHours]     [smallint]                  NOT NULL
+        CONSTRAINT [DF_Employee_VacationHours] DEFAULT (0),
+    [SickLeaveHours]    [smallint]                  NOT NULL
+        CONSTRAINT [DF_Employee_SickLeaveHours] DEFAULT (0),
+    [CurrentFlag]       [Flag]                      NOT NULL
+        CONSTRAINT [DF_Employee_CurrentFlag] DEFAULT (1),
+    [rowguid]           UNIQUEIDENTIFIER ROWGUIDCOL NOT NULL
+        CONSTRAINT [DF_Employee_rowguid] DEFAULT (NEWID()),
+    [ModifiedDate]      [datetime]                  NOT NULL
+        CONSTRAINT [DF_Employee_ModifiedDate] DEFAULT (GETDATE()),
+    CONSTRAINT [CK_Employee_BirthDate] CHECK ([BirthDate] BETWEEN '1930-01-01' AND DATEADD(YEAR, -18, GETDATE())),
+    CONSTRAINT [CK_Employee_MaritalStatus] CHECK (UPPER([MaritalStatus]) IN ('M', 'S')), -- Married or Single
+    CONSTRAINT [CK_Employee_HireDate] CHECK ([HireDate] BETWEEN '1996-07-01' AND DATEADD(DAY, 1, GETDATE())),
+    CONSTRAINT [CK_Employee_Gender] CHECK (UPPER([Gender]) IN ('M', 'F')),               -- Male or Female
+    CONSTRAINT [CK_Employee_VacationHours] CHECK ([VacationHours] BETWEEN -40 AND 240),
+    CONSTRAINT [CK_Employee_SickLeaveHours] CHECK ([SickLeaveHours] BETWEEN 0 AND 120),
+) ON [PRIMARY];
+
+ALTER TABLE w3.HumanResources.Employee
+    ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
+
+INSERT INTO HumanResources.Employee (BusinessEntityID, NationalIDNumber, LoginID, OrganizationNode, JobTitle, BirthDate,
+                                     MaritalStatus, Gender, HireDate, SalariedFlag, VacationHours, SickLeaveHours,
+                                     CurrentFlag, rowguid, ModifiedDate)
+VALUES (1, '295847284', 'adventure-works\ken0', 0x, 'Chief Executive Officer', '1963-03-28', 'S', 'M', '2003-02-15', 1,
+        99, 69, 1, 'F01251E5-96A3-448D-981E-0F99D789110D', '2008-07-31 00:00:00.000');
+INSERT INTO HumanResources.Employee (BusinessEntityID, NationalIDNumber, LoginID, OrganizationNode, JobTitle, BirthDate,
+                                     MaritalStatus, Gender, HireDate, SalariedFlag, VacationHours, SickLeaveHours,
+                                     CurrentFlag, rowguid, ModifiedDate)
+VALUES (2, '245797967', 'adventure-works\terri0', 0x58, 'Vice President of Engineering', '1965-09-27', 'S', 'F',
+        '2002-03-03', 1, 1, 20, 1, '45E8F437-670D-4409-93CB-F9424A40D6EE', '2008-07-31 00:00:00.000');
+INSERT INTO HumanResources.Employee (BusinessEntityID, NationalIDNumber, LoginID, OrganizationNode, JobTitle, BirthDate,
+                                     MaritalStatus, Gender, HireDate, SalariedFlag, VacationHours, SickLeaveHours,
+                                     CurrentFlag, rowguid, ModifiedDate)
+VALUES (3, '509647174', 'adventure-works\roberto0', 0x5AC0, 'Engineering Manager', '1945-05-24', 'M', 'M', '2001-12-12',
+        1, 2, 21, 1, '9BBBFB2C-EFBB-4217-9AB7-F97689328841', '2008-07-31 00:00:00.000');
+INSERT INTO HumanResources.Employee (BusinessEntityID, NationalIDNumber, LoginID, OrganizationNode, JobTitle, BirthDate,
+                                     MaritalStatus, Gender, HireDate, SalariedFlag, VacationHours, SickLeaveHours,
+                                     CurrentFlag, rowguid, ModifiedDate)
+VALUES (4, '112457891', 'adventure-works\rob0', 0x5AD6, 'Senior Tool Editor', '1954-02-08', 'M', 'F', '2002-01-05', 0,
+        48, 80, 1, '59747955-87B8-443F-8ED4-F8AD3AFDF3A9', '2008-07-31 00:00:00.000');
