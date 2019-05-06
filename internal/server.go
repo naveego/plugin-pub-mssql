@@ -241,7 +241,7 @@ ORDER BY TABLE_NAME`)
 		if !ok {
 			columnInfo = info.AddColumn(&meta.Column{ID: columnName})
 		}
-		columnInfo.IsKey = constraint != nil && *constraint == "PRIMARY KEY"
+		columnInfo.IsKey = columnInfo.IsKey || constraint != nil && *constraint == "PRIMARY KEY"
 	}
 
 	rows, err = session.DB.Query("SELECT ROUTINE_SCHEMA, ROUTINE_NAME FROM information_schema.routines WHERE routine_type = 'PROCEDURE'")
