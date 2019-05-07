@@ -238,8 +238,7 @@ var _ = Describe("PublishStream with Real Time", func() {
 			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
 		})
 
-		By("running the publish periodically, multiple changed record should be detected", func() {
-
+    By("running the publish periodically, multiple changed record should be detected", func() {
 			result, err := db.Exec("UPDATE HumanResources.Employee SET JobTitle = 'Chief Hamster' WHERE BusinessEntityID = @id", sql.Named("id", 4))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.RowsAffected()).To(BeNumerically("==", 1))
