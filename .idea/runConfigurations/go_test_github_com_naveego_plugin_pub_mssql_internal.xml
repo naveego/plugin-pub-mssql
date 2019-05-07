@@ -2,6 +2,9 @@
   <configuration default="false" name="go test github.com/naveego/plugin-pub-mssql/internal" type="GoTestRunConfiguration" factoryName="Go Test" nameIsGenerated="true">
     <module name="plugin-pub-mssql" />
     <working_directory value="$PROJECT_DIR$/internal" />
+    <envs>
+      <env name="TEST_TIMEOUT" value="100m" />
+    </envs>
     <framework value="gotest" />
     <kind value="PACKAGE" />
     <package value="github.com/naveego/plugin-pub-mssql/internal" />

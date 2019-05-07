@@ -231,6 +231,31 @@ var _ = Describe("PublishStream with Real Time", func() {
 			Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Insert in [HumanResources].[Employee] at [BusinessEntityID]=%d", 5)))
 		})
 
+		By("committing most recent version, the state should be stored", func() {
+			expectedVersion = getChangeTrackingVersion()
+			var actualRecord *pub.Record
+			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
+		})
+
+		By("running the publish periodically, multiple changed record should be detected", func() {
+
+			result, err := db.Exec("UPDATE HumanResources.Employee SET JobTitle = 'Chief Hamster' WHERE BusinessEntityID = @id", sql.Named("id", 4))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+			result, err = db.Exec("UPDATE HumanResources.Employee SET JobTitle = 'Chief Weasel' WHERE BusinessEntityID = @id", sql.Named("id", 5))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+
+			var actualRecord *pub.Record
+			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+			Expect(actualRecord.Action).To(Equal(pub.Record_UPDATE))
+			var rawData map[string]interface{}
+			Expect(actualRecord.UnmarshalData(&rawData)).To(Succeed())
+			Expect(rawData).To(HaveKeyWithValue("[JobTitle]", "Chief Weasel"))
+			Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Update in [HumanResources].[Employee] at [BusinessEntityID]=%d", 5)))
+		})
+
 		Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
 	})
 
