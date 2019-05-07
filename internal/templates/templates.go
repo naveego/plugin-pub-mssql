@@ -150,7 +150,8 @@ type SchemaDataQueryArgs struct {
 
 // RenderSchemaDataQuery renders the query used to actually retrieve data from a schema.
 func RenderSchemaDataQuery(args SchemaDataQueryArgs) (string, error) {
-	return renderTemplate(schemaDataQuery, args)
+	result, err :=  renderTemplate(schemaDataQuery, args)
+	return result, err
 }
 
 var schemaDataQuery = compileTemplate("schema data query",
@@ -167,9 +168,8 @@ DECLARE @ChangeKeys table(
 
 INSERT INTO @ChangeKeys ({{ join ", " .SchemaArgs.Keys}})
 VALUES
-	({{ range first .RowKeys }}{{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }}{{ range rest .RowKeys }}, {{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }})
-{{- range rest .RowKeys }}
-	, ({{ range . }}{{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }}{{ range rest .RowKeys }}, {{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }})
+{{- range $index, $rowKeys := .RowKeys }}
+	{{ if $index }},{{ end }}({{ with first $rowKeys }}{{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }}{{ range rest $rowKeys }}, {{ ($.SchemaArgs.GetColumn .ColumnID).RenderSQLValue .Value }}{{ end }})
 {{- end }}
 
 {{- end }}

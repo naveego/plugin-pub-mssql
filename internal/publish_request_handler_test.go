@@ -238,11 +238,14 @@ var _ = Describe("PublishStream with Real Time", func() {
 			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
 		})
 
-		By("running the publish periodically, a changed record should be detected when it is updated", func() {
-
-			result, err := db.Exec("UPDATE HumanResources.Employee SET JobTitle = 'Chief Weasel' WHERE BusinessEntityID = @id", sql.Named("id", 5))
+    By("running the publish periodically, multiple changed record should be detected", func() {
+			result, err := db.Exec("UPDATE HumanResources.Employee SET JobTitle = 'Chief Hamster' WHERE BusinessEntityID = @id", sql.Named("id", 4))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+			result, err = db.Exec("UPDATE HumanResources.Employee SET JobTitle = 'Chief Weasel' WHERE BusinessEntityID = @id", sql.Named("id", 5))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+
 			var actualRecord *pub.Record
 			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
 			Expect(actualRecord.Action).To(Equal(pub.Record_UPDATE))
