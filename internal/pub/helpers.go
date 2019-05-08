@@ -10,7 +10,9 @@ import (
 	"github.com/naveego/go-json-schema"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"io"
 	"log"
+	"os"
 	"strings"
 )
 
@@ -218,6 +220,10 @@ func AdaptHCLog(log *logrus.Entry) hclog.Logger {
 
 type hclLogAdapter struct {
 	log *logrus.Entry
+}
+
+func (l *hclLogAdapter) StandardWriter(opts *hclog.StandardLoggerOptions) io.Writer {
+	return os.Stderr
 }
 
 func (l *hclLogAdapter) Trace(msg string, args ...interface{}) {
