@@ -44,8 +44,8 @@ var _ = Describe("PublishRequestHandler helpers", func() {
 })
 
 type DeveloperRecord struct {
-	ID          int    `sql:"id" json:"[id]"`
-	Name    string `sql:"name" json:"[name]"`
+	ID   int    `sql:"id" json:"[id]"`
+	Name string `sql:"name" json:"[name]"`
 }
 
 type RealTimeRecord struct {
@@ -63,9 +63,9 @@ type RealTimeDuplicateViewRecord struct {
 }
 
 type RealTimeDerivedViewRecord struct {
-	ID          int    `sql:"id" json:"[id]"`
-	OwnValue  string `sql:"ownValue" json:"[ownValue]"`
-	Data  string `sql:"data" json:"[data]"`
+	ID       int    `sql:"id" json:"[id]"`
+	OwnValue string `sql:"ownValue" json:"[ownValue]"`
+	Data     string `sql:"data" json:"[data]"`
 }
 
 type RealTimeMergeViewRecord struct {
@@ -80,7 +80,7 @@ type RealTimeSpreadViewRecord struct {
 }
 
 var (
-	developersRecords              []DeveloperRecord
+	developersRecords            []DeveloperRecord
 	realTimeRecords              []RealTimeRecord
 	realTimeDuplicateViewRecords []RealTimeDuplicateViewRecord
 	realTimeDerivedViewRecords   []RealTimeDerivedViewRecord
@@ -175,6 +175,7 @@ var _ = Describe("PublishStream with Real Time", func() {
 			}
 		}
 		Expect(out).ToNot(BeNil(), "should have discovered requested schema %q in %+v", schema.Id, response.Schemas)
+		Expect(out.Errors).To(BeEmpty())
 		return out
 	}
 
@@ -185,6 +186,76 @@ var _ = Describe("PublishStream with Real Time", func() {
 			Action:   pub.Record_UPSERT,
 			DataJson: string(j),
 		}).To(BeRecordMatching(pub.Record_UPSERT, expected))
+	})
+
+	It("should work with custom types", func() {
+
+		schema := discoverShape(&pub.Schema{Id: "[HumanResources].[Employee]"})
+		settings := RealTimeSettings{PollingInterval: "100ms"}
+
+
+		go func() {
+			defer GinkgoRecover()
+			err := sut.PublishStream(&pub.ReadRequest{
+				JobId:                jobID,
+				Schema:               schema,
+				RealTimeSettingsJson: settings.String(),
+				RealTimeStateJson:    "",
+			}, stream)
+			Expect(err).ToNot(HaveOccurred())
+		}()
+
+		expectedVersion := getChangeTrackingVersion()
+
+		By("detecting that no state exists, all records should be loaded", func() {
+			for i := 0; i < 4; i++{
+				var actualRecord *pub.Record
+				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+				Expect(actualRecord.Action).To(Equal(pub.Record_INSERT))
+			}
+		})
+
+		By("committing most recent version, the state should be stored", func() {
+
+
+			var actualRecord *pub.Record
+			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
+		})
+
+		By("detecting inserted data", func() {
+			Expect(db.Exec(`INSERT INTO HumanResources.Employee (BusinessEntityID, NationalIDNumber, LoginID, OrganizationNode, JobTitle, BirthDate, MaritalStatus, Gender, HireDate, SalariedFlag, VacationHours, SickLeaveHours, CurrentFlag, rowguid, ModifiedDate) VALUES (5, '695256908', 'adventure-works\gail0', 0x5ADA, 'Design Engineer', '1931-10-13', 'M', 'F', '2002-02-06', 1, 5, 22, 1, 'EC84AE09-F9B8-4A15-B4A9-6CCBAB919B08', '2008-07-31 00:00:00.000');`)).ToNot(BeNil())
+			var actualRecord *pub.Record
+			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+			Expect(actualRecord.Action).To(Equal(pub.Record_INSERT))
+			Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Insert in [HumanResources].[Employee] at [BusinessEntityID]=%d", 5)))
+		})
+
+		By("committing most recent version, the state should be stored", func() {
+			expectedVersion = getChangeTrackingVersion()
+			var actualRecord *pub.Record
+			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
+		})
+
+    By("running the publish periodically, multiple changed record should be detected", func() {
+			result, err := db.Exec("UPDATE HumanResources.Employee SET JobTitle = 'Chief Hamster' WHERE BusinessEntityID = @id", sql.Named("id", 4))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+			result, err = db.Exec("UPDATE HumanResources.Employee SET JobTitle = 'Chief Weasel' WHERE BusinessEntityID = @id", sql.Named("id", 5))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+
+			var actualRecord *pub.Record
+			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
+			Expect(actualRecord.Action).To(Equal(pub.Record_UPDATE))
+			var rawData map[string]interface{}
+			Expect(actualRecord.UnmarshalData(&rawData)).To(Succeed())
+			Expect(rawData).To(HaveKeyWithValue("[JobTitle]", "Chief Weasel"))
+			Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Update in [HumanResources].[Employee] at [BusinessEntityID]=%d", 5)))
+		})
+
+		Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
 	})
 
 	DescribeTable("simple real time", func(shape *pub.Schema, settings RealTimeSettings) {
@@ -338,7 +409,7 @@ JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
 		}),
 	)
 
-	Describe("complex views", func(){
+	Describe("complex views", func() {
 
 		It("should work with other schemas", func() {
 
@@ -386,8 +457,8 @@ JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
 
 				Expect(db.Exec("INSERT INTO dev.Developers VALUES (5, 'test')")).ToNot(BeNil())
 				expectedInsertedRecord = DeveloperRecord{
-					ID:       5,
-					Name:"test",
+					ID:   5,
+					Name: "test",
 				}
 				var actualRecord *pub.Record
 				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
@@ -395,10 +466,10 @@ JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
 				Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Insert in [dev].[Developers] at [id]=%d", 5)))
 			})
 
-
 		})
 
 	})
+
 })
 
 type recordExpectation struct {

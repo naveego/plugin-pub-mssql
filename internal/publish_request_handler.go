@@ -239,6 +239,7 @@ func InitializeRealTimeComponentsMiddleware() PublishMiddleware {
 				query, err := templates.RenderSelfBridgeQuery(templates.SelfBridgeQueryArgs{
 					SchemaInfo: schema})
 				if err != nil {
+
 					return errors.Errorf("error rendering self dependency query for table %q: %s", schema.ID, err)
 				}
 
@@ -370,7 +371,7 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 					return errors.Wrap(err, "initial load of table")
 				}
 
-				log.Info("Completed initial load, committing current version checkpoint.", "version", maxVersion)
+				log.Info("Completed initial load, committing current version checkpoint", "version", maxVersion)
 				// Commit the version we captured before the initial load.
 				// Now we want subsequent publishes to begin at the
 				// version we got before we did the full load,
