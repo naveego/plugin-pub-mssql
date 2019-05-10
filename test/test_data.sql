@@ -71,7 +71,7 @@ ALTER TABLE w3.dbo.RealTime
 
 GO
 
-CREATE OR ALTER VIEW dbo.[RealTimeDuplicateView] (id, ownValue, mergeValue, spreadValue)
+CREATE OR ALTER VIEW dbo.[RealTimeDuplicateView] (recordID, ownValue, mergeValue, spreadValue)
 AS
 SELECT id, ownValue, mergeValue, spreadValue
 FROM w3.dbo.RealTime

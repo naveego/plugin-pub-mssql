@@ -441,6 +441,9 @@ func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStrea
 	}
 
 	handler, innerRequest, err := BuildHandlerAndRequest(session, req, PublishToStreamHandler(stream))
+	if err != nil {
+		return errors.Wrap(err, "create handler")
+	}
 
 	err = handler.Handle(innerRequest)
 
@@ -453,6 +456,11 @@ func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStrea
 
 			return errors.Errorf("error running post-publish query: %s", postPublishErr)
 		}
+	}
+
+	if err != nil && session.Ctx.Err() != nil {
+		s.log.Error("Handler returned error, but context was cancelled so error will not be returned to caller. Error was: %s", err.Error())
+		return nil
 	}
 
 	return err
