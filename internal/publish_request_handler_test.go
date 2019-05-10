@@ -94,7 +94,7 @@ const jobID = "test-job-id"
 
 var loadRecords = new(sync.Once)
 
-func getConnectedServer() pub.PublisherServer{
+func getConnectedServer() pub.PublisherServer {
 
 	sut := NewServer(log)
 	settings := GetTestSettings()
@@ -114,8 +114,8 @@ func getConnectedServer() pub.PublisherServer{
 var _ = Describe("PublishStream with Real Time", func() {
 
 	var (
-		stream   *publisherStream
-		timeout  = 1 * time.Second
+		stream  *publisherStream
+		timeout = 1 * time.Second
 	)
 	envTimeout, ok := os.LookupEnv("TEST_TIMEOUT")
 	if ok {
@@ -157,7 +157,6 @@ var _ = Describe("PublishStream with Real Time", func() {
 		}
 	})
 
-
 	var discoverShape = func(sut pub.PublisherServer, schema *pub.Schema) *pub.Schema {
 		response, err := sut.DiscoverShapes(context.Background(), &pub.DiscoverSchemasRequest{
 			Mode:       pub.DiscoverSchemasRequest_REFRESH,
@@ -194,7 +193,7 @@ var _ = Describe("PublishStream with Real Time", func() {
 
 		schema := discoverShape(sut, &pub.Schema{Id: "[HumanResources].[Employee]"})
 		settings := RealTimeSettings{PollingInterval: "100ms"}
-		done:= make(chan struct{})
+		done := make(chan struct{})
 
 		go func() {
 			defer GinkgoRecover()
@@ -266,7 +265,6 @@ var _ = Describe("PublishStream with Real Time", func() {
 	DescribeTable("simple real time", func(shape *pub.Schema, settings RealTimeSettings,
 		mapper func(r RealTimeRecord) interface{}) {
 
-
 		// capture sut for goroutines in this test
 		sut := getConnectedServer()
 
@@ -293,10 +291,9 @@ var _ = Describe("PublishStream with Real Time", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}()
 
-		defer func(){
+		defer func() {
 			Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
 		}()
-
 
 		By("detecting that no state exists, all records should be loaded", func() {
 			for _, expected := range realTimeRecords {
@@ -398,10 +395,9 @@ var _ = Describe("PublishStream with Real Time", func() {
 
 		Eventually(done).Should(BeClosed())
 
-
 	},
 		Entry("when schema is table", &pub.Schema{Id: "[RealTime]"}, RealTimeSettings{PollingInterval: "100ms"},
-			func(r RealTimeRecord) interface{}{
+			func(r RealTimeRecord) interface{} {
 				return r
 			}),
 		Entry("when schema is view", &pub.Schema{Id: "[RealTimeDuplicateView]"}, RealTimeSettings{
@@ -414,12 +410,12 @@ FROM RealTimeDuplicateView
 JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id`,
 				},
 			},
-		},func(r RealTimeRecord) interface{}{
+		}, func(r RealTimeRecord) interface{} {
 			return RealTimeDuplicateViewRecord{
-				RecordID:r.ID,
-				MergeValue:r.MergeValue,
-				OwnValue:r.OwnValue,
-				SpreadValue:r.SpreadValue,
+				RecordID:    r.ID,
+				MergeValue:  r.MergeValue,
+				OwnValue:    r.OwnValue,
+				SpreadValue: r.SpreadValue,
 			}
 		}),
 		Entry("when schema is query", &pub.Schema{
@@ -433,7 +429,7 @@ JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id`,
 					Query:    `SELECT [RealTime].id as [Schema.id], [RealTime].id as [Dependency.id] FROM RealTime`,
 				},
 			},
-		},func(r RealTimeRecord) interface{}{
+		}, func(r RealTimeRecord) interface{} {
 			return r
 		}),
 	)
@@ -508,7 +504,195 @@ JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id`,
 
 	})
 
+	DescribeTable("black box", func(testCase RealTimeTestCase) {
+
+		// capture sut for goroutines in this test
+		sut := getConnectedServer()
+
+		schema := discoverShape(sut, testCase.Schema)
+
+		done := make(chan struct{})
+
+		testCase.Setup()
+
+		go func() {
+			defer GinkgoRecover()
+			defer close(done)
+			err := sut.PublishStream(&pub.ReadRequest{
+				JobId:                jobID,
+				Schema:               schema,
+				RealTimeSettingsJson: testCase.RealTimeSettings.String(),
+				RealTimeStateJson:    "",
+			}, stream)
+			Expect(err).ToNot(HaveOccurred())
+		}()
+
+		defer func() {
+			Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
+		}()
+
+		var records []*pub.Record
+
+		for {
+			var record *pub.Record
+			Eventually(stream.out, timeout).Should(Receive(&record))
+			if record.Action == pub.Record_REAL_TIME_STATE_COMMIT {
+				break
+			} else {
+				records = append(records, record)
+			}
+		}
+
+		state := make(map[string]interface{})
+		for _, action := range testCase.Actions {
+
+			action(state)
+			for {
+				var record *pub.Record
+				Eventually(stream.out, timeout).Should(Receive(&record))
+				if record.Action == pub.Record_REAL_TIME_STATE_COMMIT {
+					break
+				} else {
+					records = append(records, record)
+				}
+			}
+		}
+
+		Eventually(func() error {
+			return testCase.Expectation(state, records)
+		}).Should(Succeed())
+
+		Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
+
+		Eventually(done).Should(BeClosed())
+	},
+		Entry("publish from table", RealTimeTestCase{
+			Schema:           &pub.Schema{Id: "[RealTime]"},
+			RealTimeSettings: RealTimeSettings{PollingInterval: "100ms"},
+			Setup: func() {
+				Expect(db.Exec(`DELETE w3.dbo.RealTime`)).ToNot(BeNil())
+				Expect(db.Exec(`DBCC CHECKIDENT ('w3.dbo.RealTime', RESEED, 0)`)).ToNot(BeNil())
+				Expect(db.Exec(`INSERT INTO w3.dbo.RealTime
+VALUES ('a1', 'a', NULL),
+       ('a2', 'a', NULL),
+       ('b1', 'b', NULL),
+       ('b2', 'b', NULL),
+       ('c1', NULL, 'c'),
+       ('c2', NULL, 'c')`)).ToNot(BeNil())
+
+			},
+			Actions: []func(state map[string]interface{}){
+				func(state map[string]interface{}) {
+					var actualID int
+					row := db.QueryRow("INSERT INTO RealTime VALUES ('inserted', NULL, NULL); SELECT SCOPE_IDENTITY()")
+					Expect(row.Scan(&actualID)).To(Succeed())
+					state["inserted"] = RealTimeRecord{
+						ID:       int(actualID),
+						OwnValue: "inserted",
+					}
+				},
+				func(state map[string]interface{}) {
+					result, err := db.Exec("UPDATE RealTime SET ownValue = 'updated' WHERE id = 1")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+					state["updated"] = RealTimeRecord{
+						ID:         1,
+						MergeValue: "a",
+						OwnValue:   "updated",
+					}
+				},
+				func(state map[string]interface{}) {
+					result, err := db.Exec("DELETE RealTime WHERE id = 6")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+					state["deleted"] = RealTimeRecord{
+						ID: 6,
+					}
+				},
+			},
+			Expectation: func(state map[string]interface{}, records []*pub.Record) error {
+
+				Expect(records).To(ContainElement(BeRecordMatching(pub.Record_INSERT, state["inserted"])))
+				Expect(records).To(ContainElement(BeRecordMatching(pub.Record_UPDATE, state["updated"])))
+				Expect(records).To(ContainElement(BeRecordMatching(pub.Record_DELETE, state["deleted"])))
+
+				return nil
+			},
+		}),
+		Entry("publish from view", RealTimeTestCase{
+			Schema: &pub.Schema{Id: "[RealTimeDuplicateView]"},
+			RealTimeSettings: RealTimeSettings{
+				PollingInterval: "100ms",
+				Tables: []RealTimeTableSettings{
+					{
+						SchemaID: "[RealTime]",
+						Query: `SELECT [RealTimeDuplicateView].recordID as [Schema.recordID], [RealTime].id as [Dependency.id]
+FROM RealTimeDuplicateView
+JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id`,
+					},
+				},
+			},
+
+			Setup: func() {
+				Expect(db.Exec(`DELETE w3.dbo.RealTime`)).ToNot(BeNil())
+				Expect(db.Exec(`DBCC CHECKIDENT ('w3.dbo.RealTime', RESEED, 0)`)).ToNot(BeNil())
+				Expect(db.Exec(`INSERT INTO w3.dbo.RealTime
+VALUES ('a1', 'a', NULL),
+       ('a2', 'a', NULL),
+       ('b1', 'b', NULL),
+       ('b2', 'b', NULL),
+       ('c1', NULL, 'c'),
+       ('c2', NULL, 'c')`)).ToNot(BeNil())
+
+			},
+			Actions: []func(state map[string]interface{}){
+				func(state map[string]interface{}) {
+					var actualID int
+					row := db.QueryRow("INSERT INTO RealTime VALUES ('inserted', NULL, NULL); SELECT SCOPE_IDENTITY()")
+					Expect(row.Scan(&actualID)).To(Succeed())
+					state["inserted"] = RealTimeDuplicateViewRecord{
+						RecordID:       int(actualID),
+						OwnValue: "inserted",
+					}
+				},
+				func(state map[string]interface{}) {
+					result, err := db.Exec("UPDATE RealTime SET ownValue = 'updated' WHERE id = 1")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+					state["updated"] = RealTimeDuplicateViewRecord{
+						RecordID:         1,
+						MergeValue: "a",
+						OwnValue:   "updated",
+					}
+				},
+				func(state map[string]interface{}) {
+					result, err := db.Exec("DELETE RealTime WHERE id = 6")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+					state["deleted"] = RealTimeDuplicateViewRecord{
+						RecordID: 6,
+					}
+				},
+			},
+			Expectation: func(state map[string]interface{}, records []*pub.Record) error {
+
+				Expect(records).To(ContainElement(BeRecordMatching(pub.Record_INSERT, state["inserted"])))
+				Expect(records).To(ContainElement(BeRecordMatching(pub.Record_UPDATE, state["updated"])))
+				Expect(records).To(ContainElement(BeRecordMatching(pub.Record_DELETE, state["deleted"])))
+
+				return nil
+			},
+		}),
+		)
 })
+
+type RealTimeTestCase struct {
+	Schema           *pub.Schema
+	RealTimeSettings RealTimeSettings
+	Setup            func()
+	Actions          []func(state map[string]interface{})
+	Expectation func(state map[string]interface{}, records []*pub.Record) error
+}
 
 type recordExpectation struct {
 	Action pub.Record_Action
@@ -519,19 +703,30 @@ func BeRecordMatching(action pub.Record_Action, data interface{}) GomegaMatcher 
 
 	l := log.Named("BeRecordMatching")
 
-	expectedValue := reflect.ValueOf(data)
+	var expectedData map[string]interface{}
+	j, _ := json.Marshal(data)
+	_ = json.Unmarshal(j, &expectedData)
+	for k, v := range expectedData {
+		switch x := v.(type){
+		case string:
+			if x == "" {
+				expectedData[k] = nil
+			}
+		}
+	}
+
 	expected := recordExpectation{
 		Action: action,
-		Data:   data,
+		Data:   expectedData,
 	}
 
 	return WithTransform(func(r *pub.Record) recordExpectation {
-		actualValue := reflect.New(expectedValue.Type())
-		actualData := actualValue.Interface()
+		var actualData map[string]interface{}
 		Expect(r.UnmarshalData(&actualData)).To(Succeed())
-		acv := reflect.ValueOf(actualData)
-		actualData = acv.Elem().Interface()
-		actual := recordExpectation{r.Action, actualData}
+		actual := recordExpectation{
+			Action: r.Action,
+			Data:   actualData,
+		}
 		l.Trace("Checking equivalency", "expected", expected, "actual", actual, "source", r)
 		return actual
 	}, BeEquivalentTo(expected))
@@ -560,7 +755,7 @@ func getChangeTrackingVersion() int {
 	return version
 }
 
-func toString(i interface{}) string{
+func toString(i interface{}) string {
 	j, _ := json.Marshal(i)
 	var m map[string]interface{}
 	_ = json.Unmarshal(j, &m)
