@@ -226,6 +226,17 @@ func InitializeRealTimeComponentsMiddleware() PublishMiddleware {
 				}
 			}
 
+			hasKeys := false
+			for _, p := range requestedSchema.Properties {
+				if p.IsKey {
+					hasKeys = true
+					break
+				}
+			}
+			if !hasKeys {
+				return errors.Errorf("the schema %q (%q) has no keys defined", requestedSchema.Name, requestedSchema.Id)
+			}
+
 			req.RealTimeSettings = &realTimeSettings
 			req.RealTimeState = &realTimeState
 
@@ -362,7 +373,7 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 
 				rows, err := session.DB.QueryContext(session.Ctx, query)
 				if err != nil {
-					return errors.Errorf("query failed: %s\nquery text:\n%s", err, query)
+					return errors.Errorf("real time schema query failed: %s\nquery text:\n%s", err, query)
 				}
 
 				err = handleRows(req, templateArgs, rows, nil, handler)
@@ -394,7 +405,7 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 				depSchema := session.SchemaInfo[table.SchemaID]
 				args := templates.ChangeDetectionQueryArgs{
 					BridgeQuery:               table.Query,
-					SchemaArgs:                MetaSchemaFromShape(req.PluginRequest.Schema),
+					SchemaArgs:                MetaSchemaFromPubSchema(req.PluginRequest.Schema),
 					DependencyArgs:            depSchema,
 					ChangeKeyPrefix:           ChangeKeyPrefix,
 					ChangeOperationColumnName: ChangeOperationColumnName,
@@ -691,7 +702,7 @@ func buildSchemaDataQueryArgs(req PublishRequest, allRowKeys []meta.RowKeys) (te
 		RowKeys:               allRowKeys,
 		DeletedFlagColumnName: DeletedFlagColumnName,
 	}
-	templateArgs.SchemaArgs = MetaSchemaFromShape(req.PluginRequest.Schema)
+	templateArgs.SchemaArgs = MetaSchemaFromPubSchema(req.PluginRequest.Schema)
 	templateArgs.SchemaArgs.Query, err = buildQuery(req.PluginRequest)
 	if err != nil {
 		return templateArgs, errors.Wrap(err, "build schema query")
@@ -746,7 +757,7 @@ func BuildHandlerAndRequest(session *OpSession, externalRequest *pub.ReadRequest
 	req := PublishRequest{
 		OpSession:     session,
 		PluginRequest: externalRequest,
-		Schema:        MetaSchemaFromShape(externalRequest.Schema),
+		Schema:        MetaSchemaFromPubSchema(externalRequest.Schema),
 	}
 
 	return handler, req, nil
@@ -799,7 +810,7 @@ func handleRows(req PublishRequest, args templates.SchemaDataQueryArgs, rows *sq
 
 	shapePropertiesMap := map[string]*pub.Property{}
 	for _, p := range shape.Properties {
-		shapePropertiesMap[p.Name] = p
+		shapePropertiesMap[p.Id] = p
 	}
 
 	metaMap := map[string]bool{
@@ -817,13 +828,18 @@ func handleRows(req PublishRequest, args templates.SchemaDataQueryArgs, rows *sq
 	dataBuffer := make(map[string]interface{}, len(columns))
 	metaBuffer := make(map[string]interface{}, len(columns))
 
+	escapedNameMap := make(map[string]string, len(columns))
+	for _, c := range columns {
+		escapedNameMap[c.Name()] = 				"[" + c.Name() + "]"
+	}
+
 	for rows.Next() {
 		if session.Ctx.Err() != nil {
 			return nil
 		}
 
 		for i, c := range columns {
-			if p, ok := shapePropertiesMap[c.Name()]; ok {
+			if p, ok := shapePropertiesMap[escapedNameMap[c.Name()]]; ok {
 				// this column contains a property defined on the shape
 				switch p.Type {
 				case pub.PropertyType_FLOAT:
@@ -865,7 +881,7 @@ func handleRows(req PublishRequest, args templates.SchemaDataQueryArgs, rows *sq
 				}
 			}
 
-			if p, ok := shapePropertiesMap[c.Name()]; ok {
+			if p, ok := shapePropertiesMap[escapedNameMap[c.Name()]]; ok {
 				// this column contains a property defined on the shape
 				dataBuffer[p.Id] = value
 			} else if ok := metaMap[c.Name()]; ok {

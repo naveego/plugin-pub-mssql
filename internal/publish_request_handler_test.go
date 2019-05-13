@@ -400,7 +400,16 @@ var _ = Describe("PublishStream with Real Time", func() {
 			func(r RealTimeRecord) interface{} {
 				return r
 			}),
-		Entry("when schema is view", &pub.Schema{Id: "[RealTimeDuplicateView]"}, RealTimeSettings{
+		Entry("when schema is view", &pub.Schema{
+			Id: "[RealTimeDuplicateView]",
+			Properties: []*pub.Property{
+				{Id: "[recordID]", Name:"recordID", IsKey:true},
+				{Id: "[ownValue]"},
+				{Id: "[mergeValue]"},
+				{Id: "[spreadValue]"},
+			},
+
+		}, RealTimeSettings{
 			PollingInterval: "100ms",
 			Tables: []RealTimeTableSettings{
 				{
@@ -620,7 +629,15 @@ VALUES ('a1', 'a', NULL),
 			},
 		}),
 		Entry("publish from view", RealTimeTestCase{
-			Schema: &pub.Schema{Id: "[RealTimeDuplicateView]"},
+			Schema: &pub.Schema{
+				Id: "[RealTimeDuplicateView]",
+				Properties: []*pub.Property{
+					{Id: "[recordID]", Name:"recordID", IsKey:true},
+					{Id: "[ownValue]"},
+					{Id: "[mergeValue]"},
+					{Id: "[spreadValue]"},
+				},
+			},
 			RealTimeSettings: RealTimeSettings{
 				PollingInterval: "100ms",
 				Tables: []RealTimeTableSettings{

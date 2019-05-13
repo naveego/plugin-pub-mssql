@@ -821,6 +821,15 @@ func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Schema) err
 
 	unnamedColumnIndex := 0
 
+	preDefinedProperties := map[string]*pub.Property{}
+	hasUserDefinedKeys := false
+	for _, p := range shape.Properties {
+		preDefinedProperties[p.Id] = p
+		if p.IsKey {
+			hasUserDefinedKeys = true
+		}
+	}
+
 	for _, m := range metadata {
 
 		if m.IsHidden {
@@ -828,6 +837,7 @@ func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Schema) err
 		}
 
 		var property *pub.Property
+		var ok bool
 		var propertyID string
 
 		propertyName := m.Name
@@ -838,13 +848,7 @@ func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Schema) err
 
 		propertyID = fmt.Sprintf("[%s]", propertyName)
 
-		for _, p := range shape.Properties {
-			if p.Id == propertyID {
-				property = p
-				break
-			}
-		}
-		if property == nil {
+		if property, ok = preDefinedProperties[propertyID]; !ok {
 			property = &pub.Property{
 				Id:   propertyID,
 				Name: propertyName,
@@ -858,7 +862,10 @@ func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Schema) err
 		property.Type = convertSQLType(property.TypeAtSource, int(maxLength))
 
 		property.IsNullable = m.IsNullable
-		property.IsKey = m.IsPartOfUniqueKey
+
+		if !hasUserDefinedKeys {
+			property.IsKey = m.IsPartOfUniqueKey
+		}
 	}
 
 	return nil
