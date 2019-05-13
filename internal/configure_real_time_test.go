@@ -105,9 +105,9 @@ var _ = Describe("ConfigureRealTime", func() {
 						Tables: []RealTimeTableSettings{
 							{
 								SchemaID: "[RealTime]",
-								Query: `SELECT [RealTimeDuplicateView].id as [Source.id], [RealTime].id as [Dep.id]
+								Query: `SELECT [RealTimeDuplicateView].recordID as [Source.recordID], [RealTime].id as [Dep.id]
 								FROM RealTimeDuplicateView
-								JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
+								JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id`,
 							},
 						},
 					}
@@ -136,9 +136,9 @@ var _ = Describe("ConfigureRealTime", func() {
 						Tables: []RealTimeTableSettings{
 							{
 								SchemaID: "[RealTime]",
-								Query: `SELECT [RealTimeDuplicateView].id as [Schema.id], [RealTime].id as [Dependency.id]
+								Query: `SELECT [RealTimeDuplicateView].recordID as [Schema.recordID], [RealTime].id as [Dependency.id]
 								FROM RealTimeDuplicateView
-								JOIN RealTime on [RealTimeDuplicateView].id = [RealTime].id`,
+								JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id`,
 							},
 						},
 					}

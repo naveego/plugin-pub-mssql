@@ -132,8 +132,8 @@ SELECT
     (
 {{ .BridgeQuery | indent 8 }}
 	) as {{ uniquify "Bridge" }}
-	ON  {{ uniquify "Bridge" }}.{{ first .SchemaArgs.Keys | PrefixColumn "Dependency" }} = {{ uniquify "CT" }}.{{ first .SchemaArgs.Keys}}
-{{- range (rest .SchemaArgs.Keys ) }}
+	ON  {{ uniquify "Bridge" }}.{{ first .DependencyArgs.Keys | PrefixColumn "Dependency" }} = {{ uniquify "CT" }}.{{ first .DependencyArgs.Keys}}
+{{- range (rest .DependencyArgs.Keys ) }}
 	AND  {{ uniquify "Bridge" }}.{{ PrefixColumn "Dependency" . }} = {{ uniquify "CT" }}.{{ . }}
 {{- end }}	
         	` )

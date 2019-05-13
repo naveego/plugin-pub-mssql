@@ -120,7 +120,7 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 
 	schemaInfo := session.SchemaInfo[req.Schema.Id]
 	if schemaInfo == nil || !schemaInfo.IsTable {
-		schemaInfo = MetaSchemaFromShape(req.Schema)
+		schemaInfo = MetaSchemaFromPubSchema(req.Schema)
 	} else {
 		// If the schema is a table and it has change tracking, we have nothing else to configure.
 		// Otherwise, we'll show the user an error telling them to configure change tracking for the table.

@@ -5,7 +5,7 @@ import (
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 )
 
-func MetaSchemaFromShape(shape *pub.Schema) *meta.Schema {
+func MetaSchemaFromPubSchema(shape *pub.Schema) *meta.Schema {
 	schema := &meta.Schema{
 		ID:shape.Id,
 		Query:shape.Query,
