@@ -675,14 +675,16 @@ var _ = Describe("Server", func() {
 				}
 			})
 
-			It("should be able to call a stored procedure to write a record", func() {
+			FIt("should be able to call a stored procedure to write a record", func() {
 				response, err := sut.PrepareWrite(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(response).ToNot(BeNil())
 
 				Expect(sut.WriteStream(stream)).To(Succeed())
 
-				Expect(stream.recordAcks).To(HaveLen(1))
+				Eventually(func() []*pub.RecordAck {
+					return stream.recordAcks
+				}).Should(HaveLen(1))
 				Expect(stream.recordAcks[0].CorrelationId).To(Equal("test"))
 				Expect(stream.recordAcks[0].Error).To(Equal(""))
 			})

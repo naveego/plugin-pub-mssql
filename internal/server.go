@@ -1,26 +1,22 @@
 package internal
 
 import (
-	"github.com/LK4D4/joincontext"
-	"github.com/naveego/plugin-pub-mssql/internal/meta"
-	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
-	"io"
-	"io/ioutil"
-	"os"
-	"sync"
-	"time"
-
 	"context"
-
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/LK4D4/joincontext"
 	"github.com/hashicorp/go-hclog"
+	"github.com/naveego/plugin-pub-mssql/internal/meta"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/pkg/errors"
+	"io"
+	"io/ioutil"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // Server type to describe a server
@@ -42,18 +38,19 @@ type Config struct {
 }
 
 type Session struct {
-	Ctx           context.Context
-	Cancel        func()
-	Publishing    bool
-	Log           hclog.Logger
-	Settings      *Settings
-	WriteSettings *WriteSettings
+	Ctx        context.Context
+	Cancel     func()
+	Publishing bool
+	Log        hclog.Logger
+	Settings   *Settings
+	Writer     Writer
 	// tables that were discovered during connect
 	SchemaInfo       map[string]*meta.Schema
 	StoredProcedures []string
 	RealTimeHelper   *RealTimeHelper
 	Config           Config
 	DB               *sql.DB
+	SchemaDiscoverer SchemaDiscoverer
 }
 
 type OpSession struct {
@@ -267,6 +264,10 @@ ORDER BY TABLE_NAME`)
 
 	s.session = session
 
+	session.SchemaDiscoverer = SchemaDiscoverer{
+		log: s.log.With("cmp", "SchemaDiscoverer"),
+	}
+
 	s.log.Debug("Connect completed successfully.")
 
 	return new(pub.ConnectResponse), err
@@ -321,6 +322,40 @@ func (s *Server) CompleteOAuthFlow(ctx context.Context, req *pub.CompleteOAuthFl
 	return nil, errors.New("Not supported.")
 }
 
+func (s *Server) DiscoverSchemasStream(req *pub.DiscoverSchemasRequest, stream pub.Publisher_DiscoverSchemasStreamServer) error {
+	s.log.Debug("Handling DiscoverSchemasStream...")
+
+	session, err := s.getOpSession(stream.Context())
+	if err != nil {
+		return err
+	}
+
+	discovered, err := s.session.SchemaDiscoverer.DiscoverSchemas(session, req)
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+
+		case schema, more := <-discovered:
+			if !more {
+				s.log.Info("Reached end of schema stream.")
+				return nil
+			}
+
+			s.log.Debug("Discovered schema.", "schema", schema.Name)
+
+			err = stream.Send(schema)
+			if err != nil {
+				return err
+			}
+		}
+	}
+}
+
 func (s *Server) DiscoverSchemas(ctx context.Context, req *pub.DiscoverSchemasRequest) (*pub.DiscoverSchemasResponse, error) {
 
 	s.log.Debug("Handling DiscoverSchemasRequest...")
@@ -332,92 +367,27 @@ func (s *Server) DiscoverSchemas(ctx context.Context, req *pub.DiscoverSchemasRe
 
 	var schemas []*pub.Schema
 
-	if req.Mode == pub.DiscoverSchemasRequest_ALL {
-		s.log.Debug("Discovering all tables and views...")
-		schemas, err = s.getAllSchemas(session)
-		s.log.Debug("Discovered tables and views.", "count", len(schemas))
+	discovered, err := s.session.SchemaDiscoverer.DiscoverSchemas(session, req)
+	if err != nil {
+		return nil, err
+	}
 
-		if err != nil {
-			return nil, errors.Errorf("could not load tables and views from SQL: %s", err)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+
+		case schema, more := <-discovered:
+			if !more {
+				sort.Sort(pub.SortableShapes(schemas))
+				return &pub.DiscoverSchemasResponse{
+					Schemas: schemas,
+				}, nil
+			}
+
+			schemas = append(schemas, schema)
 		}
-	} else {
-		s.log.Debug("Refreshing schemas from request.", "count", len(req.ToRefresh))
-		for _, s := range req.ToRefresh {
-			schemas = append(schemas, s)
-		}
 	}
-
-	resp := &pub.DiscoverSchemasResponse{}
-
-	wait := new(sync.WaitGroup)
-
-	for i := range schemas {
-		shape := schemas[i]
-		// include this shape in wait group
-		wait.Add(1)
-
-		// concurrently get details for shape
-		go func() {
-			s.log.Debug("Getting details for discovered schema", "id", shape.Id)
-			err := s.populateShapeColumns(session, shape)
-			if err != nil {
-				s.log.With("shape", shape.Id).With("err", err).Error("Error discovering columns")
-				shape.Errors = append(shape.Errors, fmt.Sprintf("Could not discover columns: %s", err))
-				goto Done
-			}
-			s.log.Debug("Got details for discovered schema", "id", shape.Id)
-
-			if req.Mode == pub.DiscoverSchemasRequest_REFRESH {
-				s.log.Debug("Getting count for discovered schema", "id", shape.Id)
-				shape.Count, err = s.getCount(session, shape)
-				if err != nil {
-					s.log.With("shape", shape.Id).With("err", err).Error("Error getting row count.")
-					shape.Errors = append(shape.Errors, fmt.Sprintf("Could not get row count for shape: %s", err))
-					goto Done
-				}
-				s.log.Debug("Got count for discovered schema", "id", shape.Id, "count", shape.Count.String())
-			} else {
-				shape.Count = &pub.Count{Kind: pub.Count_UNAVAILABLE}
-			}
-
-			if req.SampleSize > 0 {
-				s.log.Debug("Getting sample for discovered schema", "id", shape.Id, "size", req.SampleSize)
-				publishReq := &pub.ReadRequest{
-					Schema: shape,
-					Limit:  req.SampleSize,
-				}
-
-				collector := new(RecordCollector)
-				handler, innerRequest, err := BuildHandlerAndRequest(session, publishReq, collector)
-
-				err = handler.Handle(innerRequest)
-
-				for _, record := range collector.Records {
-					shape.Sample = append(shape.Sample, record)
-				}
-
-				if err != nil {
-					s.log.With("shape", shape.Id).With("err", err).Error("Error collecting sample.")
-					shape.Errors = append(shape.Errors, fmt.Sprintf("Could not collect sample: %s", err))
-					goto Done
-				}
-				s.log.Debug("Got sample for discovered schema", "id", shape.Id, "size", len(shape.Sample))
-			}
-		Done:
-			wait.Done()
-		}()
-	}
-
-	// wait until all concurrent shape details have been loaded
-	wait.Wait()
-
-	for _, schema := range schemas {
-		resp.Schemas = append(resp.Schemas, schema)
-	}
-
-	sort.Sort(pub.SortableShapes(resp.Schemas))
-
-	return resp, nil
 }
 
 func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStreamServer) error {
@@ -498,8 +468,8 @@ func (s *Server) ConfigureWrite(ctx context.Context, req *pub.ConfigureWriteRequ
 				DataJson:       `{"storedProcedure":""}`,
 				DataErrorsJson: "",
 				Errors:         nil,
-				SchemaJson: schemaJSON ,
-				StateJson: "",
+				SchemaJson:     schemaJSON,
+				StateJson:      "",
 			},
 			Schema: nil,
 		}, nil
@@ -565,7 +535,6 @@ AND SPECIFIC_NAME = @name
 		goto Done
 	}
 
-
 	// add all params to properties of schema
 	for rows.Next() {
 		var colName, colType string
@@ -576,10 +545,10 @@ AND SPECIFIC_NAME = @name
 		}
 
 		properties = append(properties, &pub.Property{
-			Id: strings.TrimPrefix(colName, "@"),
+			Id:           strings.TrimPrefix(colName, "@"),
 			TypeAtSource: colType,
-			Type: convertSQLType(colType, 0),
-			Name: strings.TrimPrefix(colName, "@"),
+			Type:         convertSQLType(colType, 0),
+			Name:         strings.TrimPrefix(colName, "@"),
 		})
 	}
 
@@ -587,16 +556,16 @@ Done:
 	// return write back schema
 	return &pub.ConfigureWriteResponse{
 		Form: &pub.ConfigurationFormResponse{
-			DataJson:  req.Form.DataJson,
-			Errors:    errArray,
-			StateJson: req.Form.StateJson,
-			SchemaJson:schemaJSON,
+			DataJson:   req.Form.DataJson,
+			Errors:     errArray,
+			StateJson:  req.Form.StateJson,
+			SchemaJson: schemaJSON,
 		},
 		Schema: &pub.Schema{
-			Id:         formData.StoredProcedure,
-			Query:      formData.StoredProcedure,
+			Id:                formData.StoredProcedure,
+			Query:             formData.StoredProcedure,
 			DataFlowDirection: pub.Schema_WRITE,
-			Properties: properties,
+			Properties:        properties,
 		},
 	}, nil
 }
@@ -607,14 +576,15 @@ type ConfigureWriteFormData struct {
 
 // PrepareWrite sets up the plugin to be able to write back
 func (s *Server) PrepareWrite(ctx context.Context, req *pub.PrepareWriteRequest) (*pub.PrepareWriteResponse, error) {
-	// session, err := s.getOpSession(ctx)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	session, err := s.getOpSession(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	s.session.WriteSettings = &WriteSettings{
-		Schema:    req.Schema,
-		CommitSLA: req.CommitSlaSeconds,
+	s.session.Writer, err = PrepareWriteHandler(session, req)
+
+	if err != nil {
+		return nil, err
 	}
 
 	schemaJSON, _ := json.MarshalIndent(req.Schema, "", "  ")
@@ -625,19 +595,20 @@ func (s *Server) PrepareWrite(ctx context.Context, req *pub.PrepareWriteRequest)
 
 // WriteStream writes a stream of records back to the source system
 func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
+
 	session, err := s.getOpSession(stream.Context())
 	if err != nil {
 		return err
+	}
+
+	if session.Writer == nil {
+		return errors.New("session.Writer was nil, PrepareWrite should have been called before WriteStream")
 	}
 
 	defer session.Cancel()
 
 	// get and process each record
 	for {
-		// return if not configured
-		if session.WriteSettings == nil {
-			return nil
-		}
 
 		if session.Ctx.Err() != nil {
 			return nil
@@ -652,64 +623,26 @@ func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
 			return err
 		}
 
-		var recordData map[string]interface{}
-		if err := json.Unmarshal([]byte(record.DataJson), &recordData); err != nil {
-			return errors.WithStack(err)
-		}
+		err = session.Writer.Write(session, record)
 
-		// process record and send ack
-		ackMsgCh := make(chan string, 1)
-		go func() {
-			defer close(ackMsgCh)
-
-			schema := session.WriteSettings.Schema
-
-			// build params for stored procedure
-			var args []interface{}
-			for _, prop := range schema.Properties {
-
-				rawValue := recordData[prop.Id]
-				var value interface{}
-				switch			 prop.Type {
-				case pub.PropertyType_DATE, pub.PropertyType_DATETIME:
-					stringValue, ok := rawValue.(string)
-					if !ok {
-						ackMsgCh <-fmt.Sprintf("cannot convert value %v to %s (was %T)", rawValue, prop.Type, rawValue)
-						return
-					}
-					value, err = time.Parse(time.RFC3339, stringValue)
-				default:
-					value = rawValue
-				}
-
-				args = append(args, sql.Named(prop.Id, value))
-			}
-
-			// call stored procedure and capture any error
-			_, err := session.DB.Exec(schema.Query, args...)
-			if err != nil {
-				ackMsgCh <- fmt.Sprintf("could not write back: %s", err)
-			}
-		}()
-
-		// send ack when done writing or on timeout
-		select {
-		// done writing
-		case sendErr := <-ackMsgCh:
-			err := stream.Send(&pub.RecordAck{
+		if err != nil {
+			// send failure ack to agent
+			ack := &pub.RecordAck{
 				CorrelationId: record.CorrelationId,
-				Error:         sendErr,
-			})
+				Error:         err.Error(),
+			}
+			err := stream.Send(ack)
 			if err != nil {
+				s.log.Error("Error writing error ack to agent.", "err", err, "ack", ack)
 				return err
 			}
-		// timeout
-		case <-time.After(time.Duration(session.WriteSettings.CommitSLA) * time.Second):
+		} else {
+			// send success ack to agent
 			err := stream.Send(&pub.RecordAck{
 				CorrelationId: record.CorrelationId,
-				Error:         "timed out",
 			})
 			if err != nil {
+				s.log.Error("Error writing success ack to agent.", "err", err)
 				return err
 			}
 		}
@@ -719,156 +652,6 @@ func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
 // DiscoverShapes discovers shapes present in the database
 func (s *Server) DiscoverShapes(ctx context.Context, req *pub.DiscoverSchemasRequest) (*pub.DiscoverSchemasResponse, error) {
 	return s.DiscoverSchemas(ctx, req)
-}
-
-func (s *Server) getAllSchemas(session *OpSession) ([]*pub.Schema, error) {
-
-	rows, err := session.DB.Query(`SELECT Schema_name(o.schema_id) SchemaName, o.NAME TableName
-FROM   sys.objects o 
-WHERE  o.type IN ( 'U', 'V' )`)
-
-	if err != nil {
-		return nil, errors.Errorf("could not list tables: %s", err)
-	}
-
-	var schemas []*pub.Schema
-
-	for rows.Next() {
-		schema := new(pub.Schema)
-
-		var (
-			schemaName string
-			tableName  string
-		)
-		err = rows.Scan(&schemaName, &tableName)
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-
-		if schemaName == "dbo" {
-			schema.Id = GetSchemaID(schemaName, tableName)
-			schema.Name = tableName
-		} else {
-			schema.Id = GetSchemaID(schemaName, tableName)
-			schema.Name = fmt.Sprintf("%s.%s", schemaName, tableName)
-		}
-
-		schema.DataFlowDirection = pub.Schema_READ
-
-		schemas = append(schemas, schema)
-	}
-
-	return schemas, nil
-}
-
-func GetSchemaID(schemaName, tableName string) string {
-	if schemaName == "dbo" {
-		return fmt.Sprintf("[%s]", tableName)
-	} else {
-		return fmt.Sprintf("[%s].[%s]", schemaName, tableName)
-	}
-}
-
-type describeResult struct {
-	IsHidden          bool   `sql:"is_hidden"`
-	Name              string `sql:"name"`
-	SystemTypeName    string `sql:"system_type_name"`
-	IsNullable        bool   `sql:"is_nullable"`
-	IsPartOfUniqueKey bool   `sql:"is_part_of_unique_key"`
-	MaxLength         int64  `sql:"max_length"`
-}
-
-func describeResultSet(session *OpSession, query string) ([]describeResult, error) {
-	metaQuery := fmt.Sprintf("sp_describe_first_result_set N'%s', @params= N'', @browse_information_mode=1", query)
-
-	rows, err := session.DB.Query(metaQuery)
-
-	if err != nil {
-
-		rows, betterErr := session.DB.Query(query)
-		if betterErr == nil {
-			rows.Close()
-			return nil, errors.Errorf("unhelpful error returned by MSSQL when getting metadata for query %q: %s", query, err)
-		} else {
-			return nil, errors.Errorf("error when getting metadata for query %q: %s", query, betterErr)
-		}
-	}
-
-	metadata := make([]describeResult, 0, 0)
-
-	defer rows.Close()
-	err = sqlstructs.UnmarshalRows(rows, &metadata)
-	if err != nil {
-		return nil, errors.Errorf("error parsing metadata for query %q: %s", query, err)
-	}
-
-	return metadata, nil
-}
-
-func (s *Server) populateShapeColumns(session *OpSession, shape *pub.Schema) error {
-
-	query := shape.Query
-	if query == "" {
-		query = fmt.Sprintf("SELECT * FROM %s", shape.Id)
-	}
-
-	query = strings.Replace(query, "'", "''", -1)
-
-	metadata, err := describeResultSet(session, query)
-	if err != nil {
-		return err
-	}
-
-	unnamedColumnIndex := 0
-
-	preDefinedProperties := map[string]*pub.Property{}
-	hasUserDefinedKeys := false
-	for _, p := range shape.Properties {
-		preDefinedProperties[p.Id] = p
-		if p.IsKey {
-			hasUserDefinedKeys = true
-		}
-	}
-
-	for _, m := range metadata {
-
-		if m.IsHidden {
-			continue
-		}
-
-		var property *pub.Property
-		var ok bool
-		var propertyID string
-
-		propertyName := m.Name
-		if propertyName == "" {
-			propertyName = fmt.Sprintf("UNKNOWN_%d", unnamedColumnIndex)
-			unnamedColumnIndex++
-		}
-
-		propertyID = fmt.Sprintf("[%s]", propertyName)
-
-		if property, ok = preDefinedProperties[propertyID]; !ok {
-			property = &pub.Property{
-				Id:   propertyID,
-				Name: propertyName,
-			}
-			shape.Properties = append(shape.Properties, property)
-		}
-
-		property.TypeAtSource = m.SystemTypeName
-
-		maxLength := m.MaxLength
-		property.Type = convertSQLType(property.TypeAtSource, int(maxLength))
-
-		property.IsNullable = m.IsNullable
-
-		if !hasUserDefinedKeys {
-			property.IsKey = m.IsPartOfUniqueKey
-		}
-	}
-
-	return nil
 }
 
 // PublishStream sends records read in request to the agent
@@ -914,54 +697,6 @@ func (s *Server) getOpSession(ctx context.Context) (*OpSession, error) {
 }
 
 var schemaIDParseRE = regexp.MustCompile(`(?:\[([^\]]+)\].)?(?:)(?:\[([^\]]+)\])`)
-
-func (s *Server) getCount(session *OpSession, shape *pub.Schema) (*pub.Count, error) {
-
-	var query string
-	var err error
-
-	schemaInfo := session.SchemaInfo[shape.Id]
-
-	if shape.Query != "" {
-		query = fmt.Sprintf("SELECT COUNT(1) FROM (%s) as Q", shape.Query)
-	} else if schemaInfo == nil || !schemaInfo.IsTable {
-		return &pub.Count{Kind: pub.Count_UNAVAILABLE}, nil
-	} else {
-		segs := schemaIDParseRE.FindStringSubmatch(shape.Id)
-		if segs == nil {
-			return nil, fmt.Errorf("malformed schema ID %q", shape.Id)
-		}
-
-		schema, table := segs[1], segs[2]
-		if schema == "" {
-			schema = "dbo"
-		}
-
-		query = fmt.Sprintf(`
-			SELECT SUM(p.rows) FROM sys.partitions AS p
-			INNER JOIN sys.tables AS t
-			ON p.[object_id] = t.[object_id]
-			INNER JOIN sys.schemas AS s
-			ON s.[schema_id] = t.[schema_id]
-			WHERE t.name = N'%s'
-			AND s.name = N'%s'
-			AND p.index_id IN (0,1);`, table, schema)
-	}
-
-	ctx, cancel := context.WithTimeout(session.Ctx, time.Second)
-	defer cancel()
-	row := session.DB.QueryRowContext(ctx, query)
-	var count int
-	err = row.Scan(&count)
-	if err != nil {
-		return nil, fmt.Errorf("error from query %q: %s", query, err)
-	}
-
-	return &pub.Count{
-		Kind:  pub.Count_EXACT,
-		Value: int32(count),
-	}, nil
-}
 
 func buildQuery(req *pub.ReadRequest) (string, error) {
 
