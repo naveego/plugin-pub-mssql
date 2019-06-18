@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+
 type Schema struct {
 	ID               string
 	IsTable          bool
@@ -85,6 +86,24 @@ func (s *Schema) AddColumn(c *Column) *Column {
 
 func (s *Schema) Columns() Columns {
 	return s.columns
+}
+
+// ColumnsKeysFirst returns the columns with keys sorted to the beginning.
+func (s *Schema) ColumnsKeysFirst() Columns {
+	var out Columns
+	for _, c := range s.columns {
+		if c.IsKey {
+			out = append(out, c)
+		}
+	}
+
+	for _, c := range s.columns {
+		if !c.IsKey {
+			out = append(out, c)
+		}
+	}
+
+	return out
 }
 
 type Columns []*Column

@@ -1,5 +1,7 @@
 module github.com/naveego/plugin-pub-mssql
 
+replace github.com/naveego/dataflow-contracts/plugins => /home/steve/src/github.com/naveego/dataflow-contracts/plugins
+
 require (
 	cloud.google.com/go v0.38.0 // indirect
 	github.com/LK4D4/joincontext v0.0.0-20171026170139-1724345da6d5
@@ -31,13 +33,14 @@ require (
 	github.com/kr/pty v1.1.3 // indirect
 	github.com/lestrrat-go/file-rotatelogs v2.2.0+incompatible
 	github.com/lestrrat-go/strftime v0.0.0-20180821113735-8b31f9c59b0f // indirect
-	github.com/magefile/mage v1.8.0 // indirect
+	github.com/magefile/mage v1.8.0
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
 	github.com/naveego/ci v0.0.0-20181106200225-bbe2ffc37d32
 	github.com/naveego/dataflow-contracts v0.1.2
 	github.com/naveego/go-json-schema v0.2.2
 	github.com/onsi/ginkgo v1.7.0
 	github.com/onsi/gomega v1.4.3
+	github.com/ozgio/strutil v0.2.2 // indirect
 	github.com/pkg/errors v0.8.0
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5 // indirect
 	github.com/sirupsen/logrus v1.0.5

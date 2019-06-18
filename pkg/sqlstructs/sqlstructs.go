@@ -92,3 +92,40 @@ func UnmarshalRows(rows *sql.Rows, out interface{}) error {
 
 	return nil
 }
+
+func UnmarshalRowsToMaps(rows *sql.Rows) ([]map[string]interface{}, error) {
+
+	columnNames, err := rows.Columns()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var out []map[string]interface{}
+
+	for rows.Next() {
+		columns := make([]interface{}, len(columnNames))
+		columnPointers := make([]interface{}, len(columnNames))
+
+		outElement := map[string]interface{}{}
+
+		for i := 0; i < len(columnNames); i++ {
+			columnPointers[i] = &columns[i]
+		}
+		if err := rows.Scan(columnPointers...); err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		for i, name := range columnNames {
+			v := columnPointers[i]
+			if v == nil {
+			outElement[name] = nil
+			} else {
+				outElement[name] = reflect.ValueOf(v).Elem().Interface()
+			}
+
+		}
+		out = append(out, outElement)
+	}
+
+	return out, nil
+}

@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/naveego/go-json-schema"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"io"
@@ -54,7 +55,7 @@ func (s SortableProperties) Less(i, j int) bool {
 	return strings.Compare(s1Name, s2Name) < 0
 }
 
-func (m *ConfigureRealTimeRequest) WithData(data interface{}) *ConfigureRealTimeRequest{
+func (m *ConfigureRealTimeRequest) WithData(data interface{}) *ConfigureRealTimeRequest {
 	if m.Form == nil {
 		m.Form = &ConfigurationFormRequest{}
 	}
@@ -83,8 +84,8 @@ func (m *ConfigureRealTimeResponse) WithUI(ui map[string]interface{}) *Configure
 func (m *ConfigureRealTimeResponse) WithFormErrors(errs ...string) *ConfigureRealTimeResponse {
 	if m.Form == nil {
 		m.Form = &ConfigurationFormResponse{
-			UiJson:"{}",
-			SchemaJson:"{}",
+			UiJson:     "{}",
+			SchemaJson: "{}",
 		}
 	}
 
@@ -350,24 +351,50 @@ func (l *hclLogAdapter) StandardLogger(opts *hclog.StandardLoggerOptions) *log.L
 	panic("not implemented")
 }
 
-
-type ResolvedRecord struct {
-	Action Record_Action
-	DataJson string
-	Data interface{}
-	RealTimeStateJson string
-	RealTimeState interface{}
+type UnmarshalledRecord struct {
+	Record
+	Data                 map[string]interface{} `json:"data"`
+	UnmarshalledVersions []*UnmarshalledVersionRecord `json:"unmarshalledVersions"`
 }
 
-func (r *Record) Resolve(data interface{}, realTimeState interface{}) (ResolvedRecord, error) {
+type UnmarshalledVersionRecord struct {
+	RecordVersion
+	Data       map[string]interface{} `json:"data"`
+	SchemaData map[string]interface{} `json:"schemaData"`
+}
 
-	switch r.Action {
-	case Record_REAL_TIME_STATE_COMMIT:
-	err := r.UnmarshalRealTimeState(&realTimeState)
-	return ResolvedRecord{RealTimeStateJson:r.RealTimeStateJson, DataJson:r.DataJson, Action:r.Action, RealTimeState:realTimeState}, err
-	default:
-		err := r.UnmarshalData(&data)
-		return ResolvedRecord{RealTimeStateJson:r.RealTimeStateJson, DataJson:r.DataJson, Action:r.Action,Data:data}, err
+func (r *Record) AsUnmarshalled() (*UnmarshalledRecord, error) {
+
+	u := &UnmarshalledRecord{
+		Record: *r,
 	}
-}
 
+	err := json.Unmarshal([]byte(r.DataJson), &u.Data)
+	if err != nil {
+		return nil, errors.Wrapf(err, "invalid data json")
+	}
+
+	for i, version := range r.Versions {
+		v := &UnmarshalledVersionRecord{
+			RecordVersion: *version,
+		}
+
+		if v.DataJson != "" {
+
+			err = json.Unmarshal([]byte(version.DataJson), &v.Data)
+			if err != nil {
+				return nil, errors.Wrapf(err, "invalid data json on version %d", i)
+			}
+		}
+		if v.SchemaDataJson != "" {
+
+			err = json.Unmarshal([]byte(version.SchemaDataJson), &v.SchemaData)
+			if err != nil {
+				return nil, errors.Wrapf(err, "invalid schema data json on version %d", i)
+			}
+		}
+		u.UnmarshalledVersions = append(u.UnmarshalledVersions, v)
+	}
+
+	return u, nil
+}

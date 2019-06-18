@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/hashicorp/go-hclog"
+	"github.com/naveego/plugin-pub-mssql/internal/meta"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
 	"github.com/pkg/errors"
@@ -13,9 +14,40 @@ import (
 	"time"
 )
 
-type SchemaDiscoverer struct {
-	log hclog.Logger
+// DiscoverSchemasSync discovers all the schemas synchronously, rather than streaming them.
+func DiscoverSchemasSync(session *OpSession, schemaDiscoverer SchemaDiscoverer, req *pub.DiscoverSchemasRequest) ([]*pub.Schema, error) {
+	discovered, err := schemaDiscoverer.DiscoverSchemas(session, req)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := session.Ctx
+
+	var schemas []*pub.Schema
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+
+		case schema, more := <-discovered:
+			if !more {
+				sort.Sort(pub.SortableShapes(schemas))
+				return schemas, nil
+			}
+
+			schemas = append(schemas, schema)
+		}
+	}
+
 }
+
+type SchemaDiscoverer struct {
+	Log hclog.Logger
+}
+
+
+
 
 func (s *SchemaDiscoverer) DiscoverSchemas(session *OpSession, req *pub.DiscoverSchemasRequest) (<-chan *pub.Schema, error) {
 
@@ -23,15 +55,15 @@ func (s *SchemaDiscoverer) DiscoverSchemas(session *OpSession, req *pub.Discover
 	var schemas []*pub.Schema
 
 	if req.Mode == pub.DiscoverSchemasRequest_ALL {
-		s.log.Debug("Discovering all tables and views...")
+		s.Log.Debug("Discovering all tables and views...")
 		schemas, err = s.getAllSchemas(session)
-		s.log.Debug("Discovered tables and views.", "count", len(schemas))
+		s.Log.Debug("Discovered tables and views.", "count", len(schemas))
 
 		if err != nil {
 			return nil, errors.Errorf("could not load tables and views from SQL: %s", err)
 		}
 	} else {
-		s.log.Debug("Refreshing schemas from request.", "count", len(req.ToRefresh))
+		s.Log.Debug("Refreshing schemas from request.", "count", len(req.ToRefresh))
 		for _, s := range req.ToRefresh {
 			schemas = append(schemas, s)
 		}
@@ -60,31 +92,31 @@ func (s *SchemaDiscoverer) DiscoverSchemas(session *OpSession, req *pub.Discover
 					wait.Done()
 				}()
 
-				s.log.Debug("Getting details for discovered schema", "id", schema.Id)
+				s.Log.Debug("Getting details for discovered schema", "id", schema.Id)
 				err := s.populateShapeColumns(session, schema)
 				if err != nil {
-					s.log.With("shape", schema.Id).With("err", err).Error("Error discovering columns")
+					s.Log.With("shape", schema.Id).With("err", err).Error("Error discovering columns")
 					schema.Errors = append(schema.Errors, fmt.Sprintf("Could not discover columns: %s", err))
 					return
 				}
 
-				s.log.Debug("Got details for discovered schema", "id", schema.Id)
+				s.Log.Debug("Got details for discovered schema", "id", schema.Id)
 
 				if req.Mode == pub.DiscoverSchemasRequest_REFRESH {
-					s.log.Debug("Getting count for discovered schema", "id", schema.Id)
+					s.Log.Debug("Getting count for discovered schema", "id", schema.Id)
 					schema.Count, err = s.getCount(session, schema)
 					if err != nil {
-						s.log.With("shape", schema.Id).With("err", err).Error("Error getting row count.")
+						s.Log.With("shape", schema.Id).With("err", err).Error("Error getting row count.")
 						schema.Errors = append(schema.Errors, fmt.Sprintf("Could not get row count for shape: %s", err))
 						return
 					}
-					s.log.Debug("Got count for discovered schema", "id", schema.Id, "count", schema.Count.String())
+					s.Log.Debug("Got count for discovered schema", "id", schema.Id, "count", schema.Count.String())
 				} else {
 					schema.Count = &pub.Count{Kind: pub.Count_UNAVAILABLE}
 				}
 
 				if req.SampleSize > 0 {
-					s.log.Debug("Getting sample for discovered schema", "id", schema.Id, "size", req.SampleSize)
+					s.Log.Debug("Getting sample for discovered schema", "id", schema.Id, "size", req.SampleSize)
 					publishReq := &pub.ReadRequest{
 						Schema: schema,
 						Limit:  req.SampleSize,
@@ -93,7 +125,7 @@ func (s *SchemaDiscoverer) DiscoverSchemas(session *OpSession, req *pub.Discover
 					collector := new(RecordCollector)
 					handler, innerRequest, err := BuildHandlerAndRequest(session, publishReq, collector)
 					if err != nil {
-						s.log.With("shape", schema.Id).With("err", err).Error("Error getting sample.")
+						s.Log.With("shape", schema.Id).With("err", err).Error("Error getting sample.")
 						schema.Errors = append(schema.Errors, fmt.Sprintf("Could not get sample for shape: %s", err))
 						return
 					}
@@ -105,11 +137,11 @@ func (s *SchemaDiscoverer) DiscoverSchemas(session *OpSession, req *pub.Discover
 					}
 
 					if err != nil {
-						s.log.With("shape", schema.Id).With("err", err).Error("Error collecting sample.")
+						s.Log.With("shape", schema.Id).With("err", err).Error("Error collecting sample.")
 						schema.Errors = append(schema.Errors, fmt.Sprintf("Could not collect sample: %s", err))
 						return
 					}
-					s.log.Debug("Got sample for discovered schema", "id", schema.Id, "size", len(schema.Sample))
+					s.Log.Debug("Got sample for discovered schema", "id", schema.Id, "size", len(schema.Sample))
 				}
 
 			}(schemas[i])
@@ -261,7 +293,7 @@ func (s *SchemaDiscoverer) populateShapeColumns(session *OpSession, shape *pub.S
 		property.TypeAtSource = m.SystemTypeName
 
 		maxLength := m.MaxLength
-		property.Type = convertSQLType(property.TypeAtSource, int(maxLength))
+		property.Type = meta.ConvertSQLTypeToPluginType(property.TypeAtSource, int(maxLength))
 
 		property.IsNullable = m.IsNullable
 

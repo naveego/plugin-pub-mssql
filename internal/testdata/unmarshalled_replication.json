@@ -1,0 +1,132 @@
+[
+  {
+    "data": {
+      "id": 1,
+      "first_name": "Lynett",
+      "last_name": "Kliment",
+      "dob": "1966-07-19"
+    },
+    "unmarshalledVersions": [
+      {
+        "rid": "de18d510-3ca0-4934-965e-72a0217fe92d",
+        "data": {
+          "id": 1,
+          "first_name": "Bobette",
+          "last_name": "Blacklawe"
+        }
+      },
+      {
+        "rid": "7370f072-bb71-484c-86f5-4aca14a14d94",
+        "data": {
+          "id": 2,
+          "first_name": "Janaya",
+          "last_name": "Mucci"
+        }
+      }
+    ]
+  },
+  {
+    "data": {
+      "id": 2,
+      "first_name": "Grazia",
+      "last_name": "McGuckin",
+      "dob": "1982-02-06"
+    },
+    "unmarshalledVersions": [
+      {
+        "rid": "527378bc-b844-4fa4-b2a6-bafd1ea72c91",
+        "data": {
+          "id": 1,
+          "first_name": "Stanfield",
+          "last_name": "De Lacey"
+        }
+      },
+      {
+        "rid": "67759432-df29-44fd-a8eb-d6c20ff8519f",
+        "data": {
+          "id": 2,
+          "first_name": "Curt",
+          "last_name": "Lofty"
+        }
+      }
+    ]
+  },
+  {
+    "data": {
+      "id": 3,
+      "first_name": "Roy",
+      "last_name": "O'Logan",
+      "dob": "2007-08-03"
+    },
+    "unmarshalledVersions": [
+      {
+        "rid": "0ddd787c-62b5-47c4-bea9-5668f1ea35c0",
+        "data": {
+          "id": 1,
+          "first_name": "Charil",
+          "last_name": "Pye"
+        }
+      },
+      {
+        "rid": "491cc03a-ac08-412b-af6c-740e0c92b2f6",
+        "data": {
+          "id": 2,
+          "first_name": "Rivalee",
+          "last_name": "Tschirasche"
+        }
+      }
+    ]
+  },
+  {
+    "data": {
+      "id": 4,
+      "first_name": "Jard",
+      "last_name": "O'Finan",
+      "dob": "2005-07-26"
+    },
+    "unmarshalledVersions": [
+      {
+        "rid": "7a97be9f-8003-49b2-b456-a8e6ac968f22",
+        "data": {
+          "id": 1,
+          "first_name": "Amelia",
+          "last_name": "Walters"
+        }
+      },
+      {
+        "rid": "703be2f0-38e3-416c-995b-f0b804afbe4b",
+        "data": {
+          "id": 2,
+          "first_name": "Cele",
+          "last_name": "Patient"
+        }
+      }
+    ]
+  },
+  {
+    "data": {
+      "id": 5,
+      "first_name": "Lev",
+      "last_name": "Pomeroy",
+      "dob": "1988-05-27"
+    },
+    "unmarshalledVersions": [
+      {
+        "rid": "44fa114e-ba11-4130-acec-de8770e2b155",
+        "data": {
+          "id": 1,
+          "first_name": "Sydney",
+          "last_name": "Allmond"
+        }
+      },
+      {
+        "rid": "47191a7e-c073-40c1-bde6-67eddd4b6f1b",
+        "data": {
+          "id": 2,
+          "first_name": "Fifine",
+          "last_name": "Matokhnin"
+        }
+      }
+    ]
+  }
+]

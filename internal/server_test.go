@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/hashicorp/go-hclog"
 	. "github.com/naveego/plugin-pub-mssql/internal"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	. "github.com/onsi/ginkgo"
@@ -42,11 +41,7 @@ var _ = Describe("Server", func() {
 
 	BeforeEach(func() {
 
-		log := hclog.New(&hclog.LoggerOptions{
-			Level:      hclog.Trace,
-			Output:     testOutput,
-			JSONFormat: false,
-		})
+		log := GetLogger()
 
 		sut = NewServer(log)
 
@@ -675,7 +670,7 @@ var _ = Describe("Server", func() {
 				}
 			})
 
-			FIt("should be able to call a stored procedure to write a record", func() {
+			It("should be able to call a stored procedure to write a record", func() {
 				response, err := sut.PrepareWrite(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(response).ToNot(BeNil())

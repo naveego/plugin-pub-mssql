@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/LK4D4/joincontext"
 	"github.com/hashicorp/go-hclog"
+	jsonschema "github.com/naveego/go-json-schema"
 	"github.com/naveego/plugin-pub-mssql/internal/meta"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/pkg/errors"
@@ -26,6 +27,7 @@ type Server struct {
 	session *Session
 	config  *Config
 }
+
 
 type Config struct {
 	LogLevel hclog.Level
@@ -64,7 +66,7 @@ type OpSession struct {
 	Ctx context.Context
 }
 
-func (s *Session) opSession(ctx context.Context) *OpSession {
+func (s *Session) OpSession(ctx context.Context) *OpSession {
 	ctx, cancel := joincontext.Join(s.Ctx, ctx)
 	return &OpSession{
 		Session: *s,
@@ -265,7 +267,7 @@ ORDER BY TABLE_NAME`)
 	s.session = session
 
 	session.SchemaDiscoverer = SchemaDiscoverer{
-		log: s.log.With("cmp", "SchemaDiscoverer"),
+		Log: s.log.With("cmp", "SchemaDiscoverer"),
 	}
 
 	s.log.Debug("Connect completed successfully.")
@@ -365,29 +367,11 @@ func (s *Server) DiscoverSchemas(ctx context.Context, req *pub.DiscoverSchemasRe
 		return nil, err
 	}
 
-	var schemas []*pub.Schema
+	schemas, err := DiscoverSchemasSync(session, session.SchemaDiscoverer, req)
 
-	discovered, err := s.session.SchemaDiscoverer.DiscoverSchemas(session, req)
-	if err != nil {
-		return nil, err
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-
-		case schema, more := <-discovered:
-			if !more {
-				sort.Sort(pub.SortableShapes(schemas))
-				return &pub.DiscoverSchemasResponse{
-					Schemas: schemas,
-				}, nil
-			}
-
-			schemas = append(schemas, schema)
-		}
-	}
+	return &pub.DiscoverSchemasResponse{
+		Schemas: schemas,
+	}, err
 }
 
 func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStreamServer) error {
@@ -547,7 +531,7 @@ AND SPECIFIC_NAME = @name
 		properties = append(properties, &pub.Property{
 			Id:           strings.TrimPrefix(colName, "@"),
 			TypeAtSource: colType,
-			Type:         convertSQLType(colType, 0),
+			Type:         meta.ConvertSQLTypeToPluginType(colType, 0),
 			Name:         strings.TrimPrefix(colName, "@"),
 		})
 	}
@@ -572,6 +556,20 @@ Done:
 
 type ConfigureWriteFormData struct {
 	StoredProcedure string `json:"storedProcedure,omitempty"`
+}
+
+
+func (s *Server) ConfigureReplication(ctx context.Context, req *pub.ConfigureReplicationRequest) (*pub.ConfigureReplicationResponse, error) {
+	builder := pub.NewConfigurationFormResponseBuilder(req.Form)
+
+	builder.UISchema = map[string]interface{}{
+		"ui:order":[]string{"sqlSchema","goldenRecordTable", "versionRecordTable"},
+	}
+	builder.FormSchema = jsonschema.NewGenerator().WithRoot(ReplicationSettings{}).MustGenerate()
+
+	return &pub.ConfigureReplicationResponse{
+		Form:builder.Build(),
+	}, nil
 }
 
 // PrepareWrite sets up the plugin to be able to write back
@@ -623,7 +621,16 @@ func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
 			return err
 		}
 
-		err = session.Writer.Write(session, record)
+		unmarshalledRecord, err := record.AsUnmarshalled()
+
+		// if the record unmarshalled correctly,
+		// we send it to the writer
+		if err == nil {
+			err = session.Writer.Write(session, unmarshalledRecord)
+		}
+
+
+
 
 		if err != nil {
 			// send failure ack to agent
@@ -674,7 +681,10 @@ func (s *Server) disconnect() {
 	if s.session != nil {
 		s.session.Cancel()
 		if s.session.DB != nil {
-			s.session.DB.Close()
+			err := s.session.DB.Close()
+			if err != nil {
+				s.log.Error("Error closing connection", "err", err)
+			}
 		}
 	}
 
@@ -693,7 +703,7 @@ func (s *Server) getOpSession(ctx context.Context) (*OpSession, error) {
 		return nil, s.session.Ctx.Err()
 	}
 
-	return s.session.opSession(ctx), nil
+	return s.session.OpSession(ctx), nil
 }
 
 var schemaIDParseRE = regexp.MustCompile(`(?:\[([^\]]+)\].)?(?:)(?:\[([^\]]+)\])`)
@@ -762,35 +772,6 @@ func buildQuery(req *pub.ReadRequest) (string, error) {
 
 var errNotConnected = errors.New("not connected")
 
-func convertSQLType(t string, maxLength int) pub.PropertyType {
-	text := strings.ToLower(strings.Split(t, "(")[0])
-
-	switch text {
-	case "datetime", "datetime2", "smalldatetime":
-		return pub.PropertyType_DATETIME
-	case "date":
-		return pub.PropertyType_DATE
-	case "time":
-		return pub.PropertyType_TIME
-	case "int", "smallint", "tinyint":
-		return pub.PropertyType_INTEGER
-	case "bigint", "decimal", "money", "smallmoney", "numeric":
-		return pub.PropertyType_DECIMAL
-	case "float", "real":
-		return pub.PropertyType_FLOAT
-	case "bit":
-		return pub.PropertyType_BOOL
-	case "binary", "varbinary", "image":
-		return pub.PropertyType_BLOB
-	case "char", "varchar", "nchar", "nvarchar", "text":
-		if maxLength == -1 || maxLength >= 1024 {
-			return pub.PropertyType_TEXT
-		}
-		return pub.PropertyType_STRING
-	default:
-		return pub.PropertyType_STRING
-	}
-}
 
 func formatTypeAtSource(t string, maxLength, precision, scale int) string {
 	var maxLengthString string
