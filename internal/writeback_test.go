@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	. "github.com/naveego/plugin-pub-mssql/internal"
+	"github.com/naveego/plugin-pub-mssql/internal/constants"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
 	. "github.com/onsi/ginkgo"
@@ -26,10 +27,10 @@ var _ = Describe("Replication Writeback", func() {
 
 	BeforeEach(func() {
 
-		Expect(db.Exec(`IF OBJECT_ID(' w3.ReplicationTest.Golden', 'U') IS NOT NULL
+		Expect(db.Exec(`IF OBJECT_ID('w3.ReplicationTest.Golden', 'U') IS NOT NULL
     DROP TABLE w3.ReplicationTest.Golden;
 
-IF OBJECT_ID(' w3.ReplicationTest.Versions', 'U') IS NOT NULL
+IF OBJECT_ID('w3.ReplicationTest.Versions', 'U') IS NOT NULL
     DROP TABLE w3.ReplicationTest.Versions;`)).To(Not(BeNil()))
 
 		log := GetLogger()
@@ -61,6 +62,7 @@ IF OBJECT_ID(' w3.ReplicationTest.Versions', 'U') IS NOT NULL
 		req = &pub.PrepareWriteRequest{
 			Schema: &pub.Schema{
 				Id: "TEST",
+				Name: "TestShape",
 				Properties: []*pub.Property{
 					{
 						Id:   "id",
@@ -136,9 +138,10 @@ IF OBJECT_ID(' w3.ReplicationTest.Versions', 'U') IS NOT NULL
 		Expect(versions).ToNot(BeNil())
 	})
 
-	FIt("should write data to replication", func() {
+	It("should write data to replication", func() {
 
-		records := GetUnmarshalledReplicationRecords("testdata/unmarshalled_replication.json", req)
+		const pathPrefix = "testdata/replication_1"
+		records := GetInputs(pathPrefix, req)
 
 		sut, err := NewReplicationWriteHandler(op, req)
 
@@ -148,22 +151,27 @@ IF OBJECT_ID(' w3.ReplicationTest.Versions', 'U') IS NOT NULL
 			Expect(sut.Write(op, record)).To(Succeed())
 		}
 
-		goldenExpectations, versionExpectations := GetExpectations(req, records, sut.(*ReplicationWriter))
+		goldenExpectations, versionExpectations := GetExpectations(pathPrefix)
 		Expect(goldenExpectations).ToNot(BeEmpty())
 		Expect(versionExpectations).ToNot(BeEmpty())
 		goldenActuals, versionActuals := GetActuals(op, replicationSettings)
 		Expect(goldenActuals).ToNot(BeEmpty())
 		Expect(versionActuals).ToNot(BeEmpty())
 
-		Expect(goldenActuals).To(ConsistOf(goldenExpectations))
-		Expect(versionActuals).To(ConsistOf(versionExpectations))
+		for _, expectation := range goldenExpectations {
+			Expect(goldenActuals).To(ContainElement(BeEquivalentTo(expectation)))
+		}
+		for _, expectation := range versionExpectations {
+			Expect(versionActuals).To(ContainElement(BeEquivalentTo(expectation)))
+		}
 
 	})
 
 })
 
-func GetUnmarshalledReplicationRecords(path string, req *pub.PrepareWriteRequest) []*pub.UnmarshalledRecord {
+func GetInputs(pathPrefix string, req *pub.PrepareWriteRequest) []*pub.UnmarshalledRecord {
 
+	path := pathPrefix + "_input.json"
 	b, err := ioutil.ReadFile(path)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -195,43 +203,49 @@ func GetActuals(session *OpSession, settings ReplicationSettings) (golden []map[
 	golden, err = sqlstructs.UnmarshalRowsToMaps(goldenRows)
 	Expect(err).ToNot(HaveOccurred())
 
+	for _, item := range golden{
+		delete(item, constants.CreatedAt)
+		delete(item, constants.UpdatedAt)
+	}
+
+	// re-type everything to match the expectations types
+	j, _ := json.Marshal(golden)
+	_ = json.Unmarshal(j, &golden)
+
 	versionRows, err := session.DB.Query(fmt.Sprintf(`select * from %s.%s`, settings.SQLSchema, settings.VersionRecordTable))
 	Expect(err).ToNot(HaveOccurred())
 
 	versions, err = sqlstructs.UnmarshalRowsToMaps(versionRows)
 	Expect(err).ToNot(HaveOccurred())
 
+	for _, item := range versions{
+		delete(item, constants.CreatedAt)
+		delete(item, constants.UpdatedAt)
+	}
+
+	// re-type everything to match the expectations types
+	j, _ = json.Marshal(versions)
+	_ = json.Unmarshal(j, &versions)
 
 	return
 
 }
 
-func GetExpectations(req *pub.PrepareWriteRequest, inputs []*pub.UnmarshalledRecord, writer *ReplicationWriter) (golden []map[string]interface{}, versions []map[string]interface{}) {
+func GetExpectations(pathPrefix string) (golden []map[string]interface{}, versions []map[string]interface{}) {
 
-	jobs := map[string]string{}
-	connections := map[string]string{}
-	schemas := map[string]string{}
-	for _, v := range req.Replication.Versions {
-		jobs[v.JobId] = v.JobName
-		connections[v.ConnectionId] = v.ConnectionName
-		schemas[v.SchemaId] = v.SchemaName
-	}
+	groupPath := pathPrefix + "_expectations_groups.json"
+	b, err := ioutil.ReadFile(groupPath)
+	Expect(err).ToNot(HaveOccurred())
 
-	for _, input := range inputs {
-		g := rekeyMap(input.Data, writer.GoldenIDMap)
-		g["GroupID"] = input.RecordId
-		golden = append(golden, g)
+	Expect(json.Unmarshal(b, &golden)).To(Succeed())
 
-		for _, version := range input.UnmarshalledVersions {
-			v := rekeyMap(version.Data, writer.VersionIDMap)
-			v["JobName"] = jobs[version.JobId]
-			v["ConnectionName"] = connections[version.ConnectionId]
-			v["SchemaName"] = schemas[version.SchemaId]
-			v["GroupID"] = input.RecordId
-			v["RecordID"] = version.RecordId
-			versions = append(versions, v)
-		}
-	}
+
+	versionPath := pathPrefix + "_expectations_versions.json"
+	b, err = ioutil.ReadFile(versionPath)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(json.Unmarshal(b, &versions)).To(Succeed())
+
 	return
 }
 

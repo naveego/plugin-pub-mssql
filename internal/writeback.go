@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/naveego/plugin-pub-mssql/internal/constants"
+	"github.com/naveego/plugin-pub-mssql/internal/meta"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/naveego/plugin-pub-mssql/internal/templates"
 	"github.com/naveego/plugin-pub-mssql/pkg/canonical"
@@ -11,6 +13,10 @@ import (
 	"github.com/pkg/errors"
 	"strings"
 	"time"
+)
+
+const (
+	ReplicationAPIVersion = 1
 )
 
 type Writer interface {
@@ -89,13 +95,11 @@ type ReplicationWriter struct {
 	req          *pub.PrepareWriteRequest
 	GoldenIDMap  map[string]string
 	VersionIDMap map[string]string
+	GoldenMetaSchema *meta.Schema
+	VersionMetaSchema *meta.Schema
 	changes      []string
 }
 
-func (r *ReplicationWriter) Write(session *OpSession, record *pub.UnmarshalledRecord) error {
-
-	return nil
-}
 
 func NewReplicationWriteHandler(session *OpSession, req *pub.PrepareWriteRequest) (Writer, error) {
 
@@ -110,32 +114,35 @@ func NewReplicationWriteHandler(session *OpSession, req *pub.PrepareWriteRequest
 
 	sqlSchema := settings.SQLSchema
 
-	command, err := templates.RenderReplicationMetadataDDLArgs(templates.ReplicationMetadataDDLArgs{
+	// Ensure that we have the correct tables in place:
+	_, err := templates.ExecuteCommand(session.DB, templates.ReplicationMetadataDDLArgs{
 		SQLSchema: sqlSchema,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "render metadata table ddl")
-	}
-	// ensure metadata table exists
-	_, err = session.DB.Exec(command)
-	if err != nil {
-		return nil, errors.Wrapf(err, "create replication metadata table using command \n%s", command)
+		return nil, errors.Wrap(err, "ensure replication supporting tables exist")
 	}
 
-	query := fmt.Sprintf("select top (1) * from %s.NaveegoReplicationMetadata order by id desc", sqlSchema)
+	// get the most recent versioning record
+	query := fmt.Sprintf(`select top (1) * 
+from %s.%s
+where ReplicatedShapeID = '%s'
+order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.Id)
+
 	rows, err := session.DB.Query(query)
 	if err != nil {
 		return nil, errors.Wrap(err, "get replication metadata")
 	}
 
-	var previousMetadataSettings NaveegoReplicationMetadataSettings
-	naveegoReplicationMetadataRows := make([]NaveegoReplicationMetadata, 0, 0)
+	var previousMetadata NaveegoReplicationVersioning
+	var previousMetadataSettings NaveegoReplicationVersioningSettings
+	naveegoReplicationMetadataRows := make([]NaveegoReplicationVersioning, 0, 0)
 	err = sqlstructs.UnmarshalRows(rows, &naveegoReplicationMetadataRows)
 	if err != nil {
 		return nil, err
 	}
 	if len(naveegoReplicationMetadataRows) > 0 {
-		previousMetadataSettings = naveegoReplicationMetadataRows[0].GetSettings()
+		previousMetadata = naveegoReplicationMetadataRows[0]
+		previousMetadataSettings = previousMetadata.GetSettings()
 		if previousMetadataSettings.Settings.GetNamespacedVersionRecordTable() != settings.GetNamespacedVersionRecordTable() {
 			// version table name has changed
 			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedVersionRecordTable()); err != nil {
@@ -160,20 +167,12 @@ func NewReplicationWriteHandler(session *OpSession, req *pub.PrepareWriteRequest
 	_ = json.Unmarshal(schemaJson, &goldenSchema)
 	_ = json.Unmarshal(schemaJson, &versionSchema)
 
-	goldenSchema.Properties = append([]*pub.Property{
-		{
-			Id:           "[GroupID]",
-			Name:         "GroupID",
-			IsKey:        true,
-			Type:         pub.PropertyType_STRING,
-			TypeAtSource: "CHAR(44)", // fits an RID if we change group ID convention
-		},
-	}, goldenSchema.Properties...)
-	goldenSchema.Id = GetSchemaID(settings.SQLSchema, settings.GoldenRecordTable)
 
+	w.augmentGoldenProperties(goldenSchema)
+	goldenSchema.Id = GetSchemaID(settings.SQLSchema, settings.GoldenRecordTable)
 	w.GoldenIDMap = w.canonicalizeProperties(goldenSchema)
 
-	versionSchema.Properties = append(versionProperties, versionSchema.Properties...)
+	w.augmentVersionProperties(versionSchema)
 	versionSchema.Id = GetSchemaID(settings.SQLSchema, settings.VersionRecordTable)
 	w.VersionIDMap = w.canonicalizeProperties(versionSchema)
 
@@ -207,32 +206,94 @@ func NewReplicationWriteHandler(session *OpSession, req *pub.PrepareWriteRequest
 		return nil, errors.Wrap(err, "reconciling golden schema")
 	}
 
+	metadataMergeArgs := templates.ReplicationMetadataMerge{
+		SQLSchema:sqlSchema,
+	}
+	for _, version := range req.Replication.Versions {
+		metadataMergeArgs.Entries = append(metadataMergeArgs.Entries,
+			templates.ReplicationMetadataEntry{Kind: "Job", ID: version.JobId, Name: version.JobName},
+			templates.ReplicationMetadataEntry{Kind: "Connection", ID: version.ConnectionId, Name: version.ConnectionName},
+			templates.ReplicationMetadataEntry{Kind: "Schema", ID: version.SchemaId, Name: version.SchemaName},
+			)
+	}
+
+	_, err = templates.ExecuteCommand(session.DB, metadataMergeArgs)
+	if err != nil {
+		return nil, errors.Wrap(err, "merge metadata about versions")
+	}
+
+
+	// If we made any changes to the database, insert a new versioning record
 	if len(w.changes) > 0 {
 
 		session.Log.Info("Made changes to database during prep, will save new metadata.")
 
-		metadataSettings := NaveegoReplicationMetadataSettings{
+		metadataSettings := NaveegoReplicationVersioningSettings{
 			Settings:      settings,
 			Request:       req,
 			Changes:       w.changes,
 			GoldenSchema:  goldenSchema,
 			VersionSchema: versionSchema,
 		}
-		metadata := NaveegoReplicationMetadata{
-			Settings:  metadataSettings.JSON(),
-			Timestamp: time.Now().UTC(),
+		versioning := NaveegoReplicationVersioning{
+			Settings:            metadataSettings.JSON(),
+			Timestamp:           time.Now().UTC(),
+			APIVersion:          ReplicationAPIVersion,
+			ReplicatedShapeID:   req.Schema.Id,
+			ReplicatedShapeName: req.Schema.Name,
 		}
 
-		_, err := session.DB.Exec(fmt.Sprintf(`insert into %s.NaveegoReplicationMetadata (Timestamp, Settings) values (@timestamp, @settings)`, sqlSchema),
-			sql.Named("timestamp", metadata.Timestamp),
-			sql.Named("settings", metadata.Settings),
-		)
+		err = sqlstructs.Insert(session.DB,sqlSchema + ".NaveegoReplicationVersioning", versioning)
+
 		if err != nil {
-			return nil, errors.Wrapf(err, "saving metadata %s", metadata.Settings)
+			return nil, errors.Wrapf(err, "saving metadata %s", versioning.Settings)
 		}
 	}
 
+
+	// Capture schemas for use during write.
+	w.GoldenMetaSchema = MetaSchemaFromPubSchema(goldenSchema)
+	w.VersionMetaSchema = MetaSchemaFromPubSchema(versionSchema)
+
 	return w, nil
+}
+
+
+func (r *ReplicationWriter) Write(session *OpSession, record *pub.UnmarshalledRecord) error {
+
+	// Canonicalize all the fields in the record data and the version data
+	record.Data[constants.GroupID] = record.RecordId
+	record.Data = r.getCanonicalizedMap(record.Data, r.GoldenIDMap)
+	for _, version := range record.UnmarshalledVersions {
+		version.Data[constants.GroupID] = record.RecordId
+		version.Data[constants.RecordID] = version.RecordId
+		version.Data[constants.JobID] = version.JobId
+		version.Data[constants.ConnectionID] = version.ConnectionId
+		version.Data[constants.SchemaID] = version.SchemaId
+		version.Data = r.getCanonicalizedMap(version.Data, r.VersionIDMap)
+	}
+
+	// Merge group data
+	_, err := templates.ExecuteCommand(session.DB, templates.ReplicationGoldenMerge{
+		Schema: r.GoldenMetaSchema,
+		Record:record,
+	})
+
+	if err != nil {
+		return errors.Wrapf(err, "group merge query")
+	}
+
+	// Merge version data
+	_, err = templates.ExecuteCommand(session.DB, templates.ReplicationVersionMerge{
+		Schema:r.VersionMetaSchema,
+		Record:record,
+	})
+
+	if err != nil {
+		return errors.Wrapf(err, "version merge query")
+	}
+
+	return nil
 }
 
 func (r *ReplicationWriter) recordChange(f string, args ...interface{}) {
@@ -270,8 +331,8 @@ func (r *ReplicationWriter) reconcileSchemas(session *OpSession, current *pub.Sc
 }
 
 func (r *ReplicationWriter) dropTable(session *OpSession, table string) error {
-	_, err := session.DB.Exec(fmt.Sprintf(`DROP TABLE %s`, table))
-	r.recordChange("Dropped table %q because of changes.", table)
+	_, err := session.DB.Exec(fmt.Sprintf(`IF OBJECT_ID('%s', 'U') IS NOT NULL DROP TABLE %s`, table, table))
+	r.recordChange("Dropped table %q (if it existed) because of changes.", table)
 	return err
 }
 
@@ -303,16 +364,16 @@ func (r *ReplicationWriter) canonicalizeProperties(schema *pub.Schema) map[strin
 	m := map[string]string{}
 
 	for _, property := range schema.Properties {
-		canonicalID := c.Canonicalize(property.Name)
+		canonicalID := fmt.Sprintf("[%s]",c.Canonicalize(property.Name))
 		m[property.Id] = canonicalID
-		property.Id = fmt.Sprintf("[%s]", canonicalID)
+		property.Id = canonicalID
 	}
 	return m
 }
 
 func (r *ReplicationWriter) createTable(session *OpSession, schema *pub.Schema) error {
 
-	args := templates.ReplicationTableCreationDDLArgs{
+	args := templates.ReplicationTableCreationDDL{
 		Schema: MetaSchemaFromPubSchema(schema),
 	}
 	command, err := templates.RenderReplicationTableCreationDDLArgs(args)
@@ -330,35 +391,46 @@ func (r *ReplicationWriter) createTable(session *OpSession, schema *pub.Schema) 
 	return nil
 }
 
-var versionProperties []*pub.Property
+func (r *ReplicationWriter) getCanonicalizedMap(data map[string]interface{}, idMap map[string]string) map[string]interface{} {
+	out := make(map[string]interface{},len(data))
+	for k, v := range data {
+		if newKey, ok := idMap[k]; ok {
+			out[newKey] = v
+		} else {
+			out[k] = v
+		}
+	}
+	return out
+}
 
-func init() {
+func (r *ReplicationWriter) augmentVersionProperties(schema *pub.Schema) {
 	versionPropertyNames := []string{
-
-		"[ConnectionID]",
-		"[ConnectionName]",
-		"[GroupID]",
-		"[JobName]",
-		"[SchemaID]",
-		"[SchemaName]",
+		constants.ConnectionID,
+		constants.SchemaID,
 	}
 
-	versionProperties = []*pub.Property{
-		{
-			Id:           "[RecordID]",
-			Name:         "RecordID",
+	schema.Properties = append(schema.Properties,
+		&pub.Property{
+			Id:           constants.RecordID,
+			Name:         constants.RecordID,
 			Type:         pub.PropertyType_STRING,
-			TypeAtSource: "CHAR(44)", // fits a base64 encoded SHA256
+			TypeAtSource: "VARCHAR(44)", // fits a base64 encoded SHA256
 			IsKey:        true,
 		},
-		{
-			Id:           "[JobID]",
-			Name:         "JobID",
+		&pub.Property{
+			Id:           constants.JobID,
+			Name:         constants.JobID,
 			Type:         pub.PropertyType_STRING,
-			TypeAtSource: "CHAR(44)",
+			TypeAtSource: "VARCHAR(44)",
 			IsKey:        true,
 		},
-	}
+		&pub.Property{
+			Id:           constants.GroupID,
+			Name:         constants.GroupID,
+			Type:         pub.PropertyType_STRING,
+			TypeAtSource: "VARCHAR(44)",
+		},
+		)
 
 	for _, name := range versionPropertyNames {
 		property := &pub.Property{
@@ -366,32 +438,47 @@ func init() {
 			Name: strings.Trim(name, "[]"),
 			Type: pub.PropertyType_STRING,
 		}
-		versionProperties = append(versionProperties, property)
+		schema.Properties = append(schema.Properties, property)
 	}
-
 }
 
-type NaveegoReplicationMetadata struct {
-	ID        int       `sql:"ID"`
-	Timestamp time.Time `sql:"Timestamp"`
-	Settings  string    `sql:"Settings"`
+func (r *ReplicationWriter) augmentGoldenProperties(goldenSchema *pub.Schema) {
+	goldenSchema.Properties = append([]*pub.Property{
+		{
+			Id:           constants.GroupID,
+			Name:         constants.GroupID,
+			IsKey:        true,
+			Type:         pub.PropertyType_STRING,
+			TypeAtSource: "VARCHAR(44)", // fits an RID or a SHA256 if we change group ID convention
+		},
+	}, goldenSchema.Properties...)
 }
 
-func (n NaveegoReplicationMetadata) GetSettings() NaveegoReplicationMetadataSettings {
-	var s NaveegoReplicationMetadataSettings
+
+type NaveegoReplicationVersioning struct {
+	ID                  int       `sql:"ID" sqlkey:"true"`
+	Timestamp           time.Time `sql:"Timestamp"`
+	APIVersion          int       `sql:"APIVersion"`
+	ReplicatedShapeID   string    `sql:"ReplicatedShapeID"`
+	ReplicatedShapeName string    `sql:"ReplicatedShapeName"`
+	Settings            string    `sql:"Settings"`
+}
+
+func (n NaveegoReplicationVersioning) GetSettings() NaveegoReplicationVersioningSettings {
+	var s NaveegoReplicationVersioningSettings
 	_ = json.Unmarshal([]byte(n.Settings), &s)
 	return s
 }
 
-type NaveegoReplicationMetadataSettings struct {
-	Request       *pub.PrepareWriteRequest
+type NaveegoReplicationVersioningSettings struct {
+	Changes       []string
 	Settings      ReplicationSettings
 	GoldenSchema  *pub.Schema
 	VersionSchema *pub.Schema
-	Changes       []string
+	Request       *pub.PrepareWriteRequest
 }
 
-func (s NaveegoReplicationMetadataSettings) JSON() string {
+func (s NaveegoReplicationVersioningSettings) JSON() string {
 	j, _ := json.MarshalIndent(s, "", "  ")
 	return string(j)
 }

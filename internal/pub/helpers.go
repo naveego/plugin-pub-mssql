@@ -357,6 +357,18 @@ type UnmarshalledRecord struct {
 	UnmarshalledVersions []*UnmarshalledVersionRecord `json:"unmarshalledVersions"`
 }
 
+func (u UnmarshalledRecord) String() string {
+	j, _ := json.MarshalIndent(u, "", "  ")
+	return string(j)
+}
+
+func (u UnmarshalledRecord) Clone() *UnmarshalledRecord {
+	j, _:= json.Marshal(u)
+	var other UnmarshalledRecord
+	_ = json.Unmarshal(j, &other)
+	return &other
+}
+
 type UnmarshalledVersionRecord struct {
 	RecordVersion
 	Data       map[string]interface{} `json:"data"`

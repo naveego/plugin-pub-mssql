@@ -13,7 +13,7 @@ import (
 var _ = Describe("RenderReplicationTableCreationDDLArgs", func() {
 
 	It("should render correctly", func(){
-		actual, err := RenderReplicationTableCreationDDLArgs(ReplicationTableCreationDDLArgs{
+		actual, err := RenderReplicationTableCreationDDLArgs(ReplicationTableCreationDDL{
 			Schema:(&meta.Schema{
 				ID: "[test-schema].[test-table]",
 			}).WithColumns([]*meta.Column{
