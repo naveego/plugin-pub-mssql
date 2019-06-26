@@ -211,12 +211,23 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 		metadataMergeArgs := templates.ReplicationMetadataMerge{
 			SQLSchema:sqlSchema,
 		}
+		var entries []templates.ReplicationMetadataEntry
 		for _, version := range req.Replication.Versions {
-			metadataMergeArgs.Entries = append(metadataMergeArgs.Entries,
+			entries = append(entries,
 				templates.ReplicationMetadataEntry{Kind: "Job", ID: version.JobId, Name: version.JobName},
 				templates.ReplicationMetadataEntry{Kind: "Connection", ID: version.ConnectionId, Name: version.ConnectionName},
 				templates.ReplicationMetadataEntry{Kind: "Schema", ID: version.SchemaId, Name: version.SchemaName},
 				)
+		}
+
+		// the same resource may be in the list more than once
+		// so we need to de-duplicate them or the merge won't work
+		dups := make(map[string]bool)
+		for _, entry := range entries {
+			if !dups[entry.ID] {
+				dups[entry.ID] = true
+				metadataMergeArgs.Entries = append(metadataMergeArgs.Entries, entry)
+			}
 		}
 
 		_, err = templates.ExecuteCommand(session.DB, metadataMergeArgs)
