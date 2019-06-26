@@ -14,7 +14,7 @@ IF NOT exists(SELECT *
               FROM sys.schemas
               WHERE name = '{{.SQLSchema}}')
     BEGIN
-        EXEC sp_executesql N'CREATE SCHEMA {{.SQLSchema}}'
+        EXEC sp_executesql N'CREATE SCHEMA [{{.SQLSchema}}]'
     END;
 
 
@@ -55,7 +55,7 @@ func (r ReplicationMetadataDDLArgs) Render() (string, error) {
 var replicationMetadataMergeTemplate = compileTemplate("replicationMetadataMerge",
 	// language=GoTemplate
 	`
-MERGE INTO {{.SQLSchema}}.{{.ReplicationMetadataTable}} AS Target
+MERGE INTO [{{.SQLSchema}}].{{.ReplicationMetadataTable}} AS Target
 USING (VALUES
 {{- range $i, $entry := .Entries -}}
 	{{- if gt $i 0 -}}, {{else}}  {{ end }}('{{ $entry.ID }}', '{{ $entry.Kind }}', '{{ $entry.Name | replace "'" "''" }}')

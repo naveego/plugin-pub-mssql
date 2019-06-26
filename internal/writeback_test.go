@@ -27,11 +27,11 @@ var _ = Describe("Replication Writeback", func() {
 
 	BeforeEach(func() {
 
-		Expect(db.Exec(`IF OBJECT_ID('w3.ReplicationTest.Golden', 'U') IS NOT NULL
-    DROP TABLE w3.ReplicationTest.Golden;
+		Expect(db.Exec(`IF OBJECT_ID('w3.Replication.Golden', 'U') IS NOT NULL
+    DROP TABLE w3.[Replication].Golden;
 
-IF OBJECT_ID('w3.ReplicationTest.Versions', 'U') IS NOT NULL
-    DROP TABLE w3.ReplicationTest.Versions;`)).To(Not(BeNil()))
+IF OBJECT_ID('w3.Replication.Versions', 'U') IS NOT NULL
+    DROP TABLE w3.[Replication].Versions;`)).To(Not(BeNil()))
 
 		log := GetLogger()
 		session = &Session{
@@ -44,7 +44,7 @@ IF OBJECT_ID('w3.ReplicationTest.Versions', 'U') IS NOT NULL
 		settings := GetTestSettings()
 
 		replicationSettings = ReplicationSettings{
-			SQLSchema:          "ReplicationTest",
+			SQLSchema:          "Replication",
 			GoldenRecordTable:  "Golden",
 			VersionRecordTable: "Versions",
 		}
@@ -114,7 +114,7 @@ IF OBJECT_ID('w3.ReplicationTest.Versions', 'U') IS NOT NULL
 		}
 	})
 
-	FIt("should create tables when writer is initialized", func() {
+	It("should create tables when writer is initialized", func() {
 
 		_, err := NewReplicationWriteHandler(op, req)
 		Expect(err).ToNot(HaveOccurred())
@@ -127,10 +127,10 @@ IF OBJECT_ID('w3.ReplicationTest.Versions', 'U') IS NOT NULL
 		var golden *pub.Schema
 		var versions *pub.Schema
 		for _, schema := range schemas {
-			if schema.Id == "[ReplicationTest].[Golden]" {
+			if schema.Id == "[Replication].[Golden]" {
 				golden = schema
 			}
-			if schema.Id == "[ReplicationTest].[Versions]" {
+			if schema.Id == "[Replication].[Versions]" {
 				versions = schema
 			}
 		}
@@ -138,7 +138,7 @@ IF OBJECT_ID('w3.ReplicationTest.Versions', 'U') IS NOT NULL
 		Expect(versions).ToNot(BeNil())
 	})
 
-	FIt("should write data to replication", func() {
+	It("should write data to replication", func() {
 
 		const pathPrefix = "testdata/replication_1"
 		records := GetInputs(pathPrefix, req)
@@ -197,7 +197,7 @@ func GetInputs(pathPrefix string, req *pub.PrepareWriteRequest) []*pub.Unmarshal
 
 func GetActuals(session *OpSession, settings ReplicationSettings) (golden []map[string]interface{}, versions []map[string]interface{}) {
 
-	goldenRows, err := session.DB.Query(fmt.Sprintf(`select * from %s.%s`, settings.SQLSchema, settings.GoldenRecordTable))
+	goldenRows, err := session.DB.Query(fmt.Sprintf(`select * from [%s].[%s]`, settings.SQLSchema, settings.GoldenRecordTable))
 	Expect(err).ToNot(HaveOccurred())
 
 	golden, err = sqlstructs.UnmarshalRowsToMaps(goldenRows)
@@ -212,7 +212,7 @@ func GetActuals(session *OpSession, settings ReplicationSettings) (golden []map[
 	j, _ := json.Marshal(golden)
 	_ = json.Unmarshal(j, &golden)
 
-	versionRows, err := session.DB.Query(fmt.Sprintf(`select * from %s.%s`, settings.SQLSchema, settings.VersionRecordTable))
+	versionRows, err := session.DB.Query(fmt.Sprintf(`select * from [%s].[%s]`, settings.SQLSchema, settings.VersionRecordTable))
 	Expect(err).ToNot(HaveOccurred())
 
 	versions, err = sqlstructs.UnmarshalRowsToMaps(versionRows)

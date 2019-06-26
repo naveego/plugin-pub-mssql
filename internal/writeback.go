@@ -124,7 +124,7 @@ func NewReplicationWriteHandler(session *OpSession, req *pub.PrepareWriteRequest
 
 	// get the most recent versioning record
 	query := fmt.Sprintf(`select top (1) * 
-from %s.%s
+from [%s].[%s]
 where ReplicatedShapeID = '%s'
 order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.Id)
 
@@ -246,7 +246,7 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 			ReplicatedShapeName: req.Schema.Name,
 		}
 
-		err = sqlstructs.Insert(session.DB,sqlSchema + ".NaveegoReplicationVersioning", versioning)
+		err = sqlstructs.Insert(session.DB, fmt.Sprintf("[%s].[%s]",sqlSchema, "NaveegoReplicationVersioning"), versioning)
 
 		if err != nil {
 			return nil, errors.Wrapf(err, "saving metadata %s", versioning.Settings)
