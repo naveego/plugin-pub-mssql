@@ -1,27 +1,27 @@
 [
   {
-    "GroupID": "group-1",
+    "NaveegoGroupID": "group-1",
     "DateOfBirth": "1966-07-19T00:00:00Z",
     "FirstName": "group-1-g1",
     "ID": 1,
     "LastName": "should end up with updated version"
   },
   {
-    "GroupID": "group-3",
+    "NaveegoGroupID": "group-3",
     "DateOfBirth": "2007-08-03T00:00:00Z",
     "FirstName": "Roy",
     "ID": 3,
     "LastName": "O'Logan"
   },
   {
-    "GroupID": "group-4",
+    "NaveegoGroupID": "group-4",
     "DateOfBirth": "2005-07-26T00:00:00Z",
     "FirstName": "Jard",
     "ID": 4,
     "LastName": "O'Finan"
   },
   {
-    "GroupID": "group-5",
+    "NaveegoGroupID": "group-5",
     "DateOfBirth": "1988-05-27T00:00:00Z",
     "FirstName": "Lev",
     "ID": 5,

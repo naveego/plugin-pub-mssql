@@ -2,16 +2,16 @@ package constants
 
 
 const (
-	UpdatedAt = "UpdatedAt"
-	CreatedAt = "CreatedAt"
-	RecordID = "RecordID"
-	GroupID = "GroupID"
-	JobID = "JobID"
-	JobName = "JobName"
-	ConnectionID ="ConnectionID"
-	ConnectionName ="ConnectionName"
-	SchemaID ="SchemaID"
-	SchemaName ="SchemaName"
+	UpdatedAt = "NaveegoUpdatedAt"
+	CreatedAt = "NaveegoCreatedAt"
+	RecordID = "NaveegoRecordID"
+	GroupID = "NaveegoGroupID"
+	JobID = "NaveegoJobID"
+	JobName = "NaveegoJobName"
+	ConnectionID ="NaveegoConnectionID"
+	ConnectionName ="NaveegoConnectionName"
+	SchemaID ="NaveegoSchemaID"
+	SchemaName ="NaveegoSchemaName"
 
 	ReplicationVersioningTable = "NaveegoReplicationVersioning"
 	ReplicationMetadataTable = "NaveegoReplicationMetadata"

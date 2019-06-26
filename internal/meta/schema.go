@@ -147,11 +147,41 @@ func (c Columns) MakeSQLColumnNameList() string {
 	var values []string
 
 	for _, column := range c {
-		values = append(values, column.ID)
+
+			values = append(values, column.ID)
 	}
 
 	return strings.Join(values, ", ")
 
+}
+
+
+
+func (c Columns) OmitKeys() Columns {
+	var out Columns
+	for _, column := range c {
+		if !column.IsKey {
+			out = append(out, column)
+		}
+	}
+	return out
+}
+
+func (c Columns) OmitIDs(omit ...string) Columns {
+	var out Columns
+	for _, column := range c {
+		skip := false
+		for _, o := range omit {
+			if column.ID == o || column.ID ==`[`+o+`]` {
+				skip = true
+				break
+			}
+		}
+		if !skip{
+			out = append(out, column)
+		}
+	}
+	return out
 }
 
 type Column struct {
@@ -191,6 +221,10 @@ func (c Column) String() string {
 // value v in a SQL query.
 func (c Column) RenderSQLValue(v interface{}) string {
 
+	if v == nil {
+		return "null"
+	}
+
 	switch c.PropertyType {
 	case pub.PropertyType_STRING,
 		pub.PropertyType_TEXT,
@@ -205,6 +239,11 @@ func (c Column) RenderSQLValue(v interface{}) string {
 		j, _ := json.Marshal(v)
 		s := strings.Replace(string(j), "'", "''", -1)
 		return fmt.Sprintf("'%s'", s)
+	case pub.PropertyType_BOOL:
+		if b, ok := v.(bool); ok && b {
+			return "1"
+		}
+		return "0"
 
 	default:
 		return fmt.Sprintf("%v", v)

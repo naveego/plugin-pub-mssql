@@ -114,7 +114,7 @@ IF OBJECT_ID('w3.ReplicationTest.Versions', 'U') IS NOT NULL
 		}
 	})
 
-	It("should create tables when writer is initialized", func() {
+	FIt("should create tables when writer is initialized", func() {
 
 		_, err := NewReplicationWriteHandler(op, req)
 		Expect(err).ToNot(HaveOccurred())
@@ -138,7 +138,7 @@ IF OBJECT_ID('w3.ReplicationTest.Versions', 'U') IS NOT NULL
 		Expect(versions).ToNot(BeNil())
 	})
 
-	It("should write data to replication", func() {
+	FIt("should write data to replication", func() {
 
 		const pathPrefix = "testdata/replication_1"
 		records := GetInputs(pathPrefix, req)

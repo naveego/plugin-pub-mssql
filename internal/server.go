@@ -562,6 +562,53 @@ type ConfigureWriteFormData struct {
 func (s *Server) ConfigureReplication(ctx context.Context, req *pub.ConfigureReplicationRequest) (*pub.ConfigureReplicationResponse, error) {
 	builder := pub.NewConfigurationFormResponseBuilder(req.Form)
 
+	s.log.Debug("Handling configure replication request.")
+
+	var settings ReplicationSettings
+	if req.Form.DataJson != "" {
+		if err := json.Unmarshal([]byte(req.Form.DataJson), &settings); err != nil {
+			return nil, errors.Wrapf(err, "invalid data json %q", req.Form.DataJson)
+		}
+
+		s.log.Debug("Configure replication request had data.", "data", string(req.Form.DataJson))
+
+
+		if req.Schema != nil {
+			s.log.Debug("Configure replication request had a schema.", "schema", req.Schema)
+		}
+		if req.Form.IsSave {
+			s.log.Debug("Configure replication request was a save.")
+		}
+
+		if settings.SQLSchema != "" &&
+			settings.VersionRecordTable != "" &&
+			settings.GoldenRecordTable != "" &&
+			req.Schema != nil &&
+			req.Form.IsSave {
+
+			s.log.Info("Configure replication request had IsSave=true, committing replication settings to database.")
+
+			// The settings have been filled in, let's make sure it's ready to go.
+
+			session, err := s.getOpSession(ctx)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = PrepareWriteHandler(session, &pub.PrepareWriteRequest{
+				Schema:req.Schema,
+				Replication: &pub.ReplicationWriteRequest{
+				SettingsJson:req.Form.DataJson,
+				Versions: req.Versions,
+				},
+			})
+			if err != nil {
+				s.log.Error("Configuring replication failed.", "req", string(req.Form.DataJson), "err", err)
+				builder.Response.Errors = []string{err.Error()}
+			}
+		}
+	}
+
 	builder.UISchema = map[string]interface{}{
 		"ui:order":[]string{"sqlSchema","goldenRecordTable", "versionRecordTable"},
 	}

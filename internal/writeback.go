@@ -206,20 +206,23 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 		return nil, errors.Wrap(err, "reconciling golden schema")
 	}
 
-	metadataMergeArgs := templates.ReplicationMetadataMerge{
-		SQLSchema:sqlSchema,
-	}
-	for _, version := range req.Replication.Versions {
-		metadataMergeArgs.Entries = append(metadataMergeArgs.Entries,
-			templates.ReplicationMetadataEntry{Kind: "Job", ID: version.JobId, Name: version.JobName},
-			templates.ReplicationMetadataEntry{Kind: "Connection", ID: version.ConnectionId, Name: version.ConnectionName},
-			templates.ReplicationMetadataEntry{Kind: "Schema", ID: version.SchemaId, Name: version.SchemaName},
-			)
-	}
+	if len(req.Replication.Versions) > 0 {
 
-	_, err = templates.ExecuteCommand(session.DB, metadataMergeArgs)
-	if err != nil {
-		return nil, errors.Wrap(err, "merge metadata about versions")
+		metadataMergeArgs := templates.ReplicationMetadataMerge{
+			SQLSchema:sqlSchema,
+		}
+		for _, version := range req.Replication.Versions {
+			metadataMergeArgs.Entries = append(metadataMergeArgs.Entries,
+				templates.ReplicationMetadataEntry{Kind: "Job", ID: version.JobId, Name: version.JobName},
+				templates.ReplicationMetadataEntry{Kind: "Connection", ID: version.ConnectionId, Name: version.ConnectionName},
+				templates.ReplicationMetadataEntry{Kind: "Schema", ID: version.SchemaId, Name: version.SchemaName},
+				)
+		}
+
+		_, err = templates.ExecuteCommand(session.DB, metadataMergeArgs)
+		if err != nil {
+			return nil, errors.Wrap(err, "merge metadata about versions")
+		}
 	}
 
 
@@ -430,6 +433,18 @@ func (r *ReplicationWriter) augmentVersionProperties(schema *pub.Schema) {
 			Type:         pub.PropertyType_STRING,
 			TypeAtSource: "VARCHAR(44)",
 		},
+		&pub.Property{
+			Id:           constants.CreatedAt,
+			Name:         constants.CreatedAt,
+			Type:         pub.PropertyType_DATETIME,
+			TypeAtSource: "DATETIME",
+		},
+		&pub.Property{
+			Id:           constants.UpdatedAt,
+			Name:         constants.UpdatedAt,
+			Type:         pub.PropertyType_DATETIME,
+			TypeAtSource: "DATETIME",
+		},
 		)
 
 	for _, name := range versionPropertyNames {
@@ -450,6 +465,18 @@ func (r *ReplicationWriter) augmentGoldenProperties(goldenSchema *pub.Schema) {
 			IsKey:        true,
 			Type:         pub.PropertyType_STRING,
 			TypeAtSource: "VARCHAR(44)", // fits an RID or a SHA256 if we change group ID convention
+		},
+		&pub.Property{
+			Id:           constants.CreatedAt,
+			Name:         constants.CreatedAt,
+			Type:         pub.PropertyType_DATETIME,
+			TypeAtSource: "DATETIME",
+		},
+		&pub.Property{
+			Id:           constants.UpdatedAt,
+			Name:         constants.UpdatedAt,
+			Type:         pub.PropertyType_DATETIME,
+			TypeAtSource: "DATETIME",
 		},
 	}, goldenSchema.Properties...)
 }
