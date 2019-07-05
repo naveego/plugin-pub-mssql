@@ -674,10 +674,11 @@ func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
 				case pub.PropertyType_DATE, pub.PropertyType_DATETIME:
 					stringValue, ok := rawValue.(string)
 					if !ok {
-						ackMsgCh <-fmt.Sprintf("cannot convert value %v to %s (was %T)", rawValue, prop.Type, rawValue)
-						return
+						value = nil
+					} else {
+						value, err = time.Parse(time.RFC3339, stringValue)
 					}
-					value, err = time.Parse(time.RFC3339, stringValue)
+
 				default:
 					value = rawValue
 				}
