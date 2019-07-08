@@ -199,7 +199,7 @@ func (r ReplicationVersionMerge) Render() (string, error) {
 var replicationGoldenMergeTemplate = compileTemplate("replicationGoldenMerge",
 	// language=GoTemplate
 	`
-{{- if eq .Record.Action 3 -}}
+{{- if or (eq .Record.Action 3) (not .Record.UnmarshalledVersions) -}}
 -- if the record action is 3, we should delete the group
 DELETE FROM {{.Schema.ID}}
 WHERE {{.GroupIDColumn}} = '{{ .Record.RecordId }}'
