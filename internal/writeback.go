@@ -69,9 +69,11 @@ func (d *DefaultWriteHandler) Write(session *OpSession, record *pub.Unmarshalled
 		case pub.PropertyType_DATE, pub.PropertyType_DATETIME:
 			stringValue, ok := rawValue.(string)
 			if !ok {
-				return errors.Errorf("cannot convert value %v to %s (was %T)", rawValue, prop.Type, rawValue)
+				value = nil
+			} else {
+				value, err = time.Parse(time.RFC3339, stringValue)
 			}
-			value, err = time.Parse(time.RFC3339, stringValue)
+
 			if err != nil {
 				return errors.Errorf("invalid date time %q: %s", stringValue, err)
 			}
