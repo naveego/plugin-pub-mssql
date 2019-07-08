@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"regexp"
@@ -87,11 +88,101 @@ func (s *Schema) Columns() Columns {
 	return s.columns
 }
 
+func (s *Schema) NonKeyColumns() Columns {
+	var out Columns
+	for _, c := range s.columns {
+		if !c.IsKey {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// ColumnsKeysFirst returns the columns with keys sorted to the beginning.
+func (s *Schema) ColumnsKeysFirst() Columns {
+	var out Columns
+	for _, c := range s.columns {
+		if c.IsKey {
+			out = append(out, c)
+		}
+	}
+
+	for _, c := range s.columns {
+		if !c.IsKey {
+			out = append(out, c)
+		}
+	}
+
+	return out
+}
+
 type Columns []*Column
 
 func (c Columns) Len() int           { return len(c) }
 func (c Columns) Less(i, j int) bool { return strings.Compare(c[i].ID, c[j].ID) < 0 }
 func (c Columns) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }
+
+// MakeSQLValuesFromMap produces a string like `'a', 7, null` from a map by extracting
+// the values in the order the columns are in.
+func (c Columns) MakeSQLValuesFromMap(m map[string]interface{}) string {
+
+	var values []string
+
+	for _, column := range c {
+		if raw, ok := m[column.ID]; ok {
+			values = append(values, column.RenderSQLValue(raw))
+		} else {
+			values = append(values, "null")
+		}
+	}
+
+	return  strings.Join(values, ", ")
+
+}
+
+// MakeSQLValuesFromMap produces a string like `ID, Value, Other` from a map by extracting
+// the column names in the order the columns are in.
+func (c Columns) MakeSQLColumnNameList() string {
+
+	var values []string
+
+	for _, column := range c {
+
+			values = append(values, column.ID)
+	}
+
+	return strings.Join(values, ", ")
+
+}
+
+
+
+func (c Columns) OmitKeys() Columns {
+	var out Columns
+	for _, column := range c {
+		if !column.IsKey {
+			out = append(out, column)
+		}
+	}
+	return out
+}
+
+func (c Columns) OmitIDs(omit ...string) Columns {
+	var out Columns
+	for _, column := range c {
+		skip := false
+		for _, o := range omit {
+			if column.ID == o || column.ID ==`[`+o+`]` {
+				skip = true
+				break
+			}
+		}
+		if !skip{
+			out = append(out, column)
+		}
+	}
+	return out
+}
 
 type Column struct {
 	SchemaID string `json:"s"`
@@ -130,9 +221,30 @@ func (c Column) String() string {
 // value v in a SQL query.
 func (c Column) RenderSQLValue(v interface{}) string {
 
+	if v == nil {
+		return "null"
+	}
+
 	switch c.PropertyType {
-	case pub.PropertyType_STRING:
-		return fmt.Sprintf("'%s'", v)
+	case pub.PropertyType_STRING,
+		pub.PropertyType_TEXT,
+		pub.PropertyType_DATE,
+		pub.PropertyType_DATETIME,
+		pub.PropertyType_XML,
+		pub.PropertyType_BLOB:
+		s := strings.Replace(fmt.Sprint(v), "'", "''", -1)
+		return fmt.Sprintf("'%s'", s)
+	case pub.PropertyType_JSON:
+
+		j, _ := json.Marshal(v)
+		s := strings.Replace(string(j), "'", "''", -1)
+		return fmt.Sprintf("'%s'", s)
+	case pub.PropertyType_BOOL:
+		if b, ok := v.(bool); ok && b {
+			return "1"
+		}
+		return "0"
+
 	default:
 		return fmt.Sprintf("%v", v)
 	}

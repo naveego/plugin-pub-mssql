@@ -3,8 +3,9 @@
 package main
 
 import (
-	"github.com/naveego/dataflow-contracts/plugins"
-	"os"
+	"github.com/magefile/mage/sh"
+	"log"
+	"path/filepath"
 
 	"github.com/naveego/ci/go/build"
 	"github.com/naveego/plugin-pub-mssql/version"
@@ -29,14 +30,27 @@ func Build() error {
 	return err
 }
 
+// Generates the client for the plugin using the dataflow-contracts/plugins grpc.
+func GenerateGRPC() error {
 
-func PublishBlue() error {
-	os.Setenv("UPLOAD", "blue")
-	return Build()
+	toDir := "./internal/pub"
+	dcDir := getDataflowContractsDir()
+
+	fromDir := filepath.Join(dcDir, "plugins")
+
+	err := sh.RunV("protoc",
+		"-I",
+		fromDir,
+		"--go_out=plugins=grpc:"+toDir,
+		"publisher.proto")
+
+	return err
 }
 
-
-func GenerateGRPC() error {
-	destDir := "./internal/pub"
-	return plugins.GeneratePublisher(destDir)
+func getDataflowContractsDir() string {
+	dcDir, err := sh.Output("bosun", "app", "repo-path", "dataflow-contracts")
+	if err != nil {
+		log.Fatal(err)
+	}
+	return dcDir
 }

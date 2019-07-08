@@ -1,0 +1,68 @@
+{
+  "id": 176614,
+  "num_rows": 5,
+  "file_format": "json",
+  "name": "My Saved Schema",
+  "array": true,
+  "columns": [
+    {
+      "name": "data.id",
+      "null_percentage": 0,
+      "type": "Row Number",
+      "formula": ""
+    },
+    {
+      "name": "data.first_name",
+      "null_percentage": 0,
+      "type": "First Name",
+      "formula": ""
+    },
+    {
+      "name": "data.last_name",
+      "null_percentage": 0,
+      "type": "Last Name",
+      "formula": ""
+    },
+    {
+      "name": "data.dob",
+      "null_percentage": 0,
+      "type": "Date",
+      "min": "6/17/1960",
+      "max": "6/17/2012",
+      "format": "%Y-%m-%d",
+      "formula": ""
+    },
+    {
+      "name": "unmarshalledVersions",
+      "null_percentage": 0,
+      "type": "JSON Array",
+      "minItems": 2,
+      "maxItems": 2,
+      "formula": ""
+    },
+    {
+      "name": "unmarshalledVersions.rid",
+      "null_percentage": 0,
+      "type": "GUID",
+      "formula": ""
+    },
+    {
+      "name": "unmarshalledVersions.data.id",
+      "null_percentage": 0,
+      "type": "Row Number",
+      "formula": ""
+    },
+    {
+      "name": "unmarshalledVersions.data.first_name",
+      "null_percentage": 0,
+      "type": "First Name",
+      "formula": ""
+    },
+    {
+      "name": "unmarshalledVersions.data.last_name",
+      "null_percentage": 0,
+      "type": "Last Name",
+      "formula": ""
+    }
+  ]
+}

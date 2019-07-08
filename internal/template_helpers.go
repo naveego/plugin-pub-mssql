@@ -16,7 +16,11 @@ func MetaSchemaFromPubSchema(shape *pub.Schema) *meta.Schema {
 			ID:           p.Id,
 			IsKey:        p.IsKey,
 			PropertyType: p.Type,
-			SQLType: p.TypeAtSource,
+		}
+		if p.TypeAtSource == "" {
+			col.SQLType = meta.ConvertPluginTypeToSQLType(p.Type)
+		} else {
+			col.SQLType = p.TypeAtSource
 		}
 
 		schema.AddColumn(col)

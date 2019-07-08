@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/hashicorp/go-hclog"
 	. "github.com/naveego/plugin-pub-mssql/internal"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	. "github.com/onsi/ginkgo"
@@ -42,11 +41,7 @@ var _ = Describe("Server", func() {
 
 	BeforeEach(func() {
 
-		log := hclog.New(&hclog.LoggerOptions{
-			Level:      hclog.Trace,
-			Output:     testOutput,
-			JSONFormat: false,
-		})
+		log := GetLogger()
 
 		sut = NewServer(log)
 
@@ -682,7 +677,9 @@ var _ = Describe("Server", func() {
 
 				Expect(sut.WriteStream(stream)).To(Succeed())
 
-				Expect(stream.recordAcks).To(HaveLen(1))
+				Eventually(func() []*pub.RecordAck {
+					return stream.recordAcks
+				}).Should(HaveLen(1))
 				Expect(stream.recordAcks[0].CorrelationId).To(Equal("test"))
 				Expect(stream.recordAcks[0].Error).To(Equal(""))
 			})

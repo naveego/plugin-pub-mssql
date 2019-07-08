@@ -750,12 +750,6 @@ func BeRecordMatching(action pub.Record_Action, data interface{}) GomegaMatcher 
 
 }
 
-func ResolveRecord(record *pub.Record, data interface{}, state interface{}) pub.ResolvedRecord {
-	r, err := record.Resolve(&data, &state)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	return r
-}
-
 func BeARealTimeStateCommit(expected RealTimeState) GomegaMatcher {
 	return WithTransform(func(r *pub.Record) RealTimeState {
 		// Expect(r.Action).To(BeEquivalentTo(pub.Record_REAL_TIME_STATE_COMMIT),"expected a real time state commit, not %s", r.Action)

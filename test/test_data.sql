@@ -722,3 +722,23 @@ INSERT INTO HumanResources.Employee (BusinessEntityID, NationalIDNumber, LoginID
                                      CurrentFlag, rowguid, ModifiedDate)
 VALUES (4, '112457891', 'adventure-works\rob0', 0x5AD6, 'Senior Tool Editor', '1954-02-08', 'M', 'F', '2002-01-05', 0,
         48, 80, 1, '59747955-87B8-443F-8ED4-F8AD3AFDF3A9', '2008-07-31 00:00:00.000');
+
+GO
+
+IF NOT exists(SELECT *
+              FROM w3.sys.schemas
+              WHERE name = 'ReplicationTest')
+    BEGIN
+        EXEC sp_executesql N'CREATE SCHEMA ReplicationTest'
+    END;
+
+
+GO
+
+
+
+IF OBJECT_ID(' w3.ReplicationTest.Golden', 'U') IS NOT NULL
+    DROP TABLE w3.ReplicationTest.Golden;
+
+IF OBJECT_ID(' w3.ReplicationTest.Versions', 'U') IS NOT NULL
+    DROP TABLE w3.ReplicationTest.Versions;
