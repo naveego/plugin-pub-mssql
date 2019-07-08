@@ -2,6 +2,7 @@ package internal_test
 
 import (
 	. "github.com/naveego/plugin-pub-mssql/internal"
+	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -62,5 +63,38 @@ var _ = Describe("Settings", func() {
 			settings.Password = ""
 			Expect(settings.Validate()).To(Succeed())
 		})
+	})
+})
+
+var _ = Describe("UnmarshalledRecord", func(){
+	It("should have correct data", func(){
+		input := &pub.Record{
+			DataJson:`{"a":"A","b":2}`,
+			Versions: []*pub.RecordVersion{
+				{
+					DataJson:`{"a":"vA","b":3}`,
+				},{
+					DataJson:`{"a":"vB","b":4}`,
+				},
+			},
+		}
+		actual, err := input.AsUnmarshalled()
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(actual.Data).To(BeEquivalentTo(map[string]interface{}{
+			"a":"A",
+			"b":float64(2),
+		}))
+		Expect(actual.UnmarshalledVersions).To(HaveLen(2))
+		Expect(actual.UnmarshalledVersions[0].Data).To(BeEquivalentTo(
+			map[string]interface{}{
+			"a":"vA",
+			"b":float64(3),
+		}))
+		Expect(actual.UnmarshalledVersions[1].Data).To(BeEquivalentTo(
+			map[string]interface{}{
+			"a":"vB",
+			"b":float64(4),
+		}))
 	})
 })

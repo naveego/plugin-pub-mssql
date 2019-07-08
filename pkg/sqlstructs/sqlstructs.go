@@ -2,11 +2,52 @@ package sqlstructs
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/pkg/errors"
 	"reflect"
+	"strings"
 )
 
-// UnmarshalRows unmarshals the data in rows into the out parameter.
+// Insert inserts the struct into the named table.
+func Insert(db *sql.DB, table string, item interface{}) error {
+
+	itemValue := reflect.ValueOf(item)
+	itemType := itemValue.Type()
+
+
+	columnNames := make([]string,0, itemValue.NumField())
+	parameterNames := make([]string,0, itemValue.NumField())
+	parameters := make([]interface{},0, itemValue.NumField())
+
+	for i := 0; i < itemValue.NumField(); i++ {
+		f := itemType.Field(i)
+		if _, ok := f.Tag.Lookup("sqlkey"); ok {
+			continue
+		}
+		n := f.Name
+		if t, ok := f.Tag.Lookup("sql"); ok {
+			n = t
+		}
+		columnNames = append(columnNames, n)
+		parameterName := fmt.Sprintf("p%d", i)
+		parameterNames = append(parameterNames, "@" + parameterName)
+		parameters = append(parameters, sql.Named(parameterName, itemValue.Field(i).Interface()))
+	}
+
+	query := fmt.Sprintf(`insert into %s (%s) 
+values (%s)`,
+table,
+strings.Join(columnNames, ", "),
+strings.Join(parameterNames, ", "))
+
+	_, err := db.Exec(query, parameters...)
+	if err != nil {
+		return errors.Wrapf(err, "insert attempt with command %q", query)
+	}
+
+	return err
+}
+
 // The out parameter must be a pointer to a slice of the type each
 // row should be unmarshaled into.
 func UnmarshalRows(rows *sql.Rows, out interface{}) error {
@@ -91,4 +132,41 @@ func UnmarshalRows(rows *sql.Rows, out interface{}) error {
 	outValue.Elem().Set(outSlice)
 
 	return nil
+}
+
+func UnmarshalRowsToMaps(rows *sql.Rows) ([]map[string]interface{}, error) {
+
+	columnNames, err := rows.Columns()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var out []map[string]interface{}
+
+	for rows.Next() {
+		columns := make([]interface{}, len(columnNames))
+		columnPointers := make([]interface{}, len(columnNames))
+
+		outElement := map[string]interface{}{}
+
+		for i := 0; i < len(columnNames); i++ {
+			columnPointers[i] = &columns[i]
+		}
+		if err := rows.Scan(columnPointers...); err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		for i, name := range columnNames {
+			v := columnPointers[i]
+			if v == nil {
+			outElement[name] = nil
+			} else {
+				outElement[name] = reflect.ValueOf(v).Elem().Interface()
+			}
+
+		}
+		out = append(out, outElement)
+	}
+
+	return out, nil
 }

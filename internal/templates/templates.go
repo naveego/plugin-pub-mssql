@@ -53,6 +53,7 @@ func compileTemplate(name, input string) *template.Template {
 		Funcs(template.FuncMap{
 			"uniquify":     UniquifySQLName,
 			"PrefixColumn": PrefixColumn,
+			"ConvertPluginTypeToSQLType": meta.ConvertPluginTypeToSQLType,
 		}).
 		Parse(input)
 	if err != nil {

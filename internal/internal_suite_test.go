@@ -157,3 +157,12 @@ func connectToSQL(database string) error {
 
 	return err
 }
+
+
+func GetLogger() hclog.Logger {
+	return hclog.New(&hclog.LoggerOptions{
+		Level:      hclog.Trace,
+		Output:     testOutput,
+		JSONFormat: false,
+	})
+}
