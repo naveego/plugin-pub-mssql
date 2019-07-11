@@ -94,14 +94,13 @@ func (d *DefaultWriteHandler) Write(session *OpSession, record *pub.Unmarshalled
 }
 
 type ReplicationWriter struct {
-	req          *pub.PrepareWriteRequest
-	GoldenIDMap  map[string]string
-	VersionIDMap map[string]string
-	GoldenMetaSchema *meta.Schema
+	req               *pub.PrepareWriteRequest
+	GoldenIDMap       map[string]string
+	VersionIDMap      map[string]string
+	GoldenMetaSchema  *meta.Schema
 	VersionMetaSchema *meta.Schema
-	changes      []string
+	changes           []string
 }
-
 
 func NewReplicationWriteHandler(session *OpSession, req *pub.PrepareWriteRequest) (Writer, error) {
 
@@ -142,18 +141,29 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 	if err != nil {
 		return nil, err
 	}
+	requestedVersionTableName := settings.GetNamespacedVersionRecordTable()
+	requestedGoldenTableName := settings.GetNamespacedGoldenRecordTable()
+	var previousVersionTableSchema *pub.Schema
+	var previousGoldenTableSchema *pub.Schema
+
 	if len(naveegoReplicationMetadataRows) > 0 {
 		previousMetadata = naveegoReplicationMetadataRows[0]
 		previousMetadataSettings = previousMetadata.GetSettings()
-		if previousMetadataSettings.Settings.GetNamespacedVersionRecordTable() != settings.GetNamespacedVersionRecordTable() {
+
+		previousGoldenTableSchema = previousMetadataSettings.GoldenSchema
+		previousVersionTableSchema = previousMetadataSettings.VersionSchema
+
+		previousVersionTableName := previousMetadataSettings.Settings.GetNamespacedVersionRecordTable()
+		if previousVersionTableName != requestedVersionTableName {
 			// version table name has changed
-			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedVersionRecordTable()); err != nil {
+			if err := w.dropTable(session, previousVersionTableName); err != nil {
 				return nil, errors.Wrap(err, "dropping version table after name change")
 			}
 		}
-		if previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable() != settings.GetNamespacedVersionRecordTable() {
+		previousGoldenTableName := previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable()
+		if previousGoldenTableName != requestedGoldenTableName {
 			// golden table name has changed
-			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable()); err != nil {
+			if err := w.dropTable(session, previousGoldenTableName); err != nil {
 				return nil, errors.Wrap(err, "dropping golden table after name change")
 			}
 		}
@@ -169,7 +179,6 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 	_ = json.Unmarshal(schemaJson, &goldenSchema)
 	_ = json.Unmarshal(schemaJson, &versionSchema)
 
-
 	w.augmentGoldenProperties(goldenSchema)
 	goldenSchema.Id = GetSchemaID(settings.SQLSchema, settings.GoldenRecordTable)
 	w.GoldenIDMap = w.canonicalizeProperties(goldenSchema)
@@ -178,40 +187,17 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 	versionSchema.Id = GetSchemaID(settings.SQLSchema, settings.VersionRecordTable)
 	w.VersionIDMap = w.canonicalizeProperties(versionSchema)
 
-	discoveredSchemas, err := DiscoverSchemasSync(session, session.SchemaDiscoverer, &pub.DiscoverSchemasRequest{
-		Mode:       pub.DiscoverSchemasRequest_REFRESH,
-		SampleSize: 0,
-		ToRefresh: []*pub.Schema{
-			goldenSchema,
-			versionSchema,
-		},
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "checking for owned schemas")
-	}
-
-	var existingGoldenSchema *pub.Schema
-	var existingVersionSchema *pub.Schema
-	for _, schema := range discoveredSchemas {
-		if schema.Id == settings.GetNamespacedGoldenRecordTable() {
-			existingGoldenSchema = schema
-		}
-		if schema.Id == settings.GetNamespacedVersionRecordTable() {
-			existingVersionSchema = schema
-		}
-	}
-
-	if err := w.reconcileSchemas(session, existingVersionSchema, versionSchema); err != nil {
+	if err := w.reconcileSchemas(session, previousVersionTableSchema, versionSchema); err != nil {
 		return nil, errors.Wrap(err, "reconciling version schema")
 	}
-	if err := w.reconcileSchemas(session, existingGoldenSchema, goldenSchema); err != nil {
+	if err := w.reconcileSchemas(session, previousGoldenTableSchema, goldenSchema); err != nil {
 		return nil, errors.Wrap(err, "reconciling golden schema")
 	}
 
 	if len(req.Replication.Versions) > 0 {
 
 		metadataMergeArgs := templates.ReplicationMetadataMerge{
-			SQLSchema:sqlSchema,
+			SQLSchema: sqlSchema,
 		}
 		var entries []templates.ReplicationMetadataEntry
 		for _, version := range req.Replication.Versions {
@@ -219,7 +205,7 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 				templates.ReplicationMetadataEntry{Kind: "Job", ID: version.JobId, Name: version.JobName},
 				templates.ReplicationMetadataEntry{Kind: "Connection", ID: version.ConnectionId, Name: version.ConnectionName},
 				templates.ReplicationMetadataEntry{Kind: "Schema", ID: version.SchemaId, Name: version.SchemaName},
-				)
+			)
 		}
 
 		// the same resource may be in the list more than once
@@ -237,7 +223,6 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 			return nil, errors.Wrap(err, "merge metadata about versions")
 		}
 	}
-
 
 	// If we made any changes to the database, insert a new versioning record
 	if len(w.changes) > 0 {
@@ -259,13 +244,12 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 			ReplicatedShapeName: req.Schema.Name,
 		}
 
-		err = sqlstructs.Insert(session.DB, fmt.Sprintf("[%s].[%s]",sqlSchema, "NaveegoReplicationVersioning"), versioning)
+		err = sqlstructs.Insert(session.DB, fmt.Sprintf("[%s].[%s]", sqlSchema, "NaveegoReplicationVersioning"), versioning)
 
 		if err != nil {
 			return nil, errors.Wrapf(err, "saving metadata %s", versioning.Settings)
 		}
 	}
-
 
 	// Capture schemas for use during write.
 	w.GoldenMetaSchema = MetaSchemaFromPubSchema(goldenSchema)
@@ -273,7 +257,6 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 
 	return w, nil
 }
-
 
 func (r *ReplicationWriter) Write(session *OpSession, record *pub.UnmarshalledRecord) error {
 
@@ -292,7 +275,7 @@ func (r *ReplicationWriter) Write(session *OpSession, record *pub.UnmarshalledRe
 	// Merge group data
 	_, err := templates.ExecuteCommand(session.DB, templates.ReplicationGoldenMerge{
 		Schema: r.GoldenMetaSchema,
-		Record:record,
+		Record: record,
 	})
 
 	if err != nil {
@@ -301,8 +284,8 @@ func (r *ReplicationWriter) Write(session *OpSession, record *pub.UnmarshalledRe
 
 	// Merge version data
 	_, err = templates.ExecuteCommand(session.DB, templates.ReplicationVersionMerge{
-		Schema:r.VersionMetaSchema,
-		Record:record,
+		Schema: r.VersionMetaSchema,
+		Record: record,
 	})
 
 	if err != nil {
@@ -318,44 +301,46 @@ func (r *ReplicationWriter) recordChange(f string, args ...interface{}) {
 
 func (r *ReplicationWriter) reconcileSchemas(session *OpSession, current *pub.Schema, desired *pub.Schema) error {
 
-	needsDelete := false
-	needsCreate := false
-	if current == nil {
-		needsCreate = true
+	var changes []string
+
+	if current != nil {
+		changes = append(changes, r.compareProps(current, desired, "the database", "the platform")...)
+		changes = append(changes, r.compareProps(desired, current, "the platform", "the database")...)
 	} else {
-
-		needsDelete = r.compareProps(current, desired) || r.compareProps(desired, current)
-		needsCreate = needsDelete
+		changes = []string{"table has not been created"}
 	}
 
-	if needsDelete && current != nil {
-		if err := r.dropTable(session, current.Id); err != nil {
-			session.Log.Warn("Could not drop table.", "table", current.Id, "err", err)
+	if len(changes) > 0 {
+
+		if current != nil {
+			// if there is an old version of the table, drop it
+			if err := r.dropTable(session, current.Id, changes...); err != nil {
+				return errors.Wrapf(err, "could not drop table %q (reasons to try to drop table: %s)", current.Id, strings.Join(changes, "; "))
+			}
+		} else {
+			// even if table has not been previously configured by us, it may exist
+			// because of a previous failed configuration or other nonsense
+			if err := r.dropTable(session, desired.Id, "ensuring that table does not already exist"); err != nil {
+				return errors.Wrapf(err, "could not drop table %q (reasons to try to drop table: ensuring that table does not already exist)", desired.Id)
+			}
 		}
 
-	}
-
-	if needsCreate {
-		if err := r.createTable(session, current); err != nil {
-			session.Log.Error("Could not create table.", "table", current, "err", err)
-			return errors.Wrapf(err, "create table")
+		if err := r.createTable(session, desired, changes...); err != nil {
+			return errors.Wrapf(err, "could not create table %q (reasons to create table: %s)", desired.Id, strings.Join(changes, "; "))
 		}
-
 	}
 
 	return nil
 }
 
-func (r *ReplicationWriter) dropTable(session *OpSession, table string) error {
+func (r *ReplicationWriter) dropTable(session *OpSession, table string, changes ...string) error {
 	_, err := session.DB.Exec(fmt.Sprintf(`IF OBJECT_ID('%s', 'U') IS NOT NULL DROP TABLE %s`, table, table))
-	r.recordChange("Dropped table %q (if it existed) because of changes.", table)
+	r.recordChange("Dropped table %q (if it existed). Reasons: %s.", table, strings.Join(changes, "; "))
 	return err
 }
 
-func (r *ReplicationWriter) compareProps(left, right *pub.Schema) (same bool) {
-	if len(left.Properties) != len(right.Properties) {
-		return false
-	}
+func (r *ReplicationWriter) compareProps(left, right *pub.Schema, leftID, rightID string) (changes []string) {
+
 	rightProps := map[string]*pub.Property{}
 	for _, prop := range right.Properties {
 		rightProps[prop.Id] = prop
@@ -363,15 +348,21 @@ func (r *ReplicationWriter) compareProps(left, right *pub.Schema) (same bool) {
 
 	for _, leftProp := range left.Properties {
 		rightProp, ok := rightProps[leftProp.Id]
-		if !ok {
-			return false
-		}
-		if rightProp.Type != leftProp.Type {
-			return false
+		if ok {
+			// found property, now check type
+			rightSQLType := rightProp.Type
+			leftSQLType := leftProp.Type
+
+			if rightSQLType != leftSQLType {
+				changes = append(changes, fmt.Sprintf("property '%s' is based on type '%s' in %s but based on type '%s' in %s", leftProp.Id, leftSQLType, leftID, rightSQLType, rightID))
+			}
+		} else {
+
+			changes = append(changes, fmt.Sprintf("property '%s' in %s is not present in %s", leftProp.Id, leftID, rightID))
 		}
 	}
 
-	return true
+	return
 }
 
 func (r *ReplicationWriter) canonicalizeProperties(schema *pub.Schema) map[string]string {
@@ -380,14 +371,14 @@ func (r *ReplicationWriter) canonicalizeProperties(schema *pub.Schema) map[strin
 	m := map[string]string{}
 
 	for _, property := range schema.Properties {
-		canonicalID := fmt.Sprintf("[%s]",c.Canonicalize(property.Name))
+		canonicalID := fmt.Sprintf("[%s]", c.Canonicalize(property.Name))
 		m[property.Id] = canonicalID
 		property.Id = canonicalID
 	}
 	return m
 }
 
-func (r *ReplicationWriter) createTable(session *OpSession, schema *pub.Schema) error {
+func (r *ReplicationWriter) createTable(session *OpSession, schema *pub.Schema, changes ...string) error {
 
 	args := templates.ReplicationTableCreationDDL{
 		Schema: MetaSchemaFromPubSchema(schema),
@@ -402,13 +393,13 @@ func (r *ReplicationWriter) createTable(session *OpSession, schema *pub.Schema) 
 		return errors.Wrapf(err, "executing table creation command\n %s", command)
 	}
 
-	r.recordChange("Created table %q.", schema.Id)
+	r.recordChange("Created table %q. Reasons: %s.", schema.Id, strings.Join(changes, "; "))
 
 	return nil
 }
 
 func (r *ReplicationWriter) getCanonicalizedMap(data map[string]interface{}, idMap map[string]string) map[string]interface{} {
-	out := make(map[string]interface{},len(data))
+	out := make(map[string]interface{}, len(data))
 	for k, v := range data {
 		if newKey, ok := idMap[k]; ok {
 			out[newKey] = v
@@ -458,7 +449,7 @@ func (r *ReplicationWriter) augmentVersionProperties(schema *pub.Schema) {
 			Type:         pub.PropertyType_DATETIME,
 			TypeAtSource: "DATETIME",
 		},
-		)
+	)
 
 	for _, name := range versionPropertyNames {
 		property := &pub.Property{
@@ -493,7 +484,6 @@ func (r *ReplicationWriter) augmentGoldenProperties(goldenSchema *pub.Schema) {
 		},
 	}, goldenSchema.Properties...)
 }
-
 
 type NaveegoReplicationVersioning struct {
 	ID                  int       `sql:"ID" sqlkey:"true"`

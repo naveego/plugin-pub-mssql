@@ -10,6 +10,7 @@ import (
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"io/ioutil"
 )
@@ -23,15 +24,22 @@ var _ = Describe("Replication Writeback", func() {
 		cancel  func()
 		req     *pub.PrepareWriteRequest
 		replicationSettings ReplicationSettings
+		discoverSchemas func() (golden *pub.Schema, versions *pub.Schema)
+	)
+
+	const (
+		Namespace = "Replication"
+		GoldenTableName = "Golden"
+		VersionTableName = "Versions"
 	)
 
 	BeforeEach(func() {
 
-		Expect(db.Exec(`IF OBJECT_ID('w3.Replication.Golden', 'U') IS NOT NULL
-    DROP TABLE w3.[Replication].Golden;
+		for _, table := range []string{GoldenTableName, VersionTableName, constants.ReplicationVersioningTable, constants.ReplicationMetadataTable} {
 
-IF OBJECT_ID('w3.Replication.Versions', 'U') IS NOT NULL
-    DROP TABLE w3.[Replication].Versions;`)).To(Not(BeNil()))
+		Expect(db.Exec(fmt.Sprintf(`IF OBJECT_ID('w3.[%s].[%s]', 'U') IS NOT NULL
+    DROP TABLE w3.[%s].[%s];`, Namespace, table, Namespace, table))).To(Not(BeNil()))
+		}
 
 		log := GetLogger()
 		session = &Session{
@@ -44,9 +52,9 @@ IF OBJECT_ID('w3.Replication.Versions', 'U') IS NOT NULL
 		settings := GetTestSettings()
 
 		replicationSettings = ReplicationSettings{
-			SQLSchema:          "Replication",
-			GoldenRecordTable:  "Golden",
-			VersionRecordTable: "Versions",
+			SQLSchema:          Namespace,
+			GoldenRecordTable:  GoldenTableName,
+			VersionRecordTable: VersionTableName,
 		}
 
 		connectionString, err := settings.GetConnectionString()
@@ -106,6 +114,27 @@ IF OBJECT_ID('w3.Replication.Versions', 'U') IS NOT NULL
 			},
 		}
 
+		discoverSchemas = func() (golden *pub.Schema, versions *pub.Schema) {
+			schemas, err := DiscoverSchemasSync(op, session.SchemaDiscoverer, &pub.DiscoverSchemasRequest{
+				Mode:       pub.DiscoverSchemasRequest_ALL,
+				SampleSize: 0,
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, schema := range schemas {
+				if schema.Id == "[Replication].[Golden]" {
+					golden = schema
+				}
+				if schema.Id == "[Replication].[Versions]" {
+					versions = schema
+				}
+			}
+
+
+
+			return
+		}
+
 	})
 
 	AfterEach(func() {
@@ -119,24 +148,51 @@ IF OBJECT_ID('w3.Replication.Versions', 'U') IS NOT NULL
 		_, err := NewReplicationWriteHandler(op, req)
 		Expect(err).ToNot(HaveOccurred())
 
-		schemas, err := DiscoverSchemasSync(op, session.SchemaDiscoverer, &pub.DiscoverSchemasRequest{
-			Mode:       pub.DiscoverSchemasRequest_ALL,
-			SampleSize: 0,
-		})
+		golden, versions := discoverSchemas()
 
-		var golden *pub.Schema
-		var versions *pub.Schema
-		for _, schema := range schemas {
-			if schema.Id == "[Replication].[Golden]" {
-				golden = schema
-			}
-			if schema.Id == "[Replication].[Versions]" {
-				versions = schema
-			}
-		}
 		Expect(golden).ToNot(BeNil())
 		Expect(versions).ToNot(BeNil())
 	})
+
+
+	DescribeTable("should initialize tables correctly", func(expectedVersioningCount int, mutator func(req *pub.PrepareWriteRequest)) {
+
+		_, err := NewReplicationWriteHandler(op, req)
+		Expect(err).ToNot(HaveOccurred())
+
+		golden, versions := discoverSchemas()
+
+		Expect(golden).ToNot(BeNil())
+		Expect(versions).ToNot(BeNil())
+
+		versioning := GetReplicationVersioning(Namespace)
+		Expect(versioning).To(HaveLen(1))
+
+		mutator(req)
+
+		_, err = NewReplicationWriteHandler(op, req)
+		Expect(err).ToNot(HaveOccurred())
+
+		versioning = GetReplicationVersioning(Namespace)
+		Expect(versioning).To(HaveLen(expectedVersioningCount))
+	},
+	Entry("with no changes", 1, func(req *pub.PrepareWriteRequest){
+
+	}),
+	Entry("when type changes", 2, func(req *pub.PrepareWriteRequest){
+		req.Schema.Properties[0].Type = pub.PropertyType_STRING
+	}),
+	Entry("when property added ", 2, func(req *pub.PrepareWriteRequest){
+		req.Schema.Properties = append(req.Schema.Properties, &pub.Property{
+			Id:"new-prop",
+			Name: "New Prop",
+			Type:pub.PropertyType_STRING,
+		})
+	}),
+	Entry("when property removed", 2, func(req *pub.PrepareWriteRequest){
+		req.Schema.Properties = req.Schema.Properties[:len(req.Schema.Properties) - 1]
+	}),
+	)
 
 	It("should write data to replication", func() {
 
@@ -247,6 +303,17 @@ func GetExpectations(pathPrefix string) (golden []map[string]interface{}, versio
 	Expect(json.Unmarshal(b, &versions)).To(Succeed())
 
 	return
+}
+
+func GetReplicationVersioning(namespace string) []NaveegoReplicationVersioning {
+
+	var out []NaveegoReplicationVersioning
+	rows, err := db.Query(fmt.Sprintf("SELECT * from [%s].[%s]", namespace, constants.ReplicationVersioningTable))
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(sqlstructs.UnmarshalRows(rows, &out)).To(Succeed())
+
+	return out
 }
 
 func rekeyMap(m map[string]interface{}, keys map[string]string) map[string]interface{} {
