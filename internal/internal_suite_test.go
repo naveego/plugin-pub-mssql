@@ -65,7 +65,7 @@ var _ = BeforeSuite(func() {
 	testOutput = reOut
 
 	log = hclog.New(&hclog.LoggerOptions{
-		Level:      hclog.Trace,
+		Level:      hclog.Debug,
 		Output:     testOutput,
 		JSONFormat: false,
 	})

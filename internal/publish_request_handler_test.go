@@ -443,29 +443,24 @@ JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id`,
 		}),
 	)
 
-	Describe("complex views", func() {
 
-		It("should work with other schemas", func() {
+	Describe("large change sets", func() {
+
+		It("should be able to handle large change sets", func() {
 
 			// capture sut for goroutines in this test
 			sut := getConnectedServer()
 
 			schema := discoverShape(sut, &pub.Schema{Id: "[dev].[Developers]"})
-			settings := RealTimeSettings{PollingInterval: "100ms"}
+			settings := RealTimeSettings{PollingInterval: "1s"}
 			done := make(chan struct{})
-
-			var (
-				expectedInsertedRecord DeveloperRecord
-				// expectedUpdatedRecord  DeveloperRecord
-				// expectedDeletedRecord  DeveloperRecord
-			)
 
 			expectedVersion := getChangeTrackingVersion()
 
 			go func() {
 				defer GinkgoRecover()
 				defer close(done)
-				err := sut.PublishStream(&pub.ReadRequest{
+				err := sut.ReadStream(&pub.ReadRequest{
 					JobId:                jobID,
 					Schema:               schema,
 					RealTimeSettingsJson: settings.String(),
@@ -493,21 +488,40 @@ JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id`,
 			})
 
 			By("running the publish periodically, a new record should be detected when it is written", func() {
-
-				Expect(db.Exec("INSERT INTO dev.Developers VALUES (5, 'test')")).ToNot(BeNil())
-				expectedInsertedRecord = DeveloperRecord{
-					ID:   5,
-					Name: "test",
+				var queries []string
+				expectedCount := 1010
+				start := 1000
+				for i := start; i < start+expectedCount;  i++{
+					queries = append(queries, fmt.Sprintf("INSERT INTO dev.Developers VALUES (%d, 'test+%d')", i, i))
 				}
-				var actualRecord *pub.Record
-				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
-				Expect(actualRecord).To(BeRecordMatching(pub.Record_INSERT, expectedInsertedRecord))
-				Expect(actualRecord.Cause).To(ContainSubstring(fmt.Sprintf("Insert in [dev].[Developers] at [id]=%d", 5)))
+
+				query := fmt.Sprintf(`
+BEGIN TRANSACTION
+%s
+COMMIT TRANSACTION
+`, strings.Join(queries, "\n"))
+
+				Expect(db.Exec(query)).ToNot(BeNil())
+
+				doneCh := make(chan struct{})
+				go func(){
+
+					for j := 0; j < expectedCount; j++ {
+						_ = <-stream.out
+						// if j % 100 == 0 || j > 1000{
+						// 	fmt.Printf("%d/%d - record: %v\n", j, expectedCount, record)
+						// }
+					}
+					// fmt.Printf("Receieved all records")
+					close(doneCh)
+				}()
+
+				Eventually(doneCh, 10 *time.Second).Should(BeClosed())
 			})
 
 			Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
 
-			Eventually(done).Should(BeClosed())
+			Eventually(done, 3 * time.Second).Should(BeClosed())
 
 		})
 

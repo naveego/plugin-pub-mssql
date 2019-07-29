@@ -234,7 +234,7 @@ CREATE TABLE w3.dbo.Types
     "int"            INT NOT NULL PRIMARY KEY,
     "bigint"         BIGINT,
     "numeric"        NUMERIC(18, 5),
-    "bit"            BIT,
+    "bit"            BIT NOT NULL,
     "smallint"       SMALLINT,
     "decimal"        DECIMAL(18, 4),
     "smallmoney"     SMALLMONEY,
@@ -535,15 +535,60 @@ CREATE TABLE w3.dbo.PrePost
 
 GO
 
-CREATE OR ALTER PROCEDURE TEST @AgentId CHAR(4),
-                               @Name VARCHAR(40),
-                               @Commission FLOAT
+CREATE OR ALTER PROCEDURE InsertIntoTypes
+    @int            INT,
+    @bigint         BIGINT,
+    @numeric        NUMERIC(18, 5),
+    @bit            BIT,
+    @smallint       SMALLINT,
+    @decimal        DECIMAL(18, 4),
+    @smallmoney     SMALLMONEY,
+    @tinyint        TINYINT,
+    @money          MONEY,
+    @float          FLOAT,
+    @real           REAL,
+    @date           DATE,
+    @datetimeoffset DATETIMEOFFSET,
+    @datetime2      DATETIME2,
+    @smalldatetime  SMALLDATETIME,
+    @datetime       DATETIME,
+    @time           TIME,
+    @char           CHAR(6),
+    @varchar        VARCHAR(10),
+    @text           TEXT,
+    @nchar          NCHAR(6),
+    @nvarchar       NVARCHAR(10),
+    @ntext          NTEXT
 AS
 BEGIN
-    UPDATE w3.dbo.Agents
-    SET AGENT_NAME = @Name,
-        COMMISSION = @Commission
-    WHERE AGENT_CODE = @AgentId
+    INSERT INTO w3.dbo.Types
+    VALUES (
+@int,
+@bigint,
+@numeric,
+@bit,
+@smallint,
+@decimal,
+@smallmoney,
+@tinyint,
+@money,
+@float,
+@real,
+@date,
+@datetimeoffset,
+@datetime2,
+@smalldatetime,
+@datetime,
+@time,
+@char,
+@varchar,
+@text,
+@nchar,
+@nvarchar,
+@ntext,
+            null,
+            null
+           )
 END
 GO
 
