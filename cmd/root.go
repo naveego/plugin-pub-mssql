@@ -8,7 +8,9 @@ import (
 	"github.com/lestrrat-go/file-rotatelogs"
 	"github.com/pkg/errors"
 	"io"
+	"io/ioutil"
 	"os"
+	"os/signal"
 	"time"
 
 	"github.com/hashicorp/go-plugin"
@@ -53,16 +55,31 @@ Runs the publisher in externally controlled mode.`, version.Version.String()),
 			}
 		}()
 
+		go func(){
+			_, _ = ioutil.ReadAll(os.Stdin)
+			_, _ = fmt.Fprintf(logf, "Stdin has been closed. This probably means the agent has exited. Plugin will now exit.\n")
+			os.Exit(0)
+		}()
+
+
 		originalPPID := os.Getppid()
 		go func(){
 			for {
 				<-time.After(5 * time.Second)
 				ppid := os.Getppid()
 				if ppid != originalPPID {
-					log.Error("Parent process appears to have exited. We will now exit too.", "original_ppid", originalPPID, "ppid", ppid)
+				_, _ = fmt.Fprintf(logf, "Parent process appears to have exited (ppid changed from %d to %d). This probably means the agent has exited. Plugin will now exit.\n",					originalPPID, ppid)
 					os.Exit(0)
 				}
 			}
+		}()
+
+		go func(){
+			sigCh := make(chan os.Signal)
+			signal.Notify(sigCh, os.Interrupt, os.Kill)
+			sig:=<-sigCh
+			_, _ = fmt.Fprintf(logf, "Got %s signal. This probably means the agent wants us to exit. Plugin will now exit.\n", sig)
+			os.Exit(0)			
 		}()
 
 		server := internal.NewServer(log)
