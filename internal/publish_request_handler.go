@@ -106,15 +106,17 @@ func PublishToStreamHandler(ctx context.Context, stream pub.Publisher_PublishStr
 		}
 		mu.Lock()
 		defer mu.Unlock()
-		sent := make(chan error)
+		done := make(chan error)
 		go func(){
-			sent<- stream.Send(req.Record)
+			 done <- stream.Send(req.Record)
 		}()
+		t := time.NewTimer(5 * time.Second)
 		select {
-		case err := <-sent:
+		case err := <-done:
+			t.Stop()
 			return err
-		case <-ctx.Done():
-				return nil
+		case <-t.C:
+			return errors.Errorf("stream.Send timed out; agent may be too busy to handle our data")
 		}
 	})
 }
