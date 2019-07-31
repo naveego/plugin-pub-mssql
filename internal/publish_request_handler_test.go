@@ -533,7 +533,7 @@ JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id`,
 				RealTimeSettingsJson: testCase.RealTimeSettings.String(),
 				RealTimeStateJson:    "",
 			}, stream)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurredStack())
 		}()
 
 		defer func() {
@@ -688,6 +688,78 @@ VALUES ('a1', 'a', NULL),
 					Expect(result.RowsAffected()).To(BeNumerically("==", 1))
 					state["deleted"] = RealTimeDuplicateViewRecord{
 						RecordID: 6,
+					}
+				},
+			},
+			Expectation: func(state map[string]interface{}, records []*pub.Record) error {
+
+				Expect(records).To(ContainElement(BeRecordMatching(pub.Record_INSERT, state["inserted"])))
+				Expect(records).To(ContainElement(BeRecordMatching(pub.Record_UPDATE, state["updated"])))
+				Expect(records).To(ContainElement(BeRecordMatching(pub.Record_DELETE, state["deleted"])))
+
+				return nil
+			},
+		}),
+		Entry("publish from user defined query", RealTimeTestCase{
+			Schema: &pub.Schema{
+				// Id: "user-defined-query-x",
+				Properties: []*pub.Property{
+					{Id: "[id]", Name:"id", IsKey:true, Type:pub.PropertyType_INTEGER, TypeAtSource:"int"},
+					{Id: "[ownValue]", Type:pub.PropertyType_STRING, TypeAtSource:"varchar(10)"},
+					{Id: "[mergeValue]", Type:pub.PropertyType_STRING, TypeAtSource:"varchar(10)"},
+					{Id: "[spreadValue]", Type:pub.PropertyType_STRING, TypeAtSource:"varchar(10)"},
+				},
+				Query:`SELECT * from [RealTime]`,
+			},
+			RealTimeSettings: RealTimeSettings{
+				PollingInterval: "100ms",
+				Tables: []RealTimeTableSettings{
+					{
+						SchemaID: "[RealTime]",
+						Query: `SELECT [RealTime].id as [Schema.id], [RealTime].id as [Dependency.id]
+FROM [RealTime]`,
+					},
+				},
+			},
+
+			Setup: func() {
+				Expect(db.Exec(`DELETE w3.dbo.RealTime`)).ToNot(BeNil())
+				Expect(db.Exec(`DBCC CHECKIDENT ('w3.dbo.RealTime', RESEED, 0)`)).ToNot(BeNil())
+				Expect(db.Exec(`INSERT INTO w3.dbo.RealTime
+VALUES ('a1', 'a', NULL),
+       ('a2', 'a', NULL),
+       ('b1', 'b', NULL),
+       ('b2', 'b', NULL),
+       ('c1', NULL, 'c'),
+       ('c2', NULL, 'c')`)).ToNot(BeNil())
+
+			},
+			Actions: []func(state map[string]interface{}){
+				func(state map[string]interface{}) {
+					var actualID int
+					row := db.QueryRow("INSERT INTO RealTime VALUES ('inserted', NULL, NULL); SELECT SCOPE_IDENTITY()")
+					Expect(row.Scan(&actualID)).To(Succeed())
+					state["inserted"] = RealTimeRecord{
+						ID:       int(actualID),
+						OwnValue: "inserted",
+					}
+				},
+				func(state map[string]interface{}) {
+					result, err := db.Exec("UPDATE RealTime SET ownValue = 'updated' WHERE id = 1")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+					state["updated"] = RealTimeRecord{
+						ID:         1,
+						MergeValue: "a",
+						OwnValue:   "updated",
+					}
+				},
+				func(state map[string]interface{}) {
+					result, err := db.Exec("DELETE RealTime WHERE id = 6")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+					state["deleted"] = RealTimeRecord{
+						ID: 6,
 					}
 				},
 			},

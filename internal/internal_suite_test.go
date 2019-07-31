@@ -1,8 +1,11 @@
 package internal_test
 
 import (
+	"fmt"
 	"github.com/as/hue"
 	"github.com/hashicorp/go-hclog"
+	"github.com/onsi/gomega/format"
+	"github.com/onsi/gomega/types"
 	"io"
 	"os"
 	"path/filepath"
@@ -165,4 +168,34 @@ func GetLogger() hclog.Logger {
 		Output:     testOutput,
 		JSONFormat: false,
 	})
+}
+
+func HaveOccurredStack() types.GomegaMatcher{
+	return &HaveOccurredStackMatcher{}
+}
+
+type HaveOccurredStackMatcher struct {
+}
+
+func (matcher *HaveOccurredStackMatcher) Match(actual interface{}) (success bool, err error) {
+	// is purely nil?
+	if actual == nil {
+		return false, nil
+	}
+
+	// must be an 'error' type
+	if _, ok := actual.(error); !ok {
+		return false, fmt.Errorf("Expected an error-type.  Got:\n%s", format.Object(actual, 1))
+	}
+
+	// must be non-nil (or a pointer to a non-nil)
+	return true, nil
+}
+
+func (matcher *HaveOccurredStackMatcher) FailureMessage(actual interface{}) (message string) {
+	return fmt.Sprintf("Expected an error to have occurred.  Got:\n%+v", actual)
+}
+
+func (matcher *HaveOccurredStackMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+	return fmt.Sprintf("Expected error:\n%+v\n%s", actual, "not to have occurred")
 }
