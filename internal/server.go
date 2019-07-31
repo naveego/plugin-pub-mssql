@@ -394,7 +394,7 @@ func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStrea
 		}
 	}
 
-	handler, innerRequest, err := BuildHandlerAndRequest(session, req, PublishToStreamHandler(stream))
+	handler, innerRequest, err := BuildHandlerAndRequest(session, req, PublishToStreamHandler(session.Ctx, stream))
 	if err != nil {
 		return errors.Wrap(err, "create handler")
 	}

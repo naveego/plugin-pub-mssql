@@ -88,7 +88,7 @@ func (d *DefaultWriteHandler) Write(session *OpSession, record *pub.Unmarshalled
 	// call stored procedure and capture any error
 	_, err = session.DB.Exec(schema.Query, args...)
 	if err != nil {
-		return errors.Wrap(err, "could not write")
+		return errors.Wrapf(err, "could not write: query: %s; args: %v", schema.Query, args)
 	}
 	return nil
 }

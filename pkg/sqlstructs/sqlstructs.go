@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -53,6 +54,11 @@ strings.Join(parameterNames, ", "))
 func UnmarshalRows(rows *sql.Rows, out interface{}) error {
 
 	columnNames, err := rows.Columns()
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	columnTypes, err := rows.ColumnTypes()
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -111,13 +117,28 @@ func UnmarshalRows(rows *sql.Rows, out interface{}) error {
 				val := columns[i]
 				if val != nil {
 
+					switch v := val.(type) {
+					case []uint8:
+						numstr := string(v)
+						val, err = strconv.ParseFloat(numstr, 64)
+						if err != nil {
+							return errors.Wrapf(err, "could not parse value %v into a float", v)
+						}
+					}
+
 					rval := reflect.ValueOf(val)
 					switch rval.Kind() {
 					case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 						rval = rval.Convert(f.Type)
 					}
+					dest := outElement.Elem().FieldByName(f.Name)
 
-					outElement.Elem().FieldByName(f.Name).Set(rval)
+					if !rval.Type().AssignableTo(dest.Type()) {
+						columnType := columnTypes[i]
+						return errors.Errorf("could not assign value %s (%T) (sql type %s) to column %s (%s)", val, val, columnType.Name(), name, dest.Type())
+					}
+
+					dest.Set(rval)
 				}
 			}
 		}

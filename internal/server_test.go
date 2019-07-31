@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	. "github.com/naveego/plugin-pub-mssql/internal"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
+	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/metadata"
 	"io"
+	"time"
 )
 
 var discoverShape = func(sut pub.PublisherServer, schema *pub.Schema) *pub.Schema {
@@ -574,11 +576,11 @@ var _ = Describe("Server", func() {
 
 				Expect(response.Schema.Id).To(Equal("TEST"))
 				Expect(response.Schema.Query).To(Equal("TEST"))
-				Expect(response.Schema.Properties).To(HaveLen(3))
-				Expect(response.Schema.Properties[0].Id).To(Equal("AgentId"))
-				Expect(response.Schema.Properties[1].Id).To(Equal("Name"))
-				Expect(response.Schema.Properties[2].Id).To(Equal("Commission"))
-				Expect(response.Schema.Properties[2].Type).To(Equal(pub.PropertyType_FLOAT))
+				Expect(response.Schema.Properties).To(HaveLen(23))
+				Expect(response.Schema.Properties[0].Id).To(Equal("int"))
+				Expect(response.Schema.Properties[1].Id).To(Equal("bigint"))
+				Expect(response.Schema.Properties[2].Id).To(Equal("numeric"))
+				Expect(response.Schema.Properties[2].Type).To(Equal(pub.PropertyType_DECIMAL))
 			})
 
 			It("should return a schema when a valid stored procedure with schema is input", func() {
@@ -635,45 +637,186 @@ var _ = Describe("Server", func() {
 
 		Describe("WriteStream", func() {
 
-			var records []*pub.Record
-			var stream *writeStream
+			var createStream func(map[string]interface{}) *writeStream
 			var req *pub.PrepareWriteRequest
 			BeforeEach(func() {
 				Expect(sut.Connect(context.Background(), pub.NewConnectRequest(settings))).ToNot(BeNil())
 				req =  &pub.PrepareWriteRequest{
 					Schema: &pub.Schema{
-						Id: "TEST",
-						Query: "TEST",
+						Id: "InsertIntoTypes",
+						Query: "InsertIntoTypes",
 						Properties: []*pub.Property {
 							{
-								Id: "AgentId",
+								Id: "int",
+								Type: pub.PropertyType_INTEGER,
+								TypeAtSource: "int",
 							},
 							{
-								Id: "Name",
+								Id: "bigint",
+								Type: pub.PropertyType_DECIMAL,
+								TypeAtSource: "bigint",
 							},
 							{
-								Id: "Commission",
+								Id: "numeric",
+								Type: pub.PropertyType_DECIMAL,
+								TypeAtSource: "numeric(18,5)",
+							},
+							{
+								Id: "bit",
+								Type: pub.PropertyType_BOOL,
+								TypeAtSource: "bit",
+							},
+							{
+								Id: "smallint",
+								Type: pub.PropertyType_INTEGER,
+								TypeAtSource: "smallint",
+							},
+							{
+								Id: "decimal",
+								Type: pub.PropertyType_DECIMAL,
+								TypeAtSource: "decimal(18,4)",
+							},
+							{
+								Id: "smallmoney",
+								Type: pub.PropertyType_DECIMAL,
+								TypeAtSource: "smallmoney",
+							},
+							{
+								Id: "tinyint",
+								Type: pub.PropertyType_INTEGER,
+								TypeAtSource: "tinyint",
+							},
+							{
+								Id: "money",
+								Type: pub.PropertyType_DECIMAL,
+								TypeAtSource: "money",
+							},
+							{
+								Id: "float",
+								Type: pub.PropertyType_FLOAT,
+								TypeAtSource: "float",
+							},
+							{
+								Id: "real",
+								Type: pub.PropertyType_FLOAT,
+								TypeAtSource: "real",
+							},
+							{
+								Id: "date",
+								Type: pub.PropertyType_DATE,
+								TypeAtSource: "date",
+							},
+							{
+								Id: "datetimeoffset",
+								Type: pub.PropertyType_STRING,
+								TypeAtSource: "datetimeoffset(7)",
+							},
+							{
+								Id: "datetime2",
+								Type: pub.PropertyType_DATETIME,
+								TypeAtSource: "datetime2(7)",
+							},
+							{
+								Id: "smalldatetime",
+								Type: pub.PropertyType_DATETIME,
+								TypeAtSource: "smalldatetime",
+							},
+							{
+								Id: "datetime",
+								Type: pub.PropertyType_DATETIME,
+								TypeAtSource: "datetime",
+							},
+							{
+								Id: "time",
+								Type: pub.PropertyType_TIME,
+								TypeAtSource: "time(7)",
+							},
+							{
+								Id: "char",
+								Type: pub.PropertyType_STRING,
+								TypeAtSource: "char(6)",
+							},
+							{
+								Id: "varchar",
+								Type: pub.PropertyType_STRING,
+								TypeAtSource: "varchar(10)",
+							},
+							{
+								Id: "text",
+								Type: pub.PropertyType_TEXT,
+								TypeAtSource: "text",
+							},
+							{
+								Id: "nchar",
+								Type: pub.PropertyType_STRING,
+								TypeAtSource: "nchar(6)",
+							},
+							{
+								Id: "nvarchar",
+								Type: pub.PropertyType_STRING,
+								TypeAtSource: "nvarchar(10)",
+							},
+							{
+								Id: "ntext",
+								Type: pub.PropertyType_STRING,
+								TypeAtSource: "ntext",
 							},
 						},
 					},
 					CommitSlaSeconds: 1,
 				}
 
-				records = append(records, &pub.Record{
-					DataJson: `{"AgentId":"A001","Name":"TEST","Commission":"0.14"}`,
-					CorrelationId: "test",
-				})
+				createStream = func(data map[string]interface{}) *writeStream {
 
-				stream = &writeStream{
-					records: records,
-					index: 0,
+					dataJson, _ := json.Marshal(data)
+
+					records := []*pub.Record{
+						{
+						DataJson: string(dataJson),
+						CorrelationId: "test",
+					}}
+
+					stream := &writeStream{
+						records: records,
+						index: 0,
+					}
+					return stream
 				}
+
 			})
 
 			It("should be able to call a stored procedure to write a record", func() {
 				response, err := sut.PrepareWrite(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(response).ToNot(BeNil())
+
+				stream := createStream(map[string]interface{}{
+					"int": 43,
+					"bigint": "9223372036854775807",
+					"numeric": "1234.56780",
+					"smallint": 123,
+					"decimal": "1234.5678",
+					"smallmoney": "12.5600",
+					"tinyint":  12,
+					"money": "1234.5600",
+					"float": 123456.789,
+					"real": 123456.789,
+					"bit": true,
+					"date": "1970-01-01T00:00:00Z",
+					"datetimeoffset": "2007-05-08T12:35:29.1234567+12:15",
+					"datetime2": "2007-05-08T12:35:29.1234567Z",
+					"smalldatetime": "2007-05-08T12:35:00Z",
+					"datetime": "2007-05-08T12:35:29.123Z",
+					"time": "0001-01-01T12:35:29.123Z",
+					"char": "char  ",
+					"varchar": "abc",
+					"text": "abc",
+					"nchar": "nchar ",
+					"nvarchar": "nvarchar",
+					"ntext": "ntext",
+					"binary": base64.StdEncoding.EncodeToString([]byte("abc")),
+					"varbinary": base64.StdEncoding.EncodeToString([]byte("cde")),
+				})
 
 				Expect(sut.WriteStream(stream)).To(Succeed())
 
@@ -682,10 +825,75 @@ var _ = Describe("Server", func() {
 				}).Should(HaveLen(1))
 				Expect(stream.recordAcks[0].CorrelationId).To(Equal("test"))
 				Expect(stream.recordAcks[0].Error).To(Equal(""))
+
+				rows, err := db.Query("select * from dbo.Types where [int] = 43")
+				Expect(err).ToNot(HaveOccurred())
+
+				var typeStructs []Types
+				err = sqlstructs.UnmarshalRows(rows, &typeStructs)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(typeStructs).To(HaveLen(1))
+				// spew.Dump(typeStructs[0])
+
+			})
+
+			It("should get an error if the stored procedure fails to write a record", func() {
+				response, err := sut.PrepareWrite(context.Background(), req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+
+				stream := createStream(map[string]interface{}{
+					"int": 44,
+					"bit": nil, // this column is not nullable
+				})
+
+				Expect(sut.WriteStream(stream)).To(Succeed())
+
+				Eventually(func() []*pub.RecordAck {
+					return stream.recordAcks
+				}).Should(HaveLen(1))
+				Expect(stream.recordAcks[0].CorrelationId).To(Equal("test"))
+				Expect(stream.recordAcks[0].Error).ToNot(BeEmpty())
+
+				rows, err := db.Query("select * from dbo.Types where [int] = 44")
+				Expect(err).ToNot(HaveOccurred())
+
+				var typeStructs []Types
+				err = sqlstructs.UnmarshalRows(rows, &typeStructs)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(typeStructs).To(HaveLen(0))
+
 			})
 		})
 	})
 })
+
+type Types struct {
+	Bigint int `sql:"bigint"`
+	
+	Bit bool `sql:"bit"`
+	Char string `sql:"char"`
+	Date time.Time `sql:"date"`
+	Datetime time.Time `sql:"datetime"`
+	Datetime2 time.Time `sql:"datetime2"`
+	DatetimeOffset time.Time `sql:"datetimeoffset"`
+	Decimal float64 `sql:"decimal"`
+	Float float64 `sql:"float"`
+	Int int `sql:"int"`
+	Money float64 `sql:"money"`
+	Nchar string `sql:"nchar"`
+	Ntext string `sql:"ntext"`
+	Numeric float64 `sql:"numeric"`
+	Nvarchar string `sql:"nvarchar"`
+	Real float64 `sql:"real"`
+	Smalldatetime time.Time `sql:"smalldatetime"`
+	Smallint int `sql:"smallint"`
+	Smallmoney float64 `sql:"smallmoney"`
+	Text string `sql:"text"`
+	Time time.Time `sql:"time"`
+	Tinyint int `sql:"tinyint"`
+	Varchar string `sql:"varchar"`
+}
 
 type writeStream struct {
 	records 	[]*pub.Record

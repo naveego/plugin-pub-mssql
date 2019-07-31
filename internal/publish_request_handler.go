@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -93,7 +95,7 @@ func ApplyMiddleware(handler PublishHandler, middlewares ...PublishMiddleware) P
 	return handler
 }
 
-func PublishToStreamHandler(stream pub.Publisher_PublishStreamServer) PublishHandler {
+func PublishToStreamHandler(ctx context.Context, stream pub.Publisher_PublishStreamServer) PublishHandler {
 	mu := new(sync.Mutex)
 	return PublishHandlerFunc(func(req PublishRequest) error {
 		if req.OpSession.Ctx.Err() != nil {
@@ -681,27 +683,44 @@ func ProcessChangesMiddleware() PublishMiddleware {
 				}
 			}
 
-			log.Trace("Rendering template for schema data changes query", "changed rows", len(allRowKeys))
+			const maxChangeBatchSize = float64(999)
 
-			templateArgs, err := buildSchemaDataQueryArgs(req, allRowKeys)
-			if err != nil {
-				return errors.Wrap(err, "build schema data changes template args")
+			log.Trace("Processing detected changes", "changed rows", len(allRowKeys))
+
+			for len(allRowKeys) > 0 {
+				// if there are more row keys than fit in an insert,
+				// we need to do multiple queries
+
+				changeBatchSize := int(math.Min(maxChangeBatchSize, float64(len(allRowKeys))))
+
+				batchRowKeys := allRowKeys[0:changeBatchSize]
+				allRowKeys = allRowKeys[changeBatchSize:]
+
+				templateArgs, err := buildSchemaDataQueryArgs(req, batchRowKeys)
+				if err != nil {
+					return errors.Wrap(err, "build schema data changes template args")
+				}
+
+				query, err := templates.RenderSchemaDataQuery(templateArgs)
+				if err != nil {
+					return errors.Wrap(err, "render schema data changes query")
+				}
+
+				log.Trace("Rendered schema data changes query")
+				log.Trace(query)
+
+				rows, err := session.DB.QueryContext(session.Ctx, query)
+				if err != nil {
+					return errors.Errorf("query failed: %s\nquery text:\n%s", err, query)
+				}
+
+				err = handleRows(req, templateArgs, rows, causes, handler)
+				if err != nil {
+					return err
+				}
 			}
 
-			query, err := templates.RenderSchemaDataQuery(templateArgs)
-			if err != nil {
-				return errors.Wrap(err, "render schema data changes query")
-			}
-
-			log.Trace("Rendered schema data changes query")
-			log.Trace(query)
-
-			rows, err := session.DB.QueryContext(session.Ctx, query)
-			if err != nil {
-				return errors.Errorf("query failed: %s\nquery text:\n%s", err, query)
-			}
-
-			return handleRows(req, templateArgs, rows, causes, handler)
+			return nil
 		})
 	}
 }
