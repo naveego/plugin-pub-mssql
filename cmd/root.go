@@ -79,7 +79,7 @@ Runs the publisher in externally controlled mode.`, version.Version.String()),
 			signal.Notify(sigCh, os.Interrupt, os.Kill)
 			sig:=<-sigCh
 			_, _ = fmt.Fprintf(logf, "Got %s signal. This probably means the agent wants us to exit. Plugin will now exit.\n", sig)
-			os.Exit(0)			
+			os.Exit(0)
 		}()
 
 		server := internal.NewServer(log)

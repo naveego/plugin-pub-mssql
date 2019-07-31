@@ -104,7 +104,18 @@ func PublishToStreamHandler(stream pub.Publisher_PublishStreamServer) PublishHan
 		}
 		mu.Lock()
 		defer mu.Unlock()
-		return stream.Send(req.Record)
+		done := make(chan error)
+		go func(){
+			 done <- stream.Send(req.Record)
+		}()
+		t := time.NewTimer(5 * time.Second)
+		select {
+		case err := <-done:
+			t.Stop()
+			return err
+		case <-t.C:
+			return errors.Errorf("stream.Send timed out; agent may be too busy to handle our data")
+		}
 	})
 }
 
