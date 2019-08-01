@@ -110,8 +110,10 @@ func PublishToStreamHandler(ctx context.Context, stream pub.Publisher_PublishStr
 		go func(){
 			 done <- stream.Send(req.Record)
 		}()
-		t := time.NewTimer(5 * time.Second)
+		t := time.NewTimer(5 * time.Minute)
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case err := <-done:
 			t.Stop()
 			return err
