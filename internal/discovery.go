@@ -344,6 +344,11 @@ func (s *SchemaDiscoverer) getCount(session *OpSession, shape *pub.Schema) (*pub
 	var count int
 	err = row.Scan(&count)
 	if err != nil {
+		if strings.Contains(err.Error(), "context deadline exceeded") {
+			return &pub.Count{
+				Kind:  pub.Count_UNAVAILABLE,
+			}, nil
+		}
 		return nil, fmt.Errorf("error from query %q: %s", query, err)
 	}
 
