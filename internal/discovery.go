@@ -343,6 +343,11 @@ func (s *SchemaDiscoverer) getCount(session *OpSession, shape *pub.Schema) (*pub
 	row := session.DB.QueryRowContext(ctx, query)
 	var count int
 	err = row.Scan(&count)
+	if err == context.Canceled {
+		return &pub.Count{
+			Kind:  pub.Count_UNAVAILABLE,
+		}, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error from query %q: %s", query, err)
 	}
