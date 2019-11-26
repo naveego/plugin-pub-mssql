@@ -58,3 +58,5 @@ require (
 	gopkg.in/ini.v1 v1.41.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
+
+go 1.13

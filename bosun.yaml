@@ -1,4 +1,3 @@
-
 apps:
 - name: plugin-pub-mssql
   branching:
@@ -7,4 +6,6 @@ apps:
     release: ""
     feature: issue/{{.Number}}/{{.Slug}}
   repo: naveego/plugin-pub-mssql
-  version: 3.3.2
+  version: 3.6.9-beta1
+  images: []
+  releaseHistory: []
