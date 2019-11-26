@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"github.com/avast/retry-go"
 )
 
 // Server type to describe a server
@@ -144,6 +145,14 @@ func (s *Server) getConfig() (Config, error) {
 	return *s.config, nil
 }
 
+func findIP(input string) string {
+	numBlock := "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"
+	regexPattern := numBlock + "\\." + numBlock + "\\." + numBlock + "\\." + numBlock
+
+	regEx := regexp.MustCompile(regexPattern)
+	return regEx.FindString(input)
+}
+
 var configSchemaUI map[string]interface{}
 var configSchemaUIJSON string
 var configSchemaSchema map[string]interface{}
@@ -151,6 +160,7 @@ var configSchemaSchemaJSON string
 
 // Connect connects to the data base and validates the connections
 func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.ConnectResponse, error) {
+
 	var err error
 	s.log.Debug("Connecting...")
 	s.disconnect()
@@ -179,16 +189,38 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 		return nil, errors.WithStack(err)
 	}
 
-	connectionString, err := settings.GetConnectionString()
+	// retry start
+	err = retry.Do(
+		func() error {
+			connectionString, err := settings.GetConnectionString()
+			if err != nil {
+				return err
+			}
+			session.Settings = settings
+			session.DB, err = sql.Open("sqlserver", connectionString)
+			if err != nil {
+				return errors.Errorf("could not open connection: %s", err)
+			}
+			err = session.DB.Ping()
+			return err
+		},
+		retry.RetryIf(func(err error) bool {
+			if strings.Contains(err.Error(), "wsarecv") {
+				var errMsg string
+				errMsg = strings.Replace(err.Error(), findIP(err.Error()), "", 1)
+				settings.Host = findIP(errMsg)
+				return true
+				//return s.Connect(ctx, pub.NewConnectRequest(settings))
+			}
+
+			return false
+			//return nil, errors.Errorf("could not read database schema: %s", err)
+		}),
+		retry.Attempts(1))
+
+	// retry end
 	if err != nil {
 		return nil, err
-	}
-
-	session.Settings = settings
-
-	session.DB, err = sql.Open("sqlserver", connectionString)
-	if err != nil {
-		return nil, errors.Errorf("could not open connection: %s", err)
 	}
 
 	rows, err := session.DB.Query(`SELECT t.TABLE_NAME
@@ -210,6 +242,7 @@ FROM INFORMATION_SCHEMA.TABLES AS t
                        ON tc.CONSTRAINT_NAME = ccu.CONSTRAINT_NAME AND tc.CONSTRAINT_SCHEMA = ccu.CONSTRAINT_SCHEMA
 
 ORDER BY TABLE_NAME`)
+
 	if err != nil {
 		return nil, errors.Errorf("could not read database schema: %s", err)
 	}
