@@ -138,7 +138,7 @@ var _ = Describe("ConfigureRealTime", func() {
 								SchemaID: "[RealTime]",
 								Query: `SELECT [RealTimeDuplicateView].recordID as [Schema.recordID], [RealTime].id as [Dependency.id]
 								FROM RealTimeDuplicateView
-								JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id`,
+								JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id and 'a' = 'a'`,
 							},
 						},
 					}

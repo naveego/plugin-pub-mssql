@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/hashicorp/go-hclog"
 	"github.com/naveego/plugin-pub-mssql/internal/meta"
@@ -213,9 +214,13 @@ type describeResult struct {
 }
 
 func describeResultSet(session *OpSession, query string) ([]describeResult, error) {
-	metaQuery := fmt.Sprintf("sp_describe_first_result_set N'%s', @params= N'', @browse_information_mode=1", query)
+	//metaQuery := " @query, @params= N'', @browse_information_mode=1"
 
-	rows, err := session.DB.Query(metaQuery)
+	rows, err := session.DB.Query("sp_describe_first_result_set",
+		sql.Named("query", query),
+		sql.Named("params",""),
+		sql.Named("browse_information_mode",1),
+	)
 
 	if err != nil {
 
