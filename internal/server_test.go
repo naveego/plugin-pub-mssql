@@ -72,6 +72,26 @@ var _ = Describe("Server", func() {
 
 	})
 
+	Describe("wsarecv error handling", func() {
+
+		It("should extract IP from error", func() {
+			actual := ExtractIPFromWsarecvErr("rpc error: code = Unknown desc = All attempts fail: #1: read tcp 10.11.0.105:54695->10.11.0.6:1433: wsarecv: An existing connection was forcibly closed by the")
+			Expect(actual).To(Equal("10.11.0.6"))
+		})
+
+		It("should error when connection is invalid", func() {
+			settings.Username = "a"
+			_, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should error when settings are malformed", func() {
+			_, err := sut.Connect(context.Background(), &pub.ConnectRequest{SettingsJson: "{"})
+			Expect(err).To(HaveOccurred())
+		})
+
+	})
+
 
 	Describe("DiscoverShapes", func() {
 

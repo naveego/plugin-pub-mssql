@@ -145,13 +145,15 @@ func (s *Server) getConfig() (Config, error) {
 	return *s.config, nil
 }
 
-func findIP(input string) string {
-	numBlock := "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"
-	regexPattern := numBlock + "\\." + numBlock + "\\." + numBlock + "\\." + numBlock
-
-	regEx := regexp.MustCompile(regexPattern)
-	return regEx.FindString(input)
+func ExtractIPFromWsarecvErr(input string) string {
+	matches := wsarecvIPExtractorRE.FindStringSubmatch(input)
+	if len(matches) == 2 {
+		return matches[1]
+	}
+	return ""
 }
+
+var wsarecvIPExtractorRE = regexp.MustCompile(`(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+: wsarecv`)
 
 var configSchemaUI map[string]interface{}
 var configSchemaUIJSON string
@@ -189,6 +191,8 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 		return nil, errors.WithStack(err)
 	}
 
+	originalHost := settings.Host
+
 	// retry start
 	err = retry.Do(
 		func() error {
@@ -206,9 +210,13 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 		},
 		retry.RetryIf(func(err error) bool {
 			if strings.Contains(err.Error(), "wsarecv") {
-				var errMsg string
-				errMsg = strings.Replace(err.Error(), findIP(err.Error()), "", 1)
-				settings.Host = findIP(errMsg)
+				var ip = ExtractIPFromWsarecvErr(err.Error())
+				if ip == "" {
+					return false
+				}
+
+				settings.Host = ip
+
 				return true
 				//return s.Connect(ctx, pub.NewConnectRequest(settings))
 			}
@@ -216,11 +224,14 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 			return false
 			//return nil, errors.Errorf("could not read database schema: %s", err)
 		}),
-		retry.Attempts(1))
+		retry.Attempts(2))
 
 	// retry end
 	if err != nil {
-		return nil, err
+		if originalHost != settings.Host {
+			return nil, errors.Wrapf(err, "tried original host %q and raw IP %q", originalHost, settings.Host)
+		}
+		return nil, errors.Wrapf(err, "tried using host %q, port %d", settings.Host, settings.Port)
 	}
 
 	rows, err := session.DB.Query(`SELECT t.TABLE_NAME
