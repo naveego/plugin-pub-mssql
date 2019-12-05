@@ -14,6 +14,7 @@ require (
 	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/coreos/go-semver v0.2.0
 	github.com/denisenkom/go-mssqldb v0.0.0-20180707235734-242fa5aa1b45
+	github.com/dimdin/decimal v0.0.0-20160219162123-26155721110e
 	github.com/fastly/go-utils v0.0.0-20180712184237-d95a45783239 // indirect
 	github.com/go-ini/ini v1.38.2 // indirect
 	github.com/golang/protobuf v1.3.1

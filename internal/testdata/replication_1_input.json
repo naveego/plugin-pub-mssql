@@ -5,7 +5,8 @@
       "id": 1,
       "first_name": "group-1-g1",
       "last_name": "should end up with updated version",
-      "dob": "1966-07-19"
+      "dob": "1966-07-19",
+      "latitude": "123456789.9876543210"
     },
     "unmarshalledVersions": [
       {
@@ -13,7 +14,8 @@
         "data": {
           "id": 11,
           "first_name": "group-1-v-1",
-          "last_name": "v1"
+          "last_name": "v1",
+          "latitude": "123456789.9876543210"
         }
       },
       {
@@ -32,7 +34,8 @@
       "id": 2,
       "first_name": "Grazia",
       "last_name": "should be deleted",
-      "dob": "1982-02-06"
+      "dob": "1982-02-06",
+      "latitude": "12.34"
     },
     "unmarshalledVersions": [
       {
@@ -58,7 +61,8 @@
       "id": 2,
       "first_name": "Grazia",
       "last_name": "McGuckin",
-      "dob": "1982-02-06"
+      "dob": "1982-02-06",
+      "latitude": "12.34"
     },
     "unmarshalledVersions": []
   },
@@ -68,7 +72,8 @@
       "id": 3,
       "first_name": "Roy",
       "last_name": "O'Logan",
-      "dob": "2007-08-03"
+      "dob": "2007-08-03",
+      "latitude": "12.34"
     },
     "unmarshalledVersions": [
       {
@@ -95,7 +100,8 @@
       "id": 4,
       "first_name": "Jard",
       "last_name": "O'Finan",
-      "dob": "2005-07-26"
+      "dob": "2005-07-26",
+      "latitude": "12.34"
     },
     "unmarshalledVersions": [
       {
@@ -122,7 +128,8 @@
       "id": 5,
       "first_name": "Lev",
       "last_name": "Pomeroy",
-      "dob": "1988-05-27"
+      "dob": "1988-05-27",
+      "latitude": "12.34"
     },
     "unmarshalledVersions": [
       {
@@ -148,7 +155,8 @@
       "id": 5,
       "first_name": "Lev",
       "last_name": "Pomeroy",
-      "dob": "1988-05-27"
+      "dob": "1988-05-27",
+      "latitude": "12.34"
     },
     "unmarshalledVersions": [
       {
@@ -167,7 +175,8 @@
       "id": 1,
       "first_name": "group-1-g1",
       "last_name": "should end up with updated version",
-      "dob": "1966-07-19"
+      "dob": "1966-07-19",
+      "latitude": "123456789.9876543210"
     },
     "unmarshalledVersions": [
       {
@@ -175,7 +184,8 @@
         "data": {
           "id": 11,
           "first_name": "group-1-v-1",
-          "last_name": "v1update"
+          "last_name": "v1update",
+          "latitude": "123456789.9876543210"
         }
       },
       {

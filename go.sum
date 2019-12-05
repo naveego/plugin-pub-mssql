@@ -28,6 +28,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/denisenkom/go-mssqldb v0.0.0-20180707235734-242fa5aa1b45 h1:UW8VerkZA1zCt3uWhQ2wbMae76OLn7s7Utz8wyKtJUk=
 github.com/denisenkom/go-mssqldb v0.0.0-20180707235734-242fa5aa1b45/go.mod h1:xN/JuLBIz4bjkxNmByTiV1IbhfnYb6oo99phBn4Eqhc=
+github.com/dimdin/decimal v0.0.0-20160219162123-26155721110e h1:qsn5ojqapTVzIKS3YBfONylhnccG8zVt2n1GR8pFrEU=
+github.com/dimdin/decimal v0.0.0-20160219162123-26155721110e/go.mod h1:+Spo2qf/MA2ot1GjxyQUMSft2dNCtf8mQCC6ShevAC0=
 github.com/fastly/go-utils v0.0.0-20180712184237-d95a45783239 h1:Ghm4eQYC0nEPnSJdVkTrXpu9KtoVCSo1hg7mtI7G9KU=
 github.com/fastly/go-utils v0.0.0-20180712184237-d95a45783239/go.mod h1:Gdwt2ce0yfBxPvZrHkprdPPTTS3N5rwmLE8T22KBXlw=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=

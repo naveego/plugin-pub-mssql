@@ -8,7 +8,8 @@
     "NaveegoSchemaID": "schema-1",
     "NaveegoJobID": "job-1",
     "NaveegoGroupID": "group-1",
-    "FirstName": "group-1-v-1"
+    "FirstName": "group-1-v-1",
+    "Latitude": "123456789.987654321000000000"
   },
   {
     "NaveegoGroupID": "group-1",
@@ -19,7 +20,8 @@
     "FirstName": "Janaya",
     "LastName": "Mucci",
     "NaveegoJobID": "job-2",
-    "DateOfBirth": null
+    "DateOfBirth": null,
+    "Latitude": null
   },
   {
     "NaveegoRecordID": "0ddd787c-62b5-47c4-bea9-5668f1ea35c0",
@@ -30,7 +32,8 @@
     "DateOfBirth": null,
     "FirstName": "Charil",
     "ID": 31,
-    "NaveegoSchemaID": "schema-1"
+    "NaveegoSchemaID": "schema-1",
+    "Latitude": null
   },
   {
     "DateOfBirth": null,
@@ -41,7 +44,8 @@
     "NaveegoRecordID": "491cc03a-ac08-412b-af6c-740e0c92b2f6",
     "NaveegoConnectionID": "connection-2",
     "LastName": "Tschirasche",
-    "NaveegoSchemaID": "schema-2"
+    "NaveegoSchemaID": "schema-2",
+    "Latitude": null
   },
   {
     "NaveegoRecordID": "7a97be9f-8003-49b2-b456-a8e6ac968f22",
@@ -52,7 +56,8 @@
     "NaveegoSchemaID": "schema-1",
     "NaveegoJobID": "job-1",
     "NaveegoGroupID": "group-4",
-    "ID": 41
+    "ID": 41,
+    "Latitude": null
   },
   {
     "NaveegoSchemaID": "schema-2",
@@ -63,7 +68,8 @@
     "ID": 42,
     "NaveegoJobID": "job-2",
     "NaveegoConnectionID": "connection-2",
-    "DateOfBirth": null
+    "DateOfBirth": null,
+    "Latitude": null
   },
   {
     "ID": 51,
@@ -74,6 +80,7 @@
     "NaveegoJobID": "job-1",
     "NaveegoRecordID": "44fa114e-ba11-4130-acec-de8770e2b155",
     "NaveegoConnectionID": "connection-1",
-    "DateOfBirth": null
+    "DateOfBirth": null,
+    "Latitude": null
   }
 ]

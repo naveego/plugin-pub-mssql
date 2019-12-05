@@ -45,7 +45,7 @@ func ConvertPluginTypeToSQLType(t pub.PropertyType) string {
 	case pub.PropertyType_FLOAT:
 		return "float"
 	case pub.PropertyType_DECIMAL:
-		return "decimal"
+		return "decimal(38,18)"
 	case pub.PropertyType_DATE:
 		return "date"
 	case pub.PropertyType_TIME:

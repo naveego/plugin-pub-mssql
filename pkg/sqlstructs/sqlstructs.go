@@ -3,6 +3,7 @@ package sqlstructs
 import (
 	"database/sql"
 	"fmt"
+	"github.com/dimdin/decimal"
 	"github.com/pkg/errors"
 	"reflect"
 	"strconv"
@@ -161,6 +162,10 @@ func UnmarshalRowsToMaps(rows *sql.Rows) ([]map[string]interface{}, error) {
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+	columnTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
 	var out []map[string]interface{}
 
@@ -171,18 +176,35 @@ func UnmarshalRowsToMaps(rows *sql.Rows) ([]map[string]interface{}, error) {
 		outElement := map[string]interface{}{}
 
 		for i := 0; i < len(columnNames); i++ {
-			columnPointers[i] = &columns[i]
+
+			columnType := columnTypes[i]
+			switch columnType.DatabaseTypeName() {
+				case "DECIMAL":
+					var d *decimal.Dec
+					columnPointers[i] = &d
+			default:
+				columnPointers[i] = &columns[i]
+
+			}
 		}
 		if err := rows.Scan(columnPointers...); err != nil {
 			return nil, errors.WithStack(err)
 		}
 
 		for i, name := range columnNames {
+			columnType := columnTypes[i]
+			// fmt.Printf("%d: %s: %#v %s\n", i, name, columnType, columnType.ScanType().Name())
 			v := columnPointers[i]
 			if v == nil {
 			outElement[name] = nil
 			} else {
 				outElement[name] = reflect.ValueOf(v).Elem().Interface()
+			}
+			switch columnType.DatabaseTypeName() {
+			case "DECIMAL":
+				if !reflect.ValueOf(outElement[name]).IsNil() {
+					outElement[name] = fmt.Sprint(outElement[name])
+				}
 			}
 
 		}

@@ -82,6 +82,11 @@ IF OBJECT_ID('w3.Replication.Versions', 'U') IS NOT NULL
 						Name: "Date of Birth",
 						Type: pub.PropertyType_DATE,
 					},
+					{
+						Id:   "latitude",
+						Name: "Latitude",
+						Type: pub.PropertyType_DECIMAL,
+					},
 				},
 			},
 			Replication: &pub.ReplicationWriteRequest{
@@ -159,10 +164,10 @@ IF OBJECT_ID('w3.Replication.Versions', 'U') IS NOT NULL
 		Expect(versionActuals).ToNot(BeEmpty())
 
 		for _, expectation := range goldenExpectations {
-			Expect(goldenActuals).To(ContainElement(BeEquivalentTo(expectation)))
+			Expect(goldenActuals).To(ContainElement(BeEquivalentTo(expectation)), "in golden records")
 		}
 		for _, expectation := range versionExpectations {
-			Expect(versionActuals).To(ContainElement(BeEquivalentTo(expectation)))
+			Expect(versionActuals).To(ContainElement(BeEquivalentTo(expectation)), "in version records")
 		}
 
 	})
