@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/LK4D4/joincontext"
+	"github.com/avast/retry-go"
 	"github.com/hashicorp/go-hclog"
 	jsonschema "github.com/naveego/go-json-schema"
 	"github.com/naveego/plugin-pub-mssql/internal/meta"
@@ -18,7 +19,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"github.com/avast/retry-go"
 )
 
 // Server type to describe a server
@@ -653,13 +653,22 @@ func (s *Server) ConfigureReplication(ctx context.Context, req *pub.ConfigureRep
 		}
 	}
 
-	builder.UISchema = map[string]interface{}{
-		"ui:order":[]string{"sqlSchema","goldenRecordTable", "versionRecordTable"},
-	}
 	builder.FormSchema = jsonschema.NewGenerator().WithRoot(ReplicationSettings{}).MustGenerate()
 
+	if req.Schema != nil {
+		var nameEnum []string
+		for _, property := range req.Schema.Properties {
+			nameEnum = append(nameEnum, property.Name)
+		}
+
+		builder.UISchema = map[string]interface{}{
+			"ui:order":[]string{"sqlSchema","goldenRecordTable", "versionRecordTable", "propertyConfig"},
+		}
+		builder.FormSchema.Properties["propertyConfig"].Items.Properties["name"].Enum = nameEnum
+	}
+
 	return &pub.ConfigureReplicationResponse{
-		Form:builder.Build(),
+		Form: builder.Build(),
 	}, nil
 }
 

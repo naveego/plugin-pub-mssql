@@ -147,12 +147,14 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 		previousMetadataSettings = previousMetadata.GetSettings()
 		if previousMetadataSettings.Settings.GetNamespacedVersionRecordTable() != settings.GetNamespacedVersionRecordTable() {
 			// version table name has changed
+			session.Log.Debug("version table name changed")
 			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedVersionRecordTable()); err != nil {
 				return nil, errors.Wrap(err, "dropping version table after name change")
 			}
 		}
-		if previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable() != settings.GetNamespacedVersionRecordTable() {
+		if previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable() != settings.GetNamespacedGoldenRecordTable() {
 			// golden table name has changed
+			session.Log.Debug("golden record table name changed")
 			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable()); err != nil {
 				return nil, errors.Wrap(err, "dropping golden table after name change")
 			}
@@ -169,6 +171,9 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 	_ = json.Unmarshal(schemaJson, &goldenSchema)
 	_ = json.Unmarshal(schemaJson, &versionSchema)
 
+	session.Log.Debug("version schema before", "schema", fmt.Sprintf("%v", versionSchema))
+	session.Log.Debug("golden schema before", "schema", fmt.Sprintf("%v", goldenSchema))
+	session.Log.With("config", fmt.Sprintf("%v", settings.PropertyConfiguration)).Debug("property config")
 
 	w.augmentGoldenProperties(goldenSchema)
 	goldenSchema.Id = GetSchemaID(settings.SQLSchema, settings.GoldenRecordTable)
@@ -178,13 +183,17 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 	versionSchema.Id = GetSchemaID(settings.SQLSchema, settings.VersionRecordTable)
 	w.VersionIDMap = w.canonicalizeProperties(versionSchema)
 
+	toRefresh := []*pub.Schema{
+		goldenSchema,
+		versionSchema,
+	}
+	toRefreshJson, _ := json.Marshal(toRefresh)
+	_ = json.Unmarshal(toRefreshJson, &toRefresh)
+
 	discoveredSchemas, err := DiscoverSchemasSync(session, session.SchemaDiscoverer, &pub.DiscoverSchemasRequest{
 		Mode:       pub.DiscoverSchemasRequest_REFRESH,
 		SampleSize: 0,
-		ToRefresh: []*pub.Schema{
-			goldenSchema,
-			versionSchema,
-		},
+		ToRefresh: toRefresh,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "checking for owned schemas")
@@ -195,16 +204,32 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 	for _, schema := range discoveredSchemas {
 		if schema.Id == settings.GetNamespacedGoldenRecordTable() {
 			existingGoldenSchema = schema
+			session.Log.With("existing golden schema", fmt.Sprintf("%v", existingGoldenSchema)).Debug("found existing golden record schema")
 		}
 		if schema.Id == settings.GetNamespacedVersionRecordTable() {
 			existingVersionSchema = schema
+			session.Log.With("existing version schema", fmt.Sprintf("%v", existingVersionSchema)).Debug("found existing version schema")
 		}
 	}
 
-	if err := w.reconcileSchemas(session, existingVersionSchema, versionSchema); err != nil {
+	var customGoldenSchema *pub.Schema
+	goldenSchemaJson, _ := json.Marshal(goldenSchema)
+	_ = json.Unmarshal(goldenSchemaJson, &customGoldenSchema)
+
+	var customVersionSchema *pub.Schema
+	customVersionSchemaJson, _ := json.Marshal(versionSchema)
+	_ = json.Unmarshal(customVersionSchemaJson, &customVersionSchema)
+
+	applyCustomSQLTypes(customGoldenSchema, settings.PropertyConfiguration)
+	applyCustomSQLTypes(customVersionSchema, settings.PropertyConfiguration)
+
+	session.Log.Debug("version schema after", "schema", fmt.Sprintf("%v", customVersionSchema))
+	session.Log.Debug("golden schema after", "schema", fmt.Sprintf("%v", customGoldenSchema))
+
+	if err := w.reconcileSchemas(session, existingVersionSchema, customVersionSchema); err != nil {
 		return nil, errors.Wrap(err, "reconciling version schema")
 	}
-	if err := w.reconcileSchemas(session, existingGoldenSchema, goldenSchema); err != nil {
+	if err := w.reconcileSchemas(session, existingGoldenSchema, customGoldenSchema); err != nil {
 		return nil, errors.Wrap(err, "reconciling golden schema")
 	}
 
@@ -317,30 +342,32 @@ func (r *ReplicationWriter) recordChange(f string, args ...interface{}) {
 }
 
 func (r *ReplicationWriter) reconcileSchemas(session *OpSession, current *pub.Schema, desired *pub.Schema) error {
-
+	session.Log.Debug("reconcile schemas", "current", fmt.Sprintf("%v", current), "desired", fmt.Sprintf("%v", desired))
 	needsDelete := false
 	needsCreate := false
 	if current == nil {
 		needsCreate = true
 	} else {
-
-		needsDelete = r.compareProps(current, desired) || r.compareProps(desired, current)
+		//needsDelete = r.compareProps(current, desired) || r.compareProps(desired, current)
+		needsDelete = !r.compareProps(current, desired)
 		needsCreate = needsDelete
 	}
 
-	if needsDelete && current != nil {
-		if err := r.dropTable(session, current.Id); err != nil {
-			session.Log.Warn("Could not drop table.", "table", current.Id, "err", err)
-		}
+	session.Log.Debug("reconcile schemas", "needsDelete", needsDelete, "needsCreate", needsCreate)
 
+	if needsDelete && current != nil {
+		session.Log.Debug("deleting table", "schema id", desired.Id)
+		if err := r.dropTable(session, current.Id); err != nil {
+			session.Log.Error("Could not drop table.", "table", current.Id, "err", err)
+		}
 	}
 
 	if needsCreate {
-		if err := r.createTable(session, current); err != nil {
-			session.Log.Error("Could not create table.", "table", current, "err", err)
+		session.Log.Debug("creating table", "schema id", desired.Id)
+		if err := r.createTable(session, desired); err != nil {
+			session.Log.Error("Could not create table.", "table", desired, "err", err)
 			return errors.Wrapf(err, "create table")
 		}
-
 	}
 
 	return nil
@@ -367,6 +394,9 @@ func (r *ReplicationWriter) compareProps(left, right *pub.Schema) (same bool) {
 			return false
 		}
 		if rightProp.Type != leftProp.Type {
+			return false
+		}
+		if rightProp.TypeAtSource != leftProp.TypeAtSource {
 			return false
 		}
 	}
@@ -479,19 +509,29 @@ func (r *ReplicationWriter) augmentGoldenProperties(goldenSchema *pub.Schema) {
 			Type:         pub.PropertyType_STRING,
 			TypeAtSource: "VARCHAR(44)", // fits an RID or a SHA256 if we change group ID convention
 		},
-		&pub.Property{
+		{
 			Id:           constants.CreatedAt,
 			Name:         constants.CreatedAt,
 			Type:         pub.PropertyType_DATETIME,
 			TypeAtSource: "DATETIME",
 		},
-		&pub.Property{
+		{
 			Id:           constants.UpdatedAt,
 			Name:         constants.UpdatedAt,
 			Type:         pub.PropertyType_DATETIME,
 			TypeAtSource: "DATETIME",
 		},
 	}, goldenSchema.Properties...)
+}
+
+func applyCustomSQLTypes(schema *pub.Schema, propertyConfig []PropertyConfig){
+	for _, property := range schema.Properties {
+		for _, config := range propertyConfig {
+			if strings.Trim(config.Name, "[]") == strings.Trim(property.Name, "[]") {
+				property.TypeAtSource = config.Type
+			}
+		}
+	}
 }
 
 
