@@ -202,6 +202,9 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 	var existingGoldenSchema *pub.Schema
 	var existingVersionSchema *pub.Schema
 	for _, schema := range discoveredSchemas {
+		if len(schema.Errors) > 0 {
+			continue
+		}
 		if schema.Id == settings.GetNamespacedGoldenRecordTable() {
 			existingGoldenSchema = schema
 			session.Log.With("existing golden schema", fmt.Sprintf("%v", existingGoldenSchema)).Debug("found existing golden record schema")
