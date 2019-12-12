@@ -528,6 +528,7 @@ func applyCustomSQLTypes(schema *pub.Schema, propertyConfig []PropertyConfig){
 	for _, property := range schema.Properties {
 		for _, config := range propertyConfig {
 			if strings.Trim(config.Name, "[]") == strings.Trim(property.Name, "[]") {
+				property.Type = meta.ConvertSQLTypeToPluginType(strings.ToLower(config.Type), -1)
 				property.TypeAtSource = config.Type
 			}
 		}

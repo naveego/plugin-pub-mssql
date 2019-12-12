@@ -16,7 +16,7 @@ func Build() error {
 		Package: build.Package{
 			VersionString: version.Version.String(),
 			PackagePath:   "github.com/naveego/plugin-pub-mssql",
-			Name:          "pub-mssql",
+			Name:          "plugin-pub-mssql",
 			Shrink:        true,
 		},
 		Targets: []build.PackageTarget{
