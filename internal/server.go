@@ -624,6 +624,14 @@ func (s *Server) ConfigureReplication(ctx context.Context, req *pub.ConfigureRep
 			s.log.Debug("Configure replication request was a save.")
 		}
 
+		for i, a := range settings.PropertyConfiguration {
+			for _, b := range settings.PropertyConfiguration[i+1:] {
+				if a.Name == b.Name {
+					return nil, errors.Errorf("Duplicate property: %s detected", a.Name)
+				}
+			}
+		}
+
 		if settings.SQLSchema != "" &&
 			settings.VersionRecordTable != "" &&
 			settings.GoldenRecordTable != "" &&
