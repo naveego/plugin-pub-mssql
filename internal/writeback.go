@@ -102,7 +102,6 @@ type ReplicationWriter struct {
 	changes      []string
 }
 
-
 func NewReplicationWriteHandler(session *OpSession, req *pub.PrepareWriteRequest) (Writer, error) {
 
 	w := &ReplicationWriter{
@@ -276,8 +275,8 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 			Settings:      settings,
 			Request:       req,
 			Changes:       w.changes,
-			GoldenSchema:  goldenSchema,
-			VersionSchema: versionSchema,
+			GoldenSchema:  customGoldenSchema,
+			VersionSchema: customVersionSchema,
 		}
 		versioning := NaveegoReplicationVersioning{
 			Settings:            metadataSettings.JSON(),
@@ -296,8 +295,8 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 
 
 	// Capture schemas for use during write.
-	w.GoldenMetaSchema = MetaSchemaFromPubSchema(goldenSchema)
-	w.VersionMetaSchema = MetaSchemaFromPubSchema(versionSchema)
+	w.GoldenMetaSchema = MetaSchemaFromPubSchema(customGoldenSchema)
+	w.VersionMetaSchema = MetaSchemaFromPubSchema(customVersionSchema)
 
 	return w, nil
 }
