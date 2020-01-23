@@ -269,6 +269,8 @@ func (s *SchemaDiscoverer) populateShapeColumns(session *OpSession, shape *pub.S
 		}
 	}
 
+	var discoveredProperties []*pub.Property
+
 	for _, m := range metadata {
 
 		if m.IsHidden {
@@ -292,8 +294,9 @@ func (s *SchemaDiscoverer) populateShapeColumns(session *OpSession, shape *pub.S
 				Id:   propertyID,
 				Name: propertyName,
 			}
-			shape.Properties = append(shape.Properties, property)
 		}
+
+		discoveredProperties = append(discoveredProperties, property)
 
 		property.TypeAtSource = m.SystemTypeName
 
@@ -306,6 +309,8 @@ func (s *SchemaDiscoverer) populateShapeColumns(session *OpSession, shape *pub.S
 			property.IsKey = m.IsPartOfUniqueKey
 		}
 	}
+
+	shape.Properties = discoveredProperties
 
 	return nil
 }
