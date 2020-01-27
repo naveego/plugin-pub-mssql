@@ -178,11 +178,12 @@ func (r RealTimeSettings) String() string {
 }
 
 type RealTimeTableSettings struct {
+	CustomTarget 		   string `json:"customTarget" title:"Custom Target" description:"Custom target for change tracking (format: [database].[schema].[table])."`
 	SchemaID               string `json:"schemaID" title:"Table" description:"The table to monitor for changes." required:"true"`
 	Query                  string `json:"query"  required:"true" title:"Query" description:"A query which matches up the primary keys of the the table where change tracking is enabled with the keys of the view or query you are publishing from." `
 }
 
-func GetRealTimeSchemas() (form *jsonschema.JSONSchema, ui SchemaMap) {
+func GetRealTimeSchemas(defaultDatabase string) (form *jsonschema.JSONSchema, ui SchemaMap) {
 
 	form = jsonschema.NewGenerator().WithRoot(RealTimeSettings{}).MustGenerate()
 
@@ -196,13 +197,17 @@ func GetRealTimeSchemas() (form *jsonschema.JSONSchema, ui SchemaMap) {
 		p.MinLength = &min
 	}, "tables")
 
+	_ = updateProperty(&form.Property, func(p *jsonschema.Property) {
+		p.Default = defaultDatabase
+	}, "tables", "database")
+
 	ui = SchemaMap{
 		"pollingInterval": SchemaMap {
 			"ui:help": "Provide a number and a unit (s = second, m = minute, h = hour).",
 		},
 		"tables": SchemaMap{
 			"items": SchemaMap{
-				"ui:order": []string{"schemaID", "query"},
+				"ui:order": []string{"schemaID", "customTarget", "query"},
 				"query":SchemaMap{
 					"ui:widget":"textarea",
 					"ui:options": SchemaMap{

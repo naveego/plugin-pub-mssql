@@ -234,60 +234,65 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 		return nil, errors.Wrapf(err, "tried using host %q, port %d", settings.Host, settings.Port)
 	}
 
-	rows, err := session.DB.Query(`SELECT t.TABLE_NAME
-     , t.TABLE_SCHEMA
-     , t.TABLE_TYPE
-     , c.COLUMN_NAME
-     , tc.CONSTRAINT_TYPE
-, CASE
-  WHEN exists (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID(t.TABLE_SCHEMA + '.' + t.TABLE_NAME))
-  THEN 1
-  ELSE 0
-  END AS CHANGE_TRACKING
-FROM INFORMATION_SCHEMA.TABLES AS t
-       INNER JOIN INFORMATION_SCHEMA.COLUMNS AS c ON c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME
-       LEFT OUTER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS ccu
-                       ON ccu.COLUMN_NAME = c.COLUMN_NAME AND ccu.TABLE_NAME = t.TABLE_NAME AND
-                          ccu.TABLE_SCHEMA = t.TABLE_SCHEMA
-       LEFT OUTER JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS tc
-                       ON tc.CONSTRAINT_NAME = ccu.CONSTRAINT_NAME AND tc.CONSTRAINT_SCHEMA = ccu.CONSTRAINT_SCHEMA
-
-ORDER BY TABLE_NAME`)
-
+	session.SchemaInfo, err = GetSchemaInfo(session.DB)
 	if err != nil {
-		return nil, errors.Errorf("could not read database schema: %s", err)
+		return nil, errors.Wrap(err, "could not discover tables")
 	}
 
-	// Collect table names for display in UIs.
-	for rows.Next() {
-		var (
-			schema, table, typ, columnName string
-			constraint                     *string
-			changeTracking                 bool
-		)
-		err = rows.Scan(&table, &schema, &typ, &columnName, &constraint, &changeTracking)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not read table schema")
-		}
-		id := GetSchemaID(schema, table)
-		info, ok := session.SchemaInfo[id]
-		if !ok {
-			info = &meta.Schema{
-				ID:               id,
-				IsTable:          typ == "BASE TABLE",
-				IsChangeTracking: changeTracking,
-			}
-			session.SchemaInfo[id] = info
-		}
-		columnName = fmt.Sprintf("[%s]", columnName)
-		columnInfo, ok := info.LookupColumn(columnName)
-		if !ok {
-			columnInfo = info.AddColumn(&meta.Column{ID: columnName})
-		}
-		columnInfo.IsKey = columnInfo.IsKey || constraint != nil && *constraint == "PRIMARY KEY"
-	}
+//	rows, err := session.DB.Query(`SELECT t.TABLE_NAME
+//     , t.TABLE_SCHEMA
+//     , t.TABLE_TYPE
+//     , c.COLUMN_NAME
+//     , tc.CONSTRAINT_TYPE
+//, CASE
+//  WHEN exists (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID(t.TABLE_SCHEMA + '.' + t.TABLE_NAME))
+//  THEN 1
+//  ELSE 0
+//  END AS CHANGE_TRACKING
+//FROM INFORMATION_SCHEMA.TABLES AS t
+//       INNER JOIN INFORMATION_SCHEMA.COLUMNS AS c ON c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME
+//       LEFT OUTER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS ccu
+//                       ON ccu.COLUMN_NAME = c.COLUMN_NAME AND ccu.TABLE_NAME = t.TABLE_NAME AND
+//                          ccu.TABLE_SCHEMA = t.TABLE_SCHEMA
+//       LEFT OUTER JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS tc
+//                       ON tc.CONSTRAINT_NAME = ccu.CONSTRAINT_NAME AND tc.CONSTRAINT_SCHEMA = ccu.CONSTRAINT_SCHEMA
+//
+//ORDER BY TABLE_NAME`)
+//
+//	if err != nil {
+//		return nil, errors.Errorf("could not read database schema: %s", err)
+//	}
+//
+//	// Collect table names for display in UIs.
+//	for rows.Next() {
+//		var (
+//			schema, table, typ, columnName string
+//			constraint                     *string
+//			changeTracking                 bool
+//		)
+//		err = rows.Scan(&table, &schema, &typ, &columnName, &constraint, &changeTracking)
+//		if err != nil {
+//			return nil, errors.Wrap(err, "could not read table schema")
+//		}
+//		id := GetSchemaID(schema, table)
+//		info, ok := session.SchemaInfo[id]
+//		if !ok {
+//			info = &meta.Schema{
+//				ID:               id,
+//				IsTable:          typ == "BASE TABLE",
+//				IsChangeTracking: changeTracking,
+//			}
+//			session.SchemaInfo[id] = info
+//		}
+//		columnName = fmt.Sprintf("[%s]", columnName)
+//		columnInfo, ok := info.LookupColumn(columnName)
+//		if !ok {
+//			columnInfo = info.AddColumn(&meta.Column{ID: columnName})
+//		}
+//		columnInfo.IsKey = columnInfo.IsKey || constraint != nil && *constraint == "PRIMARY KEY"
+//	}
 
-	rows, err = session.DB.Query("SELECT ROUTINE_SCHEMA, ROUTINE_NAME FROM information_schema.routines WHERE routine_type = 'PROCEDURE'")
+	rows, err := session.DB.Query("SELECT ROUTINE_SCHEMA, ROUTINE_NAME FROM information_schema.routines WHERE routine_type = 'PROCEDURE'")
 	if err != nil {
 		return nil, errors.Errorf("could not read stored procedures from database: %s", err)
 	}

@@ -13,58 +13,119 @@ import (
 )
 
 type RealTimeHelper struct {
-	dbChangeTrackingEnabled    bool
+	dbChangeTrackingEnabled    map[string]bool
 	tableChangeTrackingEnabled map[string]bool
+	dbHandles				   map[string] *sql.DB
 }
 
-func (r *RealTimeHelper) ensureDBChangeTrackingEnabled(session *OpSession) error {
+func (r *RealTimeHelper) ensureDBChangeTrackingEnabled(session *OpSession, dbName string) error {
+	if r.dbChangeTrackingEnabled == nil {
+		r.dbChangeTrackingEnabled = map[string]bool{}
+	}
 
-	if r.dbChangeTrackingEnabled {
+	enabled, ok := r.dbChangeTrackingEnabled[dbName]
+	if ok && enabled {
 		return nil
 	}
 
-	dbName := session.Settings.Database
+	db, err := r.getDbHandle(session, dbName)
+	if err != nil {
+		return err
+	}
 
-	row := session.DB.QueryRowContext(session.Ctx,
+	row := db.QueryRowContext(session.Ctx,
 		`SELECT count(1)
 FROM sys.change_tracking_databases
 WHERE database_id=DB_ID(@ID)`, sql.Named("ID", dbName))
 
 	var count int
-	err := row.Scan(&count)
+	err = row.Scan(&count)
 	if err == nil && count == 0 {
 		err = errors.New("Database does not have change tracking enabled. " +
 			"See https://docs.microsoft.com/en-us/sql/relational-databases/track-changes/enable-and-disable-change-tracking-sql-server for details on enabling change tracking.")
 	}
-	if err == nil {
-		r.dbChangeTrackingEnabled = true
+	if err != nil {
+		return err
 	}
 
-	return err
+	r.dbChangeTrackingEnabled[dbName] = true
+	return nil
 }
 
-func (r *RealTimeHelper) ensureTableChangeTrackingEnabled(session *OpSession, schemaID string) error {
+func (r *RealTimeHelper) ensureTableChangeTrackingEnabled(session *OpSession, dbName string, schemaID string) error {
+	err := r.ensureDBChangeTrackingEnabled(session, dbName)
+	if err != nil {
+		// If change tracking is disabled on the DB we can't do much.
+		return err
+	}
+
 	if r.tableChangeTrackingEnabled == nil {
 		r.tableChangeTrackingEnabled = map[string]bool{}
 	}
 
-	if !r.tableChangeTrackingEnabled[schemaID] {
-		row := session.DB.QueryRow(
-			`SELECT count(1)
+	enabled, ok := r.tableChangeTrackingEnabled[schemaID]
+	if ok && enabled {
+		return nil
+	}
+
+	db, err := r.getDbHandle(session, dbName)
+	if err != nil {
+		return err
+	}
+
+	row := db.QueryRow(
+		`SELECT count(1)
 FROM sys.change_tracking_tables
 WHERE object_id=OBJECT_ID(@ID)`, sql.Named("ID", schemaID))
-		var count int
-		err := row.Scan(&count)
-		if err == nil && count == 0 {
-			err = errors.New("Table does not have change tracking enabled. See https://docs.microsoft.com/en-us/sql/relational-databases/track-changes/enable-and-disable-change-tracking-sql-server for details on enabling change tracking.")
-		}
-		if err != nil {
-			return err
-		}
+	var count int
+	err = row.Scan(&count)
+	if err == nil && count == 0 {
+		err = errors.New("Table does not have change tracking enabled. See https://docs.microsoft.com/en-us/sql/relational-databases/track-changes/enable-and-disable-change-tracking-sql-server for details on enabling change tracking.")
+	}
+	if err != nil {
+		return err
 	}
 
 	r.tableChangeTrackingEnabled[schemaID] = true
 	return nil
+}
+
+func (r *RealTimeHelper) getDbHandle(session *OpSession, dbName string) (*sql.DB, error) {
+	if r.dbHandles == nil {
+		r.dbHandles = map[string]*sql.DB{}
+	}
+
+	db, ok := r.dbHandles[dbName]
+	if ok {
+		return db, nil
+	}
+
+	if session.Settings.Database != dbName {
+		var newSettings *Settings
+		settingsJSON, err := json.Marshal(session.Settings)
+		err = json.Unmarshal(settingsJSON, &newSettings)
+		if err != nil {
+			return nil, err
+		}
+		newSettings.Database = dbName
+
+		connectionString, err := newSettings.GetConnectionString()
+		if err != nil {
+			return nil, err
+		}
+
+		db, err = sql.Open("sqlserver", connectionString)
+		if err != nil {
+			return nil, errors.Errorf("could not open connection: %s", err)
+		}
+		err = db.Ping()
+		return nil,err
+	} else {
+		db = session.DB
+	}
+
+	r.dbHandles[dbName] = db
+	return db, nil
 }
 
 type ConfigurationFormPreResponse struct {
@@ -101,14 +162,8 @@ func (c ConfigurationFormPreResponse) ToResponse() *pub.ConfigureRealTimeRespons
 func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.ConfigureRealTimeRequest) (*pub.ConfigureRealTimeResponse, error) {
 	var err error
 
-	err = r.ensureDBChangeTrackingEnabled(session)
-
-	if err != nil {
-		// If change tracking is disabled on the DB we can't do much.
-		return (&pub.ConfigureRealTimeResponse{}).WithFormErrors(err.Error()), nil
-	}
-
-	jsonSchema, uiSchema := GetRealTimeSchemas()
+	// get form ui json
+	jsonSchema, uiSchema := GetRealTimeSchemas(session.Settings.Database)
 
 	resp := ConfigurationFormPreResponse{
 		DataJson:   req.Form.DataJson,
@@ -118,6 +173,7 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 		DataErrors: ErrorMap{},
 	}
 
+	// attempt to auto validate target schema if schema is a table
 	schemaInfo := session.SchemaInfo[req.Schema.Id]
 	if schemaInfo == nil || !schemaInfo.IsTable {
 		schemaInfo = MetaSchemaFromPubSchema(req.Schema)
@@ -125,12 +181,13 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 		// If the schema is a table and it has change tracking, we have nothing else to configure.
 		// Otherwise, we'll show the user an error telling them to configure change tracking for the table.
 
-		err = r.ensureTableChangeTrackingEnabled(session, req.Schema.Id)
+		err = r.ensureTableChangeTrackingEnabled(session, session.Settings.Database, req.Schema.Id)
 		if err != nil {
+			// target schema table is not configured
 			resp.Errors = []string{fmt.Sprintf("The schema is a table, but real time configuration failed: %s", err)}
 			return resp.ToResponse(), nil
 		} else {
-
+			// target schema table is already configured
 			delete(jsonSchema.Properties, "tables")
 			jsonSchema.Property.Description = fmt.Sprintf("The table `%s` has change tracking enabled and is ready for real time publishing.", req.Schema.Id)
 
@@ -138,17 +195,24 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 		}
 	}
 
-	err = updateProperty(&jsonSchema.Property, func(p *jsonschema.Property) {
-		for _, info := range session.SchemaInfo {
-			if info.IsChangeTracking {
-				p.Enum = append(p.Enum, info.ID)
-			}
-		}
-		sort.Strings(p.Enum)
-	}, "tables", "schemaID")
-	if err != nil {
-		panic("schema was malformed")
-	}
+	// TODO: look at where to put this
+	// attempt to auto populate the schema id list with tables that have change tracking enabled
+	//err = updateProperty(&jsonSchema.Property, func(p *jsonschema.Property) {
+	//	for _, info := range session.SchemaInfo {
+	//		if info.IsChangeTracking {
+	//			p.Enum = append(p.Enum, info.ID)
+	//		}
+	//	}
+	//	sort.Strings(p.Enum)
+	//}, "tables", "schemaID")
+	//if err != nil {
+	//	panic("schema was malformed")
+	//}
+
+	// TODO: add logic to collect schemas for target db based on settings Y
+	// refactor out logic to get schema info from connect method and accept a db handle Y
+	// call method to get target schema info if target database is not the same as the session database
+	
 
 	var settings RealTimeSettings
 	if req.Form.DataJson != "" {
@@ -161,19 +225,29 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 	if len(settings.Tables) == 0 {
 		resp.DataErrors.GetOrAddChild("tables").AddError("At least one table is required.")
 	} else {
-
 		allTableErrors := resp.DataErrors.GetOrAddChild("tables")
 
 		for i, table := range settings.Tables {
 			tableErrors := allTableErrors.GetOrAddChild(i)
-			err = r.ensureTableChangeTrackingEnabled(session, table.SchemaID)
+
+			db, err := r.getDbHandle(session, table.Database)
+			if err != nil {
+				tableErrors.GetOrAddChild("schemaID").AddError(err.Error())
+			}
+
+			schemaInfoMap, err := GetSchemaInfo(db)
+			if err != nil {
+				tableErrors.GetOrAddChild("schemaID").AddError(err.Error())
+			}
+
+			err = r.ensureTableChangeTrackingEnabled(session, table.Database, table.SchemaID)
 			if err != nil {
 				tableErrors.GetOrAddChild("schemaID").AddError(err.Error())
 			}
 
 			expectedQueryKeys := map[string]bool{}
 
-			depSchema := session.SchemaInfo[table.SchemaID]
+			depSchema := schemaInfoMap[table.SchemaID]
 			if depSchema == nil {
 				tableErrors.GetOrAddChild("schemaID").AddError("Invalid table `%s`.", table.SchemaID)
 				continue
