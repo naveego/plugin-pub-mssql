@@ -41,6 +41,7 @@ WHERE database_id=DB_ID(@ID)`, dbName), sql.Named("ID", dbName))
 			"See https://docs.microsoft.com/en-us/sql/relational-databases/track-changes/enable-and-disable-change-tracking-sql-server for details on enabling change tracking.")
 	}
 	if err != nil {
+		session.Log.Error("ensure db change tracking error: %s", "error", err.Error())
 		return err
 	}
 
@@ -77,7 +78,7 @@ WHERE object_id=OBJECT_ID(@ID)`, dbName), sql.Named("ID", schemaID))
 		err = errors.New("Table does not have change tracking enabled. See https://docs.microsoft.com/en-us/sql/relational-databases/track-changes/enable-and-disable-change-tracking-sql-server for details on enabling change tracking.")
 	}
 	if err != nil {
-		session.Log.Error("change tracking error: %s", "error", err.Error())
+		session.Log.Error("ensure table change tracking error: %s", "error", err.Error())
 		return err
 	}
 
@@ -193,11 +194,13 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 				err = r.ensureTableChangeTrackingEnabled(session, dbName, table.CustomTarget)
 				if err != nil {
 					tableErrors.GetOrAddChild("schemaID").AddError(err.Error())
+					continue
 				}
 			} else {
 				err = r.ensureTableChangeTrackingEnabled(session, session.Settings.Database, table.SchemaID)
 				if err != nil {
 					tableErrors.GetOrAddChild("schemaID").AddError(err.Error())
+					continue
 				}
 			}
 
@@ -222,6 +225,7 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 				metadata, err := describeResultSet(session, table.Query)
 				if err != nil {
 					tableErrors.GetOrAddChild("query").AddError("Query failed: %s", err)
+					continue
 				} else {
 					for _, col := range metadata {
 						safeName := fmt.Sprintf("[%s]", strings.Trim(col.Name, "[]"))
@@ -239,7 +243,6 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 					}
 				}
 			}
-
 		}
 	}
 
