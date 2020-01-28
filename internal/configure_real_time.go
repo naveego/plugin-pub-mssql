@@ -58,6 +58,8 @@ func (r *RealTimeHelper) ensureTableChangeTrackingEnabled(session *OpSession, db
 		return err
 	}
 
+	session.Log.Debug("Database has change tracking enabled", "database", dbName)
+
 	if r.tableChangeTrackingEnabled == nil {
 		r.tableChangeTrackingEnabled = map[string]bool{}
 	}
@@ -83,6 +85,7 @@ WHERE object_id=OBJECT_ID(@ID)`, dbName), sql.Named("ID", schemaID))
 	}
 
 	r.tableChangeTrackingEnabled[schemaID] = true
+	session.Log.Debug("Table has change tracking enabled", "table", schemaID)
 	return nil
 }
 
@@ -211,8 +214,10 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 				tableErrors.GetOrAddChild("schemaID").AddError("Invalid table `%s`.", table.SchemaID)
 				continue
 			}
-			for _, k := range depSchema.Keys() {
-				expectedQueryKeys[templates.PrefixColumn("Dependency", k)] = false
+			if depSchema != nil {
+				for _, k := range depSchema.Keys() {
+					expectedQueryKeys[templates.PrefixColumn("Dependency", k)] = false
+				}
 			}
 
 			for _, k := range schemaInfo.Keys() {
