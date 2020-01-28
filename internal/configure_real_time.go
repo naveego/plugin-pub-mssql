@@ -138,11 +138,18 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 		// If the schema is a table and it has change tracking, we have nothing else to configure.
 		// Otherwise, we'll show the user an error telling them to configure change tracking for the table.
 		err = r.ensureTableChangeTrackingEnabled(session, session.Settings.Database, req.Schema.Id)
-		if err != nil {
-			// target schema table is not configured
-			resp.Errors = []string{fmt.Sprintf("The schema is a table, but real time configuration failed: %s", err)}
-			return resp.ToResponse(), nil
-		} else {
+		//if err != nil {
+		//	// target schema table is not configured
+		//	resp.Errors = []string{fmt.Sprintf("The schema is a table, but real time configuration failed: %s", err)}
+		//	return resp.ToResponse(), nil
+		//} else {
+		//	// target schema table is already configured
+		//	delete(jsonSchema.Properties, "tables")
+		//	jsonSchema.Property.Description = fmt.Sprintf("The table `%s` has change tracking enabled and is ready for real time publishing.", req.Schema.Id)
+		//
+		//	return resp.ToResponse(), nil
+		//}
+		if err == nil {
 			// target schema table is already configured
 			delete(jsonSchema.Properties, "tables")
 			jsonSchema.Property.Description = fmt.Sprintf("The table `%s` has change tracking enabled and is ready for real time publishing.", req.Schema.Id)
