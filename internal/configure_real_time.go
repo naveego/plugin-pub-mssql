@@ -142,17 +142,6 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 		// If the schema is a table and it has change tracking, we have nothing else to configure.
 		// Otherwise, we'll show the user an error telling them to configure change tracking for the table.
 		err = r.ensureTableChangeTrackingEnabled(session, session.Settings.Database, req.Schema.Id)
-		//if err != nil {
-		//	// target schema table is not configured
-		//	resp.Errors = []string{fmt.Sprintf("The schema is a table, but real time configuration failed: %s", err)}
-		//	return resp.ToResponse(), nil
-		//} else {
-		//	// target schema table is already configured
-		//	delete(jsonSchema.Properties, "tables")
-		//	jsonSchema.Property.Description = fmt.Sprintf("The table `%s` has change tracking enabled and is ready for real time publishing.", req.Schema.Id)
-		//
-		//	return resp.ToResponse(), nil
-		//}
 		if err == nil {
 			// target schema table is already configured
 			delete(jsonSchema.Properties, "tables")
@@ -210,14 +199,32 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 			expectedQueryKeys := map[string]bool{}
 
 			depSchema := session.SchemaInfo[table.SchemaID]
-			if depSchema == nil && table.SchemaID != CustomTargetOption {
-				tableErrors.GetOrAddChild("schemaID").AddError("Invalid table `%s`.", table.SchemaID)
-				continue
-			}
-			if depSchema != nil {
-				for _, k := range depSchema.Keys() {
-					expectedQueryKeys[templates.PrefixColumn("Dependency", k)] = false
+			if depSchema == nil {
+				if table.SchemaID == CustomTargetOption {
+					schema := new(pub.Schema)
+					schema.Query = fmt.Sprintf("SELECT * FROM %s", table.CustomTarget)
+
+					_, err := DiscoverSchemasSync(session, session.SchemaDiscoverer, &pub.DiscoverSchemasRequest{
+						Mode:       pub.DiscoverSchemasRequest_REFRESH,
+						SampleSize: 0,
+						ToRefresh: []*pub.Schema{
+							schema,
+						},
+					})
+					if err != nil {
+						tableErrors.GetOrAddChild("schemaID").AddError("Unable to retrieve schema for target table `%s` `%s`.", table.CustomTarget, err.Error())
+						continue
+					}
+
+					depSchema = MetaSchemaFromPubSchema(schema)
+				} else {
+					tableErrors.GetOrAddChild("schemaID").AddError("Invalid table `%s`.", table.SchemaID)
+					continue
 				}
+			}
+
+			for _, k := range depSchema.Keys() {
+				expectedQueryKeys[templates.PrefixColumn("Dependency", k)] = false
 			}
 
 			for _, k := range schemaInfo.Keys() {
