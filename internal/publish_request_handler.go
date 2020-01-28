@@ -318,18 +318,20 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 				return errors.Wrap(err, "get next change tracking version")
 			}
 
-
-
 			realTimeSettings := req.RealTimeSettings
+
+			log.Debug("Got request", "req", req)
+			log.Debug("Got real time settings", "settings", realTimeSettings)
+
 			err = req.Store.DB.Update(func(tx *bolt.Tx) error {
 				b, err := tx.CreateBucketIfNotExists([]byte(shape.Id))
 				if err != nil {
 					return errors.Errorf("create bucket for %q: %s", shape.Id, err)
 				}
-				_, err = b.CreateBucketIfNotExists([]byte(shape.Id))
-				if err != nil {
-					return errors.Errorf("create dep bucket for %q: %s", shape.Id, err)
-				}
+				//_, err = b.CreateBucketIfNotExists([]byte(shape.Id))
+				//if err != nil {
+				//	return errors.Errorf("create dep bucket for %q: %s", shape.Id, err)
+				//}
 
 				for _, dep := range realTimeSettings.Tables {
 					_, err = b.CreateBucketIfNotExists([]byte(dep.SchemaID))
@@ -375,25 +377,30 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 
 				templateArgs, err := buildSchemaDataQueryArgs(req, nil)
 				if err != nil {
+					log.Error("Error building query", "error", err.Error())
 					return errors.Wrap(err, "build schema query")
 				}
+				log.Debug("buildSchemaDataQueryArgs completed")
 
 				query, err := templates.RenderSchemaDataQuery(templateArgs)
 				if err != nil {
+					log.Error("Error render data query", "error", err.Error())
 					return errors.Wrap(err, "build real time schema query")
 				}
 
-				log.Trace("Rendered real time schema query")
-				log.Trace(query)
+				log.Debug("Rendered real time schema query")
+				log.Debug(query)
 
 				rows, err := session.DB.QueryContext(session.Ctx, query)
 				if err != nil {
+					log.Error("Error query context", "error", err.Error())
 					return errors.Errorf("real time schema query failed: %s\nquery text:\n%s", err, query)
 				}
 
 				err = handleRows(req, templateArgs, rows, nil, handler)
 
 				if err != nil {
+					log.Error("Error handle rows", "error", err.Error())
 					return errors.Wrap(err, "initial load of table")
 				}
 
@@ -585,6 +592,13 @@ func StoreChangeTrackingDataMiddleware() PublishMiddleware {
 					for depID, data := range req.Dependencies {
 
 						schema := req.OpSession.SchemaInfo[depID]
+						if schema == nil {
+							schema, err = getMetaSchemaForSchemaId(req.OpSession, depID)
+							if err != nil {
+								return errors.Errorf("error getting meta schema for %q: %s", depID, err)
+							}
+						}
+
 						depKeys, err := data.ExtractRowKeys(schema)
 						if err != nil {
 							return errors.Errorf("dependency on %q had invalid data: %s", depID, err)
@@ -742,6 +756,14 @@ func buildSchemaDataQueryArgs(req PublishRequest, allRowKeys []meta.RowKeys) (te
 	if req.RealTimeSettings != nil {
 		for _, dep := range req.RealTimeSettings.Tables {
 			depArgs := req.OpSession.SchemaInfo[dep.SchemaID]
+
+			if depArgs == nil {
+				depArgs, err = getMetaSchemaForSchemaId(req.OpSession, dep.SchemaID)
+				if err != nil {
+					return templateArgs, errors.Wrap(err, "get meta schema")
+				}
+			}
+
 			depArgs.Query = dep.Query
 			templateArgs.DependencyTables = append(templateArgs.DependencyTables, depArgs)
 		}
@@ -831,19 +853,23 @@ func getItemsAndHandle(session *OpSession, externalRequest *pub.ReadRequest, han
 
 func handleRows(req PublishRequest, args templates.SchemaDataQueryArgs, rows *sql.Rows, causes map[string]Cause, handler PublishHandler) error {
 
+	session := req.OpSession
+	shape := req.PluginRequest.Schema
+
 	var err error
 	columns, err := rows.ColumnTypes()
 	if err != nil {
 		return errors.Errorf("error getting columns from result set: %s", err)
 	}
 
-	session := req.OpSession
-	shape := req.PluginRequest.Schema
+	session.Log.Debug("handleRows Got columns")
 
 	shapePropertiesMap := map[string]*pub.Property{}
 	for _, p := range shape.Properties {
 		shapePropertiesMap[p.Id] = p
 	}
+
+	session.Log.Debug("handleRows made shape prop map")
 
 	metaMap := map[string]bool{
 		DeletedFlagColumnName: true,
@@ -856,6 +882,8 @@ func handleRows(req PublishRequest, args templates.SchemaDataQueryArgs, rows *sq
 		}
 	}
 
+	session.Log.Debug("handleRows made dependency column map")
+
 	valueBuffer := make([]interface{}, len(columns))
 	dataBuffer := make(map[string]interface{}, len(columns))
 	metaBuffer := make(map[string]interface{}, len(columns))
@@ -864,6 +892,8 @@ func handleRows(req PublishRequest, args templates.SchemaDataQueryArgs, rows *sq
 	for _, c := range columns {
 		escapedNameMap[c.Name()] = 				"[" + c.Name() + "]"
 	}
+
+	session.Log.Debug("handleRows made escaped name map")
 
 	for rows.Next() {
 		if session.Ctx.Err() != nil {
@@ -900,6 +930,8 @@ func handleRows(req PublishRequest, args templates.SchemaDataQueryArgs, rows *sq
 		}
 
 		action := pub.Record_UPSERT
+
+		session.Log.Debug("handleRows scanned row into buffer")
 
 		for i, c := range columns {
 			value := valueBuffer[i]

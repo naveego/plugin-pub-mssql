@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/naveego/go-json-schema"
+	"github.com/naveego/plugin-pub-mssql/internal/meta"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/naveego/plugin-pub-mssql/internal/templates"
 	"github.com/pkg/errors"
@@ -201,22 +202,13 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 			depSchema := session.SchemaInfo[table.SchemaID]
 			if depSchema == nil {
 				if table.SchemaID == CustomTargetOption {
-					schema := new(pub.Schema)
-					schema.Query = fmt.Sprintf("SELECT * FROM %s", table.CustomTarget)
-
-					_, err := DiscoverSchemasSync(session, session.SchemaDiscoverer, &pub.DiscoverSchemasRequest{
-						Mode:       pub.DiscoverSchemasRequest_REFRESH,
-						SampleSize: 0,
-						ToRefresh: []*pub.Schema{
-							schema,
-						},
-					})
+					depSchema, err = getMetaSchemaForSchemaId(session, table.CustomTarget)
 					if err != nil {
-						tableErrors.GetOrAddChild("schemaID").AddError("Unable to retrieve schema for target table `%s` `%s`.", table.CustomTarget, err.Error())
+						tableErrors.GetOrAddChild("schemaID").AddError(err.Error())
 						continue
 					}
 
-					depSchema = MetaSchemaFromPubSchema(schema)
+					settings.Tables[i].SchemaID = table.CustomTarget
 				} else {
 					tableErrors.GetOrAddChild("schemaID").AddError("Invalid table `%s`.", table.SchemaID)
 					continue
@@ -258,7 +250,35 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 		}
 	}
 
+	outData, err := json.Marshal(settings)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting settings into json")
+	}
+	resp.DataJson = string(outData)
+
 	return resp.ToResponse(), nil
+}
+
+func getMetaSchemaForSchemaId(session *OpSession, schemaId string) (*meta.Schema, error) {
+	schema := new(pub.Schema)
+	schema.Query = fmt.Sprintf("SELECT * FROM %s", schemaId)
+	schema.Id = schemaId
+
+	_, err := DiscoverSchemasSync(session, session.SchemaDiscoverer, &pub.DiscoverSchemasRequest{
+		Mode:       pub.DiscoverSchemasRequest_REFRESH,
+		SampleSize: 0,
+		ToRefresh: []*pub.Schema{
+			schema,
+		},
+	})
+	if err != nil {
+		return nil, errors.Wrap(err,fmt.Sprintf("Unable to retrieve schema for target table `%s`.", schemaId))
+	}
+
+	metaSchemaInfo := MetaSchemaFromPubSchema(schema)
+	session.SchemaInfo[schemaId] = metaSchemaInfo
+
+	return metaSchemaInfo, nil
 }
 
 // commitVersion commits the version by writing out a state commit to the out channel.
