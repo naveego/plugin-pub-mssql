@@ -53,6 +53,7 @@ type Session struct {
 	RealTimeHelper   *RealTimeHelper
 	Config           Config
 	DB               *sql.DB
+	DbHandles		 map[string]*sql.DB
 	SchemaDiscoverer SchemaDiscoverer
 }
 

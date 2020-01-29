@@ -309,35 +309,108 @@ func commitVersion(session *OpSession, out chan<- *pub.Record, version int) int 
 }
 
 // returns true if the provided version is valid; false otherwise.
-func validateChangeTrackingVersion(session *OpSession, set VersionSet) (bool, error) {
-	for schemaID, version := range set {
-		// TODO: switch databases as needed
-		row := session.DB.QueryRow(`SELECT CHANGE_TRACKING_MIN_VALID_VERSION(OBJECT_ID(@schema))`, sql.Named("schema", schemaID))
-		var minValidVersion int
-		err := row.Scan(&minValidVersion)
-		if err != nil {
-			return false, err
-		}
-		if version < minValidVersion {
-			session.Log.Warn("Current version is less than min valid version in database; all data will be re-loaded from source tables.",
-				"currentVersion", version,
-				"minValidVersion", minValidVersion)
-			return false, nil
-		}
+func validateChangeTrackingVersion(session *OpSession, schemaID string, version int) (bool, error) {
+	//for schemaID, version := range set {
+	//	// TODO: switch databases as needed
+	//	row := session.DB.QueryRow(`SELECT CHANGE_TRACKING_MIN_VALID_VERSION(OBJECT_ID(@schema))`, sql.Named("schema", schemaID))
+	//	var minValidVersion int
+	//	err := row.Scan(&minValidVersion)
+	//	if err != nil {
+	//		return false, err
+	//	}
+	//	if version < minValidVersion {
+	//		session.Log.Warn("Current version is less than min valid version in database; all data will be re-loaded from source tables.",
+	//			"currentVersion", version,
+	//			"minValidVersion", minValidVersion)
+	//		return false, nil
+	//	}
+	//}
+
+	dbName, _, _ := DecomposeSafeName(schemaID)
+
+	db, err := getDbHandleForDatabase(session, dbName)
+	if err  != nil {
+		return false, err
+	}
+
+	row := db.QueryRow(`SELECT CHANGE_TRACKING_MIN_VALID_VERSION(OBJECT_ID(@schema))`, sql.Named("schema", schemaID))
+	var minValidVersion int
+	err = row.Scan(&minValidVersion)
+	if err != nil {
+		return false, err
+	}
+	if version < minValidVersion {
+		session.Log.Warn("Current version is less than min valid version in database; all data will be re-loaded from source tables.",
+			"currentVersion", version,
+			"minValidVersion", minValidVersion)
+		return false, nil
 	}
 	return true, nil
 }
 
 func getChangeTrackingVersion(session *OpSession, versionedTableIDs []string) (VersionSet, error) {
-
-	// TODO: populate a versionSet using the table IDs, switching databases as needed
-
 	out := VersionSet{}
 
-	row := session.DB.QueryRow(`SELECT CHANGE_TRACKING_CURRENT_VERSION()`)
-	var version int
-	err := row.Scan(&version)
-	session.Log.Debug("Got current version", "version", version)
+	for _, schemaID := range versionedTableIDs {
+		dbName, _, _ := DecomposeSafeName(schemaID)
 
-	return out, err
+		db, err := getDbHandleForDatabase(session, dbName)
+		if err  != nil {
+			return nil, err
+		}
+
+		row := db.QueryRow(`SELECT CHANGE_TRACKING_CURRENT_VERSION()`)
+		var version int
+		err = row.Scan(&version)
+		if err != nil {
+			return nil, err
+		}
+		out[schemaID] = version
+		session.Log.Debug("Got current version", "database", dbName, "version", version)
+	}
+
+	return out, nil
+}
+
+func getDbHandleForDatabase(session *OpSession, dbName string) (*sql.DB, error) {
+	db := session.DB
+
+	if session.Settings.Database != dbName {
+		if session.DbHandles == nil {
+			session.DbHandles = map[string]*sql.DB{}
+		}
+
+		var ok bool
+		db, ok = session.DbHandles[dbName]
+		if !ok {
+			settingsJson, err := json.Marshal(session.Settings)
+			if err != nil {
+				return nil, errors.Errorf("could serialize settings: %s", err)
+			}
+
+			var localSettings *Settings
+			err = json.Unmarshal(settingsJson, &localSettings)
+			if err != nil {
+				return nil, errors.Errorf("could deserialize settings: %s", err)
+			}
+			localSettings.Database = dbName
+
+			connectionString, err := localSettings.GetConnectionString()
+			if err != nil {
+				return nil, errors.Errorf("could not get connection string: %s", err)
+			}
+			db, err = sql.Open("sqlserver", connectionString)
+			if err != nil {
+				return nil, errors.Errorf("could not open connection: %s", err)
+			}
+			err = session.DB.Ping()
+			if err != nil {
+				return nil, err
+			}
+
+			session.DbHandles[dbName] = db
+		}
+	}
+
+	return db, nil
 }
