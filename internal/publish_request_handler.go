@@ -307,20 +307,37 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 
 			var err error
 
+			realTimeSettings := req.RealTimeSettings
 			session := req.OpSession
 			log := session.Log.Named("GetRecordsRealTimeMiddleware")
 			realTimeState := req.RealTimeState
 			shape := req.PluginRequest.Schema
 
-			minVersion := realTimeState.Version
-			maxVersion, err := getChangeTrackingVersion(session)
+			var versionedTableIDs []string
+			for _, t := range realTimeSettings.Tables {
+				versionedTableIDs = append(versionedTableIDs, t.SchemaID)
+			}
+			if len(versionedTableIDs) == 0 {
+				// no tracked source tables, the schema itself is tracked:
+				versionedTableIDs = []string{req.PluginRequest.Schema.Id}
+			}
+
+			minVersion := realTimeState.Versions
+			if realTimeState.Version != 0 {
+				minVersion = VersionSet{}
+				// migrate from previous storage
+				for _, tableID := range versionedTableIDs {
+					minVersion[tableID] = realTimeState.Version
+				}
+			}
+
+			maxVersion, err := getChangeTrackingVersion(session, versionedTableIDs)
 			if err != nil {
 				return errors.Wrap(err, "get next change tracking version")
 			}
 
 
 
-			realTimeSettings := req.RealTimeSettings
 			err = req.Store.DB.Update(func(tx *bolt.Tx) error {
 				b, err := tx.CreateBucketIfNotExists([]byte(shape.Id))
 				if err != nil {
@@ -752,9 +769,9 @@ func buildSchemaDataQueryArgs(req PublishRequest, allRowKeys []meta.RowKeys) (te
 
 // commitVersion commits the version by writing out a state commit to the out channel.
 // It will return early if the session is cancelled. It returns the version for clarity.
-func commitVersionToHandler(req PublishRequest, version int, handler PublishHandler) (int, error) {
+func commitVersionToHandler(req PublishRequest, version VersionSet, handler PublishHandler) (VersionSet, error) {
 	state := RealTimeState{
-		Version: version,
+		Versions: version,
 	}
 	req.Record = &pub.Record{
 		Action:            pub.Record_REAL_TIME_STATE_COMMIT,
@@ -762,6 +779,26 @@ func commitVersionToHandler(req PublishRequest, version int, handler PublishHand
 	}
 
 	return version, handler.Handle(req)
+}
+
+type VersionSet map[string]int
+func (v VersionSet) String() string {
+	j, _ := json.Marshal(v)
+	return string(j)
+}
+
+func (v VersionSet) Equals(other VersionSet) bool {
+	for k, vs := range v {
+		if other[k] != vs {
+			return false
+		}
+	}
+	for k, vs := range other {
+		if v[k] != vs {
+			return false
+		}
+	}
+	return true
 }
 
 func BuildHandlerAndRequest(session *OpSession, externalRequest *pub.ReadRequest, handler PublishHandler) (PublishHandler, PublishRequest, error) {

@@ -235,26 +235,36 @@ func commitVersion(session *OpSession, out chan<- *pub.Record, version int) int 
 }
 
 // returns true if the provided version is valid; false otherwise.
-func validateChangeTrackingVersion(session *OpSession, schemaID string, version int) (bool, error) {
-	row := session.DB.QueryRow(`SELECT CHANGE_TRACKING_MIN_VALID_VERSION(OBJECT_ID(@schema))`, sql.Named("schema", schemaID))
-	var minValidVersion int
-	err := row.Scan(&minValidVersion)
-	if err != nil {
-		return false, err
-	}
-	if version < minValidVersion {
-		session.Log.Warn("Current version is less than min valid version in database; all data will be re-loaded from source tables.",
-			"currentVersion", version,
-			"minValidVersion", minValidVersion)
-		return false, nil
+func validateChangeTrackingVersion(session *OpSession, set VersionSet) (bool, error) {
+
+	for schemaID, version := range set {
+		// TODO: switch databases as needed
+		row := session.DB.QueryRow(`SELECT CHANGE_TRACKING_MIN_VALID_VERSION(OBJECT_ID(@schema))`, sql.Named("schema", schemaID))
+		var minValidVersion int
+		err := row.Scan(&minValidVersion)
+		if err != nil {
+			return false, err
+		}
+		if version < minValidVersion {
+			session.Log.Warn("Current version is less than min valid version in database; all data will be re-loaded from source tables.",
+				"currentVersion", version,
+				"minValidVersion", minValidVersion)
+			return false, nil
+		}
 	}
 	return true, nil
 }
 
-func getChangeTrackingVersion(session *OpSession) (int, error) {
+func getChangeTrackingVersion(session *OpSession, versionedTableIDs []string) (VersionSet, error) {
+
+	// TODO: populate a versionSet using the table IDs, switching databases as needed
+
+	out := VersionSet{}
+
 	row := session.DB.QueryRow(`SELECT CHANGE_TRACKING_CURRENT_VERSION()`)
 	var version int
 	err := row.Scan(&version)
 	session.Log.Debug("Got current version", "version", version)
-	return version, err
+
+	return out, err
 }

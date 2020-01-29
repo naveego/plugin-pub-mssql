@@ -155,6 +155,7 @@ func (s SchemaMap) String() string {
 
 type RealTimeState struct {
 	Version int `json:"version"`
+	Versions map[string]int `json:"versions"`
 }
 
 func (r RealTimeState) String() string{
