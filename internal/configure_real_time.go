@@ -9,6 +9,7 @@ import (
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/naveego/plugin-pub-mssql/internal/templates"
 	"github.com/pkg/errors"
+	"log"
 	"sort"
 	"strings"
 )
@@ -208,7 +209,7 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 						continue
 					}
 
-					settings.Tables[i].SchemaID = table.CustomTarget
+					//settings.Tables[i].SchemaID = table.CustomTarget
 				} else {
 					tableErrors.GetOrAddChild("schemaID").AddError("Invalid table `%s`.", table.SchemaID)
 					continue
@@ -250,13 +251,21 @@ func (r *RealTimeHelper) ConfigureRealTime(session *OpSession, req *pub.Configur
 		}
 	}
 
-	outData, err := json.Marshal(settings)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting settings into json")
-	}
-	resp.DataJson = string(outData)
+	//outData, err := json.Marshal(settings)
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "error converting settings into json")
+	//}
+	//resp.DataJson = string(outData)
 
 	return resp.ToResponse(), nil
+}
+
+func getTableSchemaId(table RealTimeTableSettings) string {
+	if table.SchemaID == CustomTargetOption {
+		return table.CustomTarget
+	}
+
+	return table.SchemaID
 }
 
 func getMetaSchemaForSchemaId(session *OpSession, schemaId string) (*meta.Schema, error) {
@@ -301,9 +310,31 @@ func commitVersion(session *OpSession, out chan<- *pub.Record, version int) int 
 
 // returns true if the provided version is valid; false otherwise.
 func validateChangeTrackingVersion(session *OpSession, schemaID string, version int) (bool, error) {
-	row := session.DB.QueryRow(`SELECT CHANGE_TRACKING_MIN_VALID_VERSION(OBJECT_ID(@schema))`, sql.Named("schema", schemaID))
+	dbName, _, _ := DecomposeSafeName(schemaID)
+
+	tx, err := session.DB.BeginTx(session.Ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, execErr := tx.Exec(`USE @db`, sql.Named("db", dbName))
+	if execErr != nil {
+		_ = tx.Rollback()
+		log.Fatal(execErr)
+	}
+	row := tx.QueryRow(`SELECT CHANGE_TRACKING_MIN_VALID_VERSION(OBJECT_ID(@schema))`, sql.Named("schema", schemaID))
+	if execErr != nil {
+		_ = tx.Rollback()
+		log.Fatal(execErr)
+	}
+	if err := tx.Commit(); err != nil {
+		log.Fatal(err)
+	}
+
+
+	//row := session.DB.QueryRow(`USE @db; SELECT CHANGE_TRACKING_MIN_VALID_VERSION(OBJECT_ID(@schema));`, sql.Named("db", dbName) , sql.Named("schema", schemaID))
 	var minValidVersion int
-	err := row.Scan(&minValidVersion)
+	err = row.Scan(&minValidVersion)
 	if err != nil {
 		return false, err
 	}

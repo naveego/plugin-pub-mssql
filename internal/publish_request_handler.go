@@ -328,15 +328,11 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 				if err != nil {
 					return errors.Errorf("create bucket for %q: %s", shape.Id, err)
 				}
-				//_, err = b.CreateBucketIfNotExists([]byte(shape.Id))
-				//if err != nil {
-				//	return errors.Errorf("create dep bucket for %q: %s", shape.Id, err)
-				//}
 
 				for _, dep := range realTimeSettings.Tables {
-					_, err = b.CreateBucketIfNotExists([]byte(dep.SchemaID))
+					_, err = b.CreateBucketIfNotExists([]byte(getTableSchemaId(dep)))
 					if err != nil {
-						return errors.Errorf("create dep bucket for %q: %s", dep.SchemaID, err)
+						return errors.Errorf("create dep bucket for %q: %s", getTableSchemaId(dep), err)
 					}
 				}
 				return nil
@@ -353,7 +349,7 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 				// If the min version is no longer valid, we'll need to re-initialize the data.
 				var trackedSchemaIDs []string
 				for _, t := range realTimeSettings.Tables {
-					trackedSchemaIDs = append(trackedSchemaIDs, t.SchemaID)
+					trackedSchemaIDs = append(trackedSchemaIDs, getTableSchemaId(t))
 				}
 				if len(trackedSchemaIDs) == 0 {
 					// no tracked source tables, the schema itself is tracked:
@@ -424,7 +420,7 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 			queries := map[string]*sql.Stmt{}
 			queryTexts := map[string]string{}
 			for _, table := range realTimeSettings.Tables {
-				depSchema := session.SchemaInfo[table.SchemaID]
+				depSchema := session.SchemaInfo[getTableSchemaId(table)]
 				args := templates.ChangeDetectionQueryArgs{
 					BridgeQuery:               table.Query,
 					SchemaArgs:                MetaSchemaFromPubSchema(req.PluginRequest.Schema),
@@ -433,14 +429,14 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 					ChangeOperationColumnName: ChangeOperationColumnName,
 				}
 				queryText, err := templates.RenderChangeDetectionQuery(args)
-				queryTexts[table.SchemaID] = queryText
+				queryTexts[getTableSchemaId(table)] = queryText
 				if err != nil {
-					return errors.Errorf("error building query for %q: %s", table.SchemaID, err)
+					return errors.Errorf("error building query for %q: %s", getTableSchemaId(table), err)
 				}
 
-				queries[table.SchemaID], err = session.DB.Prepare(queryText)
+				queries[getTableSchemaId(table)], err = session.DB.Prepare(queryText)
 				if err != nil {
-					return errors.Errorf("error preparing query for %q: %s\nquery text:\n%s", table.SchemaID, err, queryText)
+					return errors.Errorf("error preparing query for %q: %s\nquery text:\n%s", getTableSchemaId(table), err, queryText)
 				}
 			}
 
@@ -469,31 +465,31 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 
 					for _, table := range realTimeSettings.Tables {
 
-						tableLog := log.Named(fmt.Sprintf("GetRecordsRealTime(%s)", table.SchemaID))
+						tableLog := log.Named(fmt.Sprintf("GetRecordsRealTime(%s)", getTableSchemaId(table)))
 
 						if session.Ctx.Err() != nil {
 							log.Warn("Session context has been cancelled")
 							return nil
 						}
 
-						query := queries[table.SchemaID]
+						query := queries[getTableSchemaId(table)]
 
 						tableLog.Debug("Getting changes since last commit", "minVersion", minVersion, "maxVersion", maxVersion)
-						tableLog.Trace(queryTexts[table.SchemaID])
+						tableLog.Trace(queryTexts[getTableSchemaId(table)])
 
 						rows, err := query.QueryContext(session.Ctx, sql.Named("minVersion", minVersion), sql.Named("maxVersion", maxVersion))
 						if err != nil {
-							return errors.Errorf("getting changes for %q: %s\nquery text:\n%s", table.SchemaID, err, queryTexts[table.SchemaID])
+							return errors.Errorf("getting changes for %q: %s\nquery text:\n%s", getTableSchemaId(table), err, queryTexts[getTableSchemaId(table)])
 						}
 
 						changes := Changes{
-							DependencyID: table.SchemaID,
+							DependencyID: getTableSchemaId(table),
 						}
 
 						for rows.Next() {
 							data, err := scanToMap(rows)
 							if err != nil {
-								return errors.Errorf("scanning changes for %q: %s", table.SchemaID, err)
+								return errors.Errorf("scanning changes for %q: %s", getTableSchemaId(table), err)
 							}
 							changes.Data = append(changes.Data, data)
 						}
@@ -755,10 +751,10 @@ func buildSchemaDataQueryArgs(req PublishRequest, allRowKeys []meta.RowKeys) (te
 	}
 	if req.RealTimeSettings != nil {
 		for _, dep := range req.RealTimeSettings.Tables {
-			depArgs := req.OpSession.SchemaInfo[dep.SchemaID]
+			depArgs := req.OpSession.SchemaInfo[getTableSchemaId(dep)]
 
 			if depArgs == nil {
-				depArgs, err = getMetaSchemaForSchemaId(req.OpSession, dep.SchemaID)
+				depArgs, err = getMetaSchemaForSchemaId(req.OpSession, getTableSchemaId(dep))
 				if err != nil {
 					return templateArgs, errors.Wrap(err, "get meta schema")
 				}
