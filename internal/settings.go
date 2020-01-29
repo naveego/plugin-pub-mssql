@@ -179,6 +179,7 @@ func (r RealTimeSettings) String() string {
 }
 
 type RealTimeTableSettings struct {
+	CustomTarget 		   string `json:"customTarget" title:"Custom Target" description:"Custom target for change tracking."`
 	SchemaID               string `json:"schemaID" title:"Table" description:"The table to monitor for changes." required:"true"`
 	Query                  string `json:"query"  required:"true" title:"Query" description:"A query which matches up the primary keys of the the table where change tracking is enabled with the keys of the view or query you are publishing from." `
 }
@@ -203,7 +204,7 @@ func GetRealTimeSchemas() (form *jsonschema.JSONSchema, ui SchemaMap) {
 		},
 		"tables": SchemaMap{
 			"items": SchemaMap{
-				"ui:order": []string{"schemaID", "query"},
+				"ui:order": []string{"schemaID", "customTarget", "query"},
 				"query":SchemaMap{
 					"ui:widget":"textarea",
 					"ui:options": SchemaMap{
@@ -213,6 +214,9 @@ func GetRealTimeSchemas() (form *jsonschema.JSONSchema, ui SchemaMap) {
 						"The columns from the change tracked table must be named `[Dependency.{column}]`," +
 						"where `{column}` is the name of the column. The columns from the view or query " +
 						"must be named `[Schema.{column}]`",
+				},
+				"customTarget":SchemaMap{
+					"ui:help": "Format: `[database].[schema].[table]`",
 				},
 			},
 		},

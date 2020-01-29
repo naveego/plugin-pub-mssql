@@ -196,6 +196,22 @@ WHERE  o.type IN ( 'U', 'V' )`)
 	return schemas, nil
 }
 
+func DecomposeSafeName(safeName string) (dbName, schema, name string) {
+	segs := strings.Split(safeName, ".")
+	switch len(segs) {
+	case 0:
+		return "", "", ""
+	case 1:
+		return "", "dbo", strings.Trim(segs[0], "[]")
+	case 2:
+		return "", strings.Trim(segs[0], "[]"), strings.Trim(segs[1], "[]")
+	case 3:
+		return strings.Trim(segs[0], "[]"), strings.Trim(segs[1], "[]"), strings.Trim(segs[2], "[]")
+	default:
+		return "", "", ""
+	}
+}
+
 func GetSchemaID(schemaName, tableName string) string {
 	if schemaName == "dbo" {
 		return fmt.Sprintf("[%s]", tableName)

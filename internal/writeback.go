@@ -182,17 +182,18 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 	versionSchema.Id = GetSchemaID(settings.SQLSchema, settings.VersionRecordTable)
 	w.VersionIDMap = w.canonicalizeProperties(versionSchema)
 
+	var toRefreshNew []*pub.Schema
 	toRefresh := []*pub.Schema{
 		goldenSchema,
 		versionSchema,
 	}
 	toRefreshJson, _ := json.Marshal(toRefresh)
-	_ = json.Unmarshal(toRefreshJson, &toRefresh)
+	_ = json.Unmarshal(toRefreshJson, &toRefreshNew)
 
 	discoveredSchemas, err := DiscoverSchemasSync(session, session.SchemaDiscoverer, &pub.DiscoverSchemasRequest{
 		Mode:       pub.DiscoverSchemasRequest_REFRESH,
 		SampleSize: 0,
-		ToRefresh: toRefresh,
+		ToRefresh: toRefreshNew,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "checking for owned schemas")
@@ -350,8 +351,8 @@ func (r *ReplicationWriter) reconcileSchemas(session *OpSession, current *pub.Sc
 	if current == nil {
 		needsCreate = true
 	} else {
-		//needsDelete = r.compareProps(current, desired) || r.compareProps(desired, current)
-		needsDelete = !r.compareProps(current, desired)
+		//needsDelete = r.arePropsSame(current, desired) || r.arePropsSame(desired, current)
+		needsDelete = !r.arePropsSame(current, desired)
 		needsCreate = needsDelete
 	}
 
@@ -381,7 +382,7 @@ func (r *ReplicationWriter) dropTable(session *OpSession, table string) error {
 	return err
 }
 
-func (r *ReplicationWriter) compareProps(left, right *pub.Schema) (same bool) {
+func (r *ReplicationWriter) arePropsSame(left, right *pub.Schema) (same bool) {
 	if len(left.Properties) != len(right.Properties) {
 		return false
 	}
