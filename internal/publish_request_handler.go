@@ -354,54 +354,30 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 			})
 
 			initializeNeeded := false
-			//if minVersions == 0 {
-			//	log.Info("No change tracking history found, running initial load of entire table.")
-			//	initializeNeeded = true
-			//} else {
-			//	// We need to check whether the min version from the committed state
-			//	// is still valid. It may have expired if this job was paused for a long time.
-			//	// If the min version is no longer valid, we'll need to re-initialize the data.
-			//	var trackedSchemaIDs []string
-			//	for _, t := range realTimeSettings.Tables {
-			//		trackedSchemaIDs = append(trackedSchemaIDs, getTableSchemaId(t))
-			//	}
-			//	if len(trackedSchemaIDs) == 0 {
-			//		// no tracked source tables, the schema itself is tracked:
-			//		trackedSchemaIDs = []string{req.PluginRequest.Schema.Id}
-			//	}
-			//
-			//	for _, schemaID := range trackedSchemaIDs {
-			//		versionValid, err := validateChangeTrackingVersion(session, schemaID, minVersions[schemaID])
-			//		if err != nil {
-			//			return errors.Wrap(err, "validate version")
-			//		}
-			//		if !versionValid {
-			//			log.Info("Last committed version is no longer valid, running initial load of entire table.")
-			//			initializeNeeded = true
-			//		}
-			//	}
-			//}
-
-			// We need to check whether the min version from the committed state
-			// is still valid. It may have expired if this job was paused for a long time.
-			// If the min version is no longer valid, we'll need to re-initialize the data.
-			var trackedSchemaIDs []string
-			for _, t := range realTimeSettings.Tables {
-				trackedSchemaIDs = append(trackedSchemaIDs, getTableSchemaId(t))
-			}
-			if len(trackedSchemaIDs) == 0 {
-				// no tracked source tables, the schema itself is tracked:
-				trackedSchemaIDs = []string{req.PluginRequest.Schema.Id}
-			}
-
-			for _, schemaID := range trackedSchemaIDs {
-				versionValid, err := validateChangeTrackingVersion(session, schemaID, minVersions[schemaID])
-				if err != nil {
-					return errors.Wrap(err, "validate version")
+			if (minVersions == nil || len(minVersions) == 0) &&  realTimeState.Version == 0 {
+				initializeNeeded = true
+			} else {
+				// We need to check whether the min version from the committed state
+				// is still valid. It may have expired if this job was paused for a long time.
+				// If the min version is no longer valid, we'll need to re-initialize the data.
+				var trackedSchemaIDs []string
+				for _, t := range realTimeSettings.Tables {
+					trackedSchemaIDs = append(trackedSchemaIDs, getTableSchemaId(t))
 				}
-				if !versionValid {
-					log.Info("Last committed version is no longer valid, running initial load of entire table.")
-					initializeNeeded = true
+				if len(trackedSchemaIDs) == 0 {
+					// no tracked source tables, the schema itself is tracked:
+					trackedSchemaIDs = []string{req.PluginRequest.Schema.Id}
+				}
+
+				for _, schemaID := range trackedSchemaIDs {
+					versionValid, err := validateChangeTrackingVersion(session, schemaID, minVersions[schemaID])
+					if err != nil {
+						return errors.Wrap(err, "validate version")
+					}
+					if !versionValid {
+						log.Info("Last committed version is no longer valid, running initial load of entire table.")
+						initializeNeeded = true
+					}
 				}
 			}
 
