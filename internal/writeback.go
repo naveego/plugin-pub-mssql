@@ -144,6 +144,8 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 	if len(naveegoReplicationMetadataRows) > 0 {
 		previousMetadata = naveegoReplicationMetadataRows[0]
 		previousMetadataSettings = previousMetadata.GetSettings()
+
+		// check if golden record and version table names have changed
 		if previousMetadataSettings.Settings.GetNamespacedVersionRecordTable() != settings.GetNamespacedVersionRecordTable() {
 			// version table name has changed
 			session.Log.Debug("version table name changed")
@@ -156,6 +158,30 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 			session.Log.Debug("golden record table name changed")
 			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable()); err != nil {
 				return nil, errors.Wrap(err, "dropping golden table after name change")
+			}
+		}
+
+		if previousMetadataSettings.Request.DataVersions != nil {
+			// check if job data version has changed
+			if req.DataVersions.JobDataVersion > previousMetadataSettings.Request.DataVersions.JobDataVersion {
+				session.Log.Debug("job data version changed", "previous", previousMetadataSettings.Request.DataVersions.JobDataVersion, "current", req.DataVersions.JobDataVersion)
+				if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedVersionRecordTable()); err != nil {
+					return nil, errors.Wrap(err, "dropping version table after name change")
+				}
+				if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable()); err != nil {
+					return nil, errors.Wrap(err, "dropping golden table after name change")
+				}
+			}
+
+			// check if shape data version has changed
+			if req.DataVersions.ShapeDataVersion > previousMetadataSettings.Request.DataVersions.ShapeDataVersion {
+				session.Log.Debug("shape data version changed", "previous", previousMetadataSettings.Request.DataVersions.ShapeDataVersion, "current", req.DataVersions.ShapeDataVersion)
+				if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedVersionRecordTable()); err != nil {
+					return nil, errors.Wrap(err, "dropping version table after name change")
+				}
+				if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable()); err != nil {
+					return nil, errors.Wrap(err, "dropping golden table after name change")
+				}
 			}
 		}
 	}
