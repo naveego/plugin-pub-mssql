@@ -166,10 +166,10 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 			if req.DataVersions.JobDataVersion > previousMetadataSettings.Request.DataVersions.JobDataVersion {
 				session.Log.Debug("job data version changed", "previous", previousMetadataSettings.Request.DataVersions.JobDataVersion, "current", req.DataVersions.JobDataVersion)
 				if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedVersionRecordTable()); err != nil {
-					return nil, errors.Wrap(err, "dropping version table after name change")
+					return nil, errors.Wrap(err, "dropping version table after job data version change")
 				}
 				if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable()); err != nil {
-					return nil, errors.Wrap(err, "dropping golden table after name change")
+					return nil, errors.Wrap(err, "dropping golden table after job data version change")
 				}
 			}
 
@@ -177,10 +177,10 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 			if req.DataVersions.ShapeDataVersion > previousMetadataSettings.Request.DataVersions.ShapeDataVersion {
 				session.Log.Debug("shape data version changed", "previous", previousMetadataSettings.Request.DataVersions.ShapeDataVersion, "current", req.DataVersions.ShapeDataVersion)
 				if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedVersionRecordTable()); err != nil {
-					return nil, errors.Wrap(err, "dropping version table after name change")
+					return nil, errors.Wrap(err, "dropping version table after shape data version change")
 				}
 				if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable()); err != nil {
-					return nil, errors.Wrap(err, "dropping golden table after name change")
+					return nil, errors.Wrap(err, "dropping golden table after shape data version change")
 				}
 			}
 		}
