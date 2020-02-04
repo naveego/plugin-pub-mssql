@@ -185,7 +185,7 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 		// drop tables if needed
 		if dropGoldenReason != "" {
 			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable()); err != nil {
-				return nil, errors.Wrap(err, fmt.Sprintf("dropping version table reason: %s", dropGoldenReason))
+				return nil, errors.Wrap(err, fmt.Sprintf("dropping golden record table reason: %s", dropGoldenReason))
 			}
 		}
 		if dropVersionReason != "" {
