@@ -238,6 +238,9 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
      , t.TABLE_SCHEMA
      , t.TABLE_TYPE
      , c.COLUMN_NAME
+	 , c.DATA_TYPE
+     , c.IS_NULLABLE
+     , c.CHARACTER_MAXIMUM_LENGTH
      , tc.CONSTRAINT_TYPE
 , CASE
   WHEN exists (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID(t.TABLE_SCHEMA + '.' + t.TABLE_NAME))
@@ -261,11 +264,12 @@ ORDER BY TABLE_NAME`)
 	// Collect table names for display in UIs.
 	for rows.Next() {
 		var (
-			schema, table, typ, columnName string
-			constraint                     *string
-			changeTracking                 bool
+			schema, table, typ, columnName, dataType, isNullable string
+			maxLength					   			 int64
+			constraint                     		     *string
+			changeTracking                 			 bool
 		)
-		err = rows.Scan(&table, &schema, &typ, &columnName, &constraint, &changeTracking)
+		err = rows.Scan(&table, &schema, &typ, &columnName, &dataType, &isNullable, &maxLength, &constraint, &changeTracking)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not read table schema")
 		}
@@ -285,6 +289,10 @@ ORDER BY TABLE_NAME`)
 			columnInfo = info.AddColumn(&meta.Column{ID: columnName})
 		}
 		columnInfo.IsKey = columnInfo.IsKey || constraint != nil && *constraint == "PRIMARY KEY"
+		columnInfo.IsDiscovered = true
+		columnInfo.SQLType = dataType
+		columnInfo.MaxLength = maxLength
+		columnInfo.IsNullable = strings.ToUpper(isNullable) == "YES"
 	}
 
 	rows, err = session.DB.Query("SELECT ROUTINE_SCHEMA, ROUTINE_NAME FROM information_schema.routines WHERE routine_type = 'PROCEDURE'")
