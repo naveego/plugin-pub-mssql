@@ -266,6 +266,7 @@ func (s *SchemaDiscoverer) populateShapeColumns(session *OpSession, schema *pub.
 	var err error
 
 	query := schema.Query
+	// schema is not query based
 	if query == "" {
 		// attempt to get meta schema
 		metaSchema, ok := session.SchemaInfo[schema.Id]
@@ -279,8 +280,10 @@ func (s *SchemaDiscoverer) populateShapeColumns(session *OpSession, schema *pub.
 			// fall back to query
 			query = fmt.Sprintf("SELECT * FROM %s", schema.Id)
 		}
-	} else {
-		// schema is query based
+	}
+
+	// fallback for query based schemas and no meta schema
+	if query != "" {
 		query = strings.Replace(query, "'", "''", -1)
 
 		metadata, err = describeResultSet(session, query)
