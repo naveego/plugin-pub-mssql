@@ -265,7 +265,7 @@ ORDER BY TABLE_NAME`)
 	for rows.Next() {
 		var (
 			schema, table, typ, columnName, dataType, isNullable string
-			maxLength					   			 int64
+			maxLength					   			 sql.NullInt64
 			constraint                     		     *string
 			changeTracking                 			 bool
 		)
@@ -291,8 +291,12 @@ ORDER BY TABLE_NAME`)
 		columnInfo.IsKey = columnInfo.IsKey || constraint != nil && *constraint == "PRIMARY KEY"
 		columnInfo.IsDiscovered = true
 		columnInfo.SQLType = dataType
-		columnInfo.MaxLength = maxLength
 		columnInfo.IsNullable = strings.ToUpper(isNullable) == "YES"
+		if maxLength.Valid {
+			columnInfo.MaxLength = maxLength.Int64
+		} else {
+			columnInfo.MaxLength = 0
+		}
 	}
 
 	rows, err = session.DB.Query("SELECT ROUTINE_SCHEMA, ROUTINE_NAME FROM information_schema.routines WHERE routine_type = 'PROCEDURE'")
