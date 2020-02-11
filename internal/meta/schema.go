@@ -194,6 +194,8 @@ type Column struct {
 	//
 	PropertyType pub.PropertyType `json:"-"`
 	SQLType      string           `json:"-"`
+	MaxLength	 int64			  `json:"-"`
+	IsNullable   bool			  `json:"-"`
 	opaqueName   string           `json:"-"`
 }
 

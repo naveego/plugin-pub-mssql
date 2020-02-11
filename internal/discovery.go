@@ -213,6 +213,23 @@ type describeResult struct {
 	MaxLength         int64  `sql:"max_length"`
 }
 
+func makeDescribeResultSetFromMetaSchema(metaSchema *meta.Schema)([]describeResult, error) {
+	metadata := make([]describeResult, 0, 0)
+
+	for _, column := range metaSchema.Columns() {
+		metadata = append(metadata, describeResult{
+			IsHidden:          false,
+			Name:              strings.Trim(column.ID, "[]"),
+			SystemTypeName:    column.SQLType,
+			IsNullable:        column.IsNullable,
+			IsPartOfUniqueKey: column.IsKey,
+			MaxLength:         column.MaxLength,
+		})
+	}
+
+	return metadata, nil
+}
+
 func describeResultSet(session *OpSession, query string) ([]describeResult, error) {
 	//metaQuery := " @query, @params= N'', @browse_information_mode=1"
 
@@ -244,25 +261,42 @@ func describeResultSet(session *OpSession, query string) ([]describeResult, erro
 	return metadata, nil
 }
 
-func (s *SchemaDiscoverer) populateShapeColumns(session *OpSession, shape *pub.Schema) error {
+func (s *SchemaDiscoverer) populateShapeColumns(session *OpSession, schema *pub.Schema) error {
+	var metadata []describeResult
+	var err error
 
-	query := shape.Query
+	query := schema.Query
+	// schema is not query based
 	if query == "" {
-		query = fmt.Sprintf("SELECT * FROM %s", shape.Id)
+		// attempt to get meta schema
+		metaSchema, ok := session.SchemaInfo[schema.Id]
+		if ok {
+			// get describe result set from meta schema
+			metadata, err = makeDescribeResultSetFromMetaSchema(metaSchema)
+			if err != nil {
+				return err
+			}
+		} else {
+			// fall back to query
+			query = fmt.Sprintf("SELECT * FROM %s", schema.Id)
+		}
 	}
 
-	query = strings.Replace(query, "'", "''", -1)
+	// fallback for query based schemas and no meta schema
+	if query != "" {
+		query = strings.Replace(query, "'", "''", -1)
 
-	metadata, err := describeResultSet(session, query)
-	if err != nil {
-		return err
+		metadata, err = describeResultSet(session, query)
+		if err != nil {
+			return err
+		}
 	}
 
 	unnamedColumnIndex := 0
 
 	preDefinedProperties := map[string]*pub.Property{}
 	hasUserDefinedKeys := false
-	for _, p := range shape.Properties {
+	for _, p := range schema.Properties {
 		preDefinedProperties[p.Id] = p
 		if p.IsKey {
 			hasUserDefinedKeys = true
@@ -310,7 +344,7 @@ func (s *SchemaDiscoverer) populateShapeColumns(session *OpSession, shape *pub.S
 		}
 	}
 
-	shape.Properties = discoveredProperties
+	schema.Properties = discoveredProperties
 
 	return nil
 }
