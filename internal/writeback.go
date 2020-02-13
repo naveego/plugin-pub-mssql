@@ -166,7 +166,7 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 			dropGoldenReason = GoldenNameChange
 		}
 
-		if previousMetadataSettings.Request.DataVersions != nil {
+		if req.DataVersions != nil && previousMetadataSettings.Request.DataVersions != nil {
 			// check if job data version has changed
 			if req.DataVersions.JobDataVersion > previousMetadataSettings.Request.DataVersions.JobDataVersion {
 				session.Log.Debug(JobDataVersionChange, "previous", previousMetadataSettings.Request.DataVersions.JobDataVersion, "current", req.DataVersions.JobDataVersion)
