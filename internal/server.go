@@ -620,6 +620,16 @@ type ConfigureWriteFormData struct {
 
 
 func (s *Server) ConfigureReplication(ctx context.Context, req *pub.ConfigureReplicationRequest) (*pub.ConfigureReplicationResponse, error) {
+	defer func(){
+		if err := recover(); err != nil{
+			s.log.Error("panic", "error", err)
+		}
+	}()
+
+	return s.configureReplication(ctx, req)
+}
+
+func (s *Server) configureReplication(ctx context.Context, req *pub.ConfigureReplicationRequest) (*pub.ConfigureReplicationResponse, error) {
 	builder := pub.NewConfigurationFormResponseBuilder(req.Form)
 
 	s.log.Debug("Handling configure replication request.")
