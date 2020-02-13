@@ -16,6 +16,7 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -619,10 +620,11 @@ type ConfigureWriteFormData struct {
 }
 
 
-func (s *Server) ConfigureReplication(ctx context.Context, req *pub.ConfigureReplicationRequest) (*pub.ConfigureReplicationResponse, error) {
+func (s *Server) ConfigureReplication(ctx context.Context, req *pub.ConfigureReplicationRequest) (resp *pub.ConfigureReplicationResponse, err error) {
 	defer func(){
-		if err := recover(); err != nil{
-			s.log.Error("panic", "error", err)
+		if r := recover(); r != nil{
+			err = fmt.Errorf("%s: %s", r,  string(debug.Stack()))
+			s.log.Error("panic", "error", err, "stackTrace", string(debug.Stack()))
 		}
 	}()
 
