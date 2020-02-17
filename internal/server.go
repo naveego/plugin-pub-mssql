@@ -5,6 +5,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"regexp"
+	"runtime/debug"
+	"sort"
+	"strings"
+	"sync"
+
 	"github.com/LK4D4/joincontext"
 	"github.com/avast/retry-go"
 	"github.com/hashicorp/go-hclog"
@@ -12,13 +21,6 @@ import (
 	"github.com/naveego/plugin-pub-mssql/internal/meta"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/pkg/errors"
-	"io"
-	"io/ioutil"
-	"os"
-	"regexp"
-	"sort"
-	"strings"
-	"sync"
 )
 
 // Server type to describe a server
@@ -28,7 +30,6 @@ type Server struct {
 	session *Session
 	config  *Config
 }
-
 
 type Config struct {
 	LogLevel hclog.Level
@@ -53,7 +54,7 @@ type Session struct {
 	RealTimeHelper   *RealTimeHelper
 	Config           Config
 	DB               *sql.DB
-	DbHandles		 map[string]*sql.DB
+	DbHandles        map[string]*sql.DB
 	SchemaDiscoverer SchemaDiscoverer
 }
 
@@ -236,10 +237,13 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 	}
 
 	rows, err := session.DB.Query(`SELECT t.TABLE_NAME
-    , t.TABLE_SCHEMA
-    , t.TABLE_TYPE
-    , c.COLUMN_NAME
-    , tc.CONSTRAINT_TYPE
+     , t.TABLE_SCHEMA
+     , t.TABLE_TYPE
+     , c.COLUMN_NAME
+	   , c.DATA_TYPE
+     , c.IS_NULLABLE
+     , c.CHARACTER_MAXIMUM_LENGTH
+     , tc.CONSTRAINT_TYPE
 , CASE
  WHEN exists (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID(t.TABLE_SCHEMA + '.' + t.TABLE_NAME))
  THEN 1
@@ -262,11 +266,12 @@ ORDER BY TABLE_NAME`)
 	// Collect table names for display in UIs.
 	for rows.Next() {
 		var (
-			schema, table, typ, columnName string
-			constraint                     *string
-			changeTracking                 bool
+			schema, table, typ, columnName, dataType, isNullable string
+			maxLength                                            sql.NullInt64
+			constraint                                           *string
+			changeTracking                                       bool
 		)
-		err = rows.Scan(&table, &schema, &typ, &columnName, &constraint, &changeTracking)
+		err = rows.Scan(&table, &schema, &typ, &columnName, &dataType, &isNullable, &maxLength, &constraint, &changeTracking)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not read table schema")
 		}
@@ -286,6 +291,18 @@ ORDER BY TABLE_NAME`)
 			columnInfo = info.AddColumn(&meta.Column{ID: columnName})
 		}
 		columnInfo.IsKey = columnInfo.IsKey || constraint != nil && *constraint == "PRIMARY KEY"
+		columnInfo.IsDiscovered = true
+		columnInfo.SQLType = dataType
+		columnInfo.IsNullable = strings.ToUpper(isNullable) == "YES"
+		if maxLength.Valid {
+			columnInfo.MaxLength = maxLength.Int64
+			columnInfo.SQLType = fmt.Sprintf("%s (%v)", dataType, maxLength.Int64)
+			if maxLength.Int64 == -1 {
+				columnInfo.SQLType = fmt.Sprintf("%s (max)", dataType)
+			}
+		} else {
+			columnInfo.MaxLength = 0
+		}
 	}
 
 	rows, err = session.DB.Query("SELECT ROUTINE_SCHEMA, ROUTINE_NAME FROM information_schema.routines WHERE routine_type = 'PROCEDURE'")
@@ -603,8 +620,18 @@ type ConfigureWriteFormData struct {
 	StoredProcedure string `json:"storedProcedure,omitempty"`
 }
 
+func (s *Server) ConfigureReplication(ctx context.Context, req *pub.ConfigureReplicationRequest) (resp *pub.ConfigureReplicationResponse, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%s: %s", r, string(debug.Stack()))
+			s.log.Error("panic", "error", err, "stackTrace", string(debug.Stack()))
+		}
+	}()
 
-func (s *Server) ConfigureReplication(ctx context.Context, req *pub.ConfigureReplicationRequest) (*pub.ConfigureReplicationResponse, error) {
+	return s.configureReplication(ctx, req)
+}
+
+func (s *Server) configureReplication(ctx context.Context, req *pub.ConfigureReplicationRequest) (*pub.ConfigureReplicationResponse, error) {
 	builder := pub.NewConfigurationFormResponseBuilder(req.Form)
 
 	s.log.Debug("Handling configure replication request.")
@@ -616,7 +643,6 @@ func (s *Server) ConfigureReplication(ctx context.Context, req *pub.ConfigureRep
 		}
 
 		s.log.Debug("Configure replication request had data.", "data", string(req.Form.DataJson))
-
 
 		if req.Schema != nil {
 			s.log.Debug("Configure replication request had a schema.", "schema", req.Schema)
@@ -649,10 +675,10 @@ func (s *Server) ConfigureReplication(ctx context.Context, req *pub.ConfigureRep
 			}
 
 			_, err = PrepareWriteHandler(session, &pub.PrepareWriteRequest{
-				Schema:req.Schema,
+				Schema: req.Schema,
 				Replication: &pub.ReplicationWriteRequest{
-				SettingsJson:req.Form.DataJson,
-				Versions: req.Versions,
+					SettingsJson: req.Form.DataJson,
+					Versions:     req.Versions,
 				},
 			})
 			if err != nil {
@@ -671,7 +697,7 @@ func (s *Server) ConfigureReplication(ctx context.Context, req *pub.ConfigureRep
 		}
 
 		builder.UISchema = map[string]interface{}{
-			"ui:order":[]string{"sqlSchema","goldenRecordTable", "versionRecordTable", "propertyConfig"},
+			"ui:order": []string{"sqlSchema", "goldenRecordTable", "versionRecordTable", "propertyConfig"},
 		}
 		builder.FormSchema.Properties["propertyConfig"].Items.Properties["name"].Enum = nameEnum
 	}
@@ -737,9 +763,6 @@ func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
 		if err == nil {
 			err = session.Writer.Write(session, unmarshalledRecord)
 		}
-
-
-
 
 		if err != nil {
 			// send failure ack to agent
@@ -880,7 +903,6 @@ func buildQuery(req *pub.ReadRequest) (string, error) {
 }
 
 var errNotConnected = errors.New("not connected")
-
 
 func formatTypeAtSource(t string, maxLength, precision, scale int) string {
 	var maxLengthString string

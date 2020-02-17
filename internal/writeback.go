@@ -142,20 +142,55 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 		return nil, err
 	}
 	if len(naveegoReplicationMetadataRows) > 0 {
+		const (
+			GoldenNameChange = "golden record table name changed"
+			VersionNameChange = "version table name changed"
+			JobDataVersionChange = "job data version changed"
+			ShapeDataVersionChange = "shape data version changed"
+		)
+
+		dropGoldenReason := ""
+		dropVersionReason := ""
 		previousMetadata = naveegoReplicationMetadataRows[0]
 		previousMetadataSettings = previousMetadata.GetSettings()
+
+		// check if version table name has changed
 		if previousMetadataSettings.Settings.GetNamespacedVersionRecordTable() != settings.GetNamespacedVersionRecordTable() {
-			// version table name has changed
-			session.Log.Debug("version table name changed")
-			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedVersionRecordTable()); err != nil {
-				return nil, errors.Wrap(err, "dropping version table after name change")
+			session.Log.Debug(VersionNameChange)
+			dropVersionReason = VersionNameChange
+		}
+
+		// check if golden record table name has changed
+		if previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable() != settings.GetNamespacedGoldenRecordTable() {
+			session.Log.Debug(GoldenNameChange)
+			dropGoldenReason = GoldenNameChange
+		}
+
+		if req.DataVersions != nil && previousMetadataSettings.Request.DataVersions != nil {
+			// check if job data version has changed
+			if req.DataVersions.JobDataVersion > previousMetadataSettings.Request.DataVersions.JobDataVersion {
+				session.Log.Debug(JobDataVersionChange, "previous", previousMetadataSettings.Request.DataVersions.JobDataVersion, "current", req.DataVersions.JobDataVersion)
+				dropGoldenReason = JobDataVersionChange
+				dropVersionReason = JobDataVersionChange
+			}
+
+			// check if shape data version has changed
+			if req.DataVersions.ShapeDataVersion > previousMetadataSettings.Request.DataVersions.ShapeDataVersion {
+				session.Log.Debug(ShapeDataVersionChange, "previous", previousMetadataSettings.Request.DataVersions.ShapeDataVersion, "current", req.DataVersions.ShapeDataVersion)
+				dropGoldenReason = ShapeDataVersionChange
+				dropVersionReason = ShapeDataVersionChange
 			}
 		}
-		if previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable() != settings.GetNamespacedGoldenRecordTable() {
-			// golden table name has changed
-			session.Log.Debug("golden record table name changed")
+
+		// drop tables if needed
+		if dropGoldenReason != "" {
 			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable()); err != nil {
-				return nil, errors.Wrap(err, "dropping golden table after name change")
+				return nil, errors.Wrap(err, fmt.Sprintf("dropping golden record table reason: %s", dropGoldenReason))
+			}
+		}
+		if dropVersionReason != "" {
+			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedVersionRecordTable()); err != nil {
+				return nil, errors.Wrap(err, fmt.Sprintf("dropping version table reason: %s", dropVersionReason))
 			}
 		}
 	}
