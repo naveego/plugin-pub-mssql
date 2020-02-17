@@ -351,7 +351,7 @@ func getChangeTrackingVersion(session *OpSession, versionedTableIDs []string) (V
 func getDbHandleForDatabase(session *OpSession, dbName string) (*sql.DB, error) {
 	db := session.DB
 
-	if session.Settings.Database != dbName {
+	if session.Settings.Database != dbName && dbName != "" {
 		if session.DbHandles == nil {
 			session.DbHandles = map[string]*sql.DB{}
 		}
