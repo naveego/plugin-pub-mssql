@@ -5,13 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/LK4D4/joincontext"
-	"github.com/avast/retry-go"
-	"github.com/hashicorp/go-hclog"
-	jsonschema "github.com/naveego/go-json-schema"
-	"github.com/naveego/plugin-pub-mssql/internal/meta"
-	"github.com/naveego/plugin-pub-mssql/internal/pub"
-	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -20,6 +13,14 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/LK4D4/joincontext"
+	"github.com/avast/retry-go"
+	"github.com/hashicorp/go-hclog"
+	jsonschema "github.com/naveego/go-json-schema"
+	"github.com/naveego/plugin-pub-mssql/internal/meta"
+	"github.com/naveego/plugin-pub-mssql/internal/pub"
+	"github.com/pkg/errors"
 )
 
 // Server type to describe a server
@@ -29,7 +30,6 @@ type Server struct {
 	session *Session
 	config  *Config
 }
-
 
 type Config struct {
 	LogLevel hclog.Level
@@ -54,6 +54,7 @@ type Session struct {
 	RealTimeHelper   *RealTimeHelper
 	Config           Config
 	DB               *sql.DB
+	DbHandles        map[string]*sql.DB
 	SchemaDiscoverer SchemaDiscoverer
 }
 
@@ -239,22 +240,22 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
      , t.TABLE_SCHEMA
      , t.TABLE_TYPE
      , c.COLUMN_NAME
-	 , c.DATA_TYPE
+	   , c.DATA_TYPE
      , c.IS_NULLABLE
      , c.CHARACTER_MAXIMUM_LENGTH
      , tc.CONSTRAINT_TYPE
 , CASE
-  WHEN exists (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID(t.TABLE_SCHEMA + '.' + t.TABLE_NAME))
-  THEN 1
-  ELSE 0
-  END AS CHANGE_TRACKING
+ WHEN exists (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID(t.TABLE_SCHEMA + '.' + t.TABLE_NAME))
+ THEN 1
+ ELSE 0
+ END AS CHANGE_TRACKING
 FROM INFORMATION_SCHEMA.TABLES AS t
-       INNER JOIN INFORMATION_SCHEMA.COLUMNS AS c ON c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME
-       LEFT OUTER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS ccu
-                       ON ccu.COLUMN_NAME = c.COLUMN_NAME AND ccu.TABLE_NAME = t.TABLE_NAME AND
-                          ccu.TABLE_SCHEMA = t.TABLE_SCHEMA
-       LEFT OUTER JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS tc
-                       ON tc.CONSTRAINT_NAME = ccu.CONSTRAINT_NAME AND tc.CONSTRAINT_SCHEMA = ccu.CONSTRAINT_SCHEMA
+      INNER JOIN INFORMATION_SCHEMA.COLUMNS AS c ON c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME
+      LEFT OUTER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS ccu
+                      ON ccu.COLUMN_NAME = c.COLUMN_NAME AND ccu.TABLE_NAME = t.TABLE_NAME AND
+                         ccu.TABLE_SCHEMA = t.TABLE_SCHEMA
+      LEFT OUTER JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS tc
+                      ON tc.CONSTRAINT_NAME = ccu.CONSTRAINT_NAME AND tc.CONSTRAINT_SCHEMA = ccu.CONSTRAINT_SCHEMA
 
 ORDER BY TABLE_NAME`)
 
@@ -266,9 +267,9 @@ ORDER BY TABLE_NAME`)
 	for rows.Next() {
 		var (
 			schema, table, typ, columnName, dataType, isNullable string
-			maxLength					   			 sql.NullInt64
-			constraint                     		     *string
-			changeTracking                 			 bool
+			maxLength                                            sql.NullInt64
+			constraint                                           *string
+			changeTracking                                       bool
 		)
 		err = rows.Scan(&table, &schema, &typ, &columnName, &dataType, &isNullable, &maxLength, &constraint, &changeTracking)
 		if err != nil {
@@ -540,7 +541,7 @@ func (s *Server) ConfigureWrite(ctx context.Context, req *pub.ConfigureWriteRequ
 		goto Done
 	}
 
-	sprocSchema, sprocName = decomposeSafeName(formData.StoredProcedure)
+	_, sprocSchema, sprocName = DecomposeSafeName(formData.StoredProcedure)
 	// check if stored procedure exists
 	query = `SELECT 1
 FROM information_schema.routines
@@ -619,11 +620,10 @@ type ConfigureWriteFormData struct {
 	StoredProcedure string `json:"storedProcedure,omitempty"`
 }
 
-
 func (s *Server) ConfigureReplication(ctx context.Context, req *pub.ConfigureReplicationRequest) (resp *pub.ConfigureReplicationResponse, err error) {
-	defer func(){
-		if r := recover(); r != nil{
-			err = fmt.Errorf("%s: %s", r,  string(debug.Stack()))
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%s: %s", r, string(debug.Stack()))
 			s.log.Error("panic", "error", err, "stackTrace", string(debug.Stack()))
 		}
 	}()
@@ -643,7 +643,6 @@ func (s *Server) configureReplication(ctx context.Context, req *pub.ConfigureRep
 		}
 
 		s.log.Debug("Configure replication request had data.", "data", string(req.Form.DataJson))
-
 
 		if req.Schema != nil {
 			s.log.Debug("Configure replication request had a schema.", "schema", req.Schema)
@@ -676,10 +675,10 @@ func (s *Server) configureReplication(ctx context.Context, req *pub.ConfigureRep
 			}
 
 			_, err = PrepareWriteHandler(session, &pub.PrepareWriteRequest{
-				Schema:req.Schema,
+				Schema: req.Schema,
 				Replication: &pub.ReplicationWriteRequest{
-				SettingsJson:req.Form.DataJson,
-				Versions: req.Versions,
+					SettingsJson: req.Form.DataJson,
+					Versions:     req.Versions,
 				},
 			})
 			if err != nil {
@@ -698,7 +697,7 @@ func (s *Server) configureReplication(ctx context.Context, req *pub.ConfigureRep
 		}
 
 		builder.UISchema = map[string]interface{}{
-			"ui:order":[]string{"sqlSchema","goldenRecordTable", "versionRecordTable", "propertyConfig"},
+			"ui:order": []string{"sqlSchema", "goldenRecordTable", "versionRecordTable", "propertyConfig"},
 		}
 		builder.FormSchema.Properties["propertyConfig"].Items.Properties["name"].Enum = nameEnum
 	}
@@ -764,9 +763,6 @@ func (s *Server) WriteStream(stream pub.Publisher_WriteStreamServer) error {
 		if err == nil {
 			err = session.Writer.Write(session, unmarshalledRecord)
 		}
-
-
-
 
 		if err != nil {
 			// send failure ack to agent
@@ -908,7 +904,6 @@ func buildQuery(req *pub.ReadRequest) (string, error) {
 
 var errNotConnected = errors.New("not connected")
 
-
 func formatTypeAtSource(t string, maxLength, precision, scale int) string {
 	var maxLengthString string
 	if maxLength < 0 {
@@ -928,20 +923,6 @@ func formatTypeAtSource(t string, maxLength, precision, scale int) string {
 		return fmt.Sprintf("%s(%d)", t, scale)
 	default:
 		return t
-	}
-}
-
-func decomposeSafeName(safeName string) (schema, name string) {
-	segs := strings.Split(safeName, ".")
-	switch len(segs) {
-	case 0:
-		return "", ""
-	case 1:
-		return "dbo", strings.Trim(segs[0], "[]")
-	case 2:
-		return strings.Trim(segs[0], "[]"), strings.Trim(segs[1], "[]")
-	default:
-		return "", ""
 	}
 }
 

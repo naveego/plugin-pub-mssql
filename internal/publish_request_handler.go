@@ -107,8 +107,8 @@ func PublishToStreamHandler(ctx context.Context, stream pub.Publisher_PublishStr
 		mu.Lock()
 		defer mu.Unlock()
 		done := make(chan error)
-		go func(){
-			 done <- stream.Send(req.Record)
+		go func() {
+			done <- stream.Send(req.Record)
 		}()
 		t := time.NewTimer(5 * time.Minute)
 		select {
@@ -294,7 +294,6 @@ func InitializeRealTimeComponentsMiddleware() PublishMiddleware {
 			req.Store = boltStore
 			defer store.ReleaseBoltStore(boltStore)
 
-
 			return handler.Handle(req)
 
 		})
@@ -307,43 +306,55 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 
 			var err error
 
+			realTimeSettings := req.RealTimeSettings
 			session := req.OpSession
 			log := session.Log.Named("GetRecordsRealTimeMiddleware")
 			realTimeState := req.RealTimeState
 			shape := req.PluginRequest.Schema
 
-			minVersion := realTimeState.Version
-			maxVersion, err := getChangeTrackingVersion(session)
+			var versionedTableIDs []string
+			for _, t := range realTimeSettings.Tables {
+				versionedTableIDs = append(versionedTableIDs, getTableSchemaId(t))
+			}
+			if len(versionedTableIDs) == 0 {
+				// no tracked source tables, the schema itself is tracked:
+				versionedTableIDs = []string{req.PluginRequest.Schema.Id}
+			}
+
+			minVersions := realTimeState.Versions
+			if realTimeState.Version != 0 {
+				minVersions = VersionSet{}
+				// migrate from previous storage
+				for _, tableID := range versionedTableIDs {
+					minVersions[tableID] = realTimeState.Version
+				}
+			}
+
+			maxVersions, err := getChangeTrackingVersion(session, versionedTableIDs)
 			if err != nil {
 				return errors.Wrap(err, "get next change tracking version")
 			}
 
+			log.Debug("Got request", "req", req)
+			log.Debug("Got real time settings", "settings", realTimeSettings)
 
-
-			realTimeSettings := req.RealTimeSettings
 			err = req.Store.DB.Update(func(tx *bolt.Tx) error {
 				b, err := tx.CreateBucketIfNotExists([]byte(shape.Id))
 				if err != nil {
 					return errors.Errorf("create bucket for %q: %s", shape.Id, err)
 				}
-				_, err = b.CreateBucketIfNotExists([]byte(shape.Id))
-				if err != nil {
-					return errors.Errorf("create dep bucket for %q: %s", shape.Id, err)
-				}
 
 				for _, dep := range realTimeSettings.Tables {
-					_, err = b.CreateBucketIfNotExists([]byte(dep.SchemaID))
+					_, err = b.CreateBucketIfNotExists([]byte(getTableSchemaId(dep)))
 					if err != nil {
-						return errors.Errorf("create dep bucket for %q: %s", dep.SchemaID, err)
+						return errors.Errorf("create dep bucket for %q: %s", getTableSchemaId(dep), err)
 					}
 				}
 				return nil
 			})
 
-
 			initializeNeeded := false
-			if minVersion == 0 {
-				log.Info("No change tracking history found, running initial load of entire table.")
+			if (minVersions == nil || len(minVersions) == 0) &&  realTimeState.Version == 0 {
 				initializeNeeded = true
 			} else {
 				// We need to check whether the min version from the committed state
@@ -351,7 +362,7 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 				// If the min version is no longer valid, we'll need to re-initialize the data.
 				var trackedSchemaIDs []string
 				for _, t := range realTimeSettings.Tables {
-					trackedSchemaIDs = append(trackedSchemaIDs, t.SchemaID)
+					trackedSchemaIDs = append(trackedSchemaIDs, getTableSchemaId(t))
 				}
 				if len(trackedSchemaIDs) == 0 {
 					// no tracked source tables, the schema itself is tracked:
@@ -359,7 +370,7 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 				}
 
 				for _, schemaID := range trackedSchemaIDs {
-					versionValid, err := validateChangeTrackingVersion(session, schemaID, minVersion)
+					versionValid, err := validateChangeTrackingVersion(session, schemaID, minVersions[schemaID])
 					if err != nil {
 						return errors.Wrap(err, "validate version")
 					}
@@ -375,35 +386,40 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 
 				templateArgs, err := buildSchemaDataQueryArgs(req, nil)
 				if err != nil {
+					log.Error("Error building query", "error", err.Error())
 					return errors.Wrap(err, "build schema query")
 				}
+				log.Debug("buildSchemaDataQueryArgs completed")
 
 				query, err := templates.RenderSchemaDataQuery(templateArgs)
 				if err != nil {
+					log.Error("Error render data query", "error", err.Error())
 					return errors.Wrap(err, "build real time schema query")
 				}
 
-				log.Trace("Rendered real time schema query")
-				log.Trace(query)
+				log.Debug("Rendered real time schema query")
+				log.Debug(query)
 
 				rows, err := session.DB.QueryContext(session.Ctx, query)
 				if err != nil {
+					log.Error("Error query context", "error", err.Error())
 					return errors.Errorf("real time schema query failed: %s\nquery text:\n%s", err, query)
 				}
 
 				err = handleRows(req, templateArgs, rows, nil, handler)
 
 				if err != nil {
+					log.Error("Error handle rows", "error", err.Error())
 					return errors.Wrap(err, "initial load of table")
 				}
 
-				log.Info("Completed initial load, committing current version checkpoint", "version", maxVersion)
+				log.Info("Completed initial load, committing current version checkpoint", "version", maxVersions)
 				// Commit the version we captured before the initial load.
 				// Now we want subsequent publishes to begin at the
 				// version we got before we did the full load,
 				// because we know that we've already published
 				// all the changes before that version.
-				minVersion, err = commitVersionToHandler(req, maxVersion, handler)
+				minVersions, err = commitVersionToHandler(req, maxVersions, handler)
 				if err != nil {
 					return errors.Wrap(err, "commit version")
 				}
@@ -417,7 +433,13 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 			queries := map[string]*sql.Stmt{}
 			queryTexts := map[string]string{}
 			for _, table := range realTimeSettings.Tables {
-				depSchema := session.SchemaInfo[table.SchemaID]
+				depSchema := session.SchemaInfo[getTableSchemaId(table)]
+				if depSchema == nil {
+					depSchema, err = getMetaSchemaForSchemaId(session, getTableSchemaId(table))
+					if err != nil {
+						return errors.Errorf("error getting args for building query for %q: %s", getTableSchemaId(table), err)
+					}
+				}
 				args := templates.ChangeDetectionQueryArgs{
 					BridgeQuery:               table.Query,
 					SchemaArgs:                MetaSchemaFromPubSchema(req.PluginRequest.Schema),
@@ -426,14 +448,14 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 					ChangeOperationColumnName: ChangeOperationColumnName,
 				}
 				queryText, err := templates.RenderChangeDetectionQuery(args)
-				queryTexts[table.SchemaID] = queryText
+				queryTexts[getTableSchemaId(table)] = queryText
 				if err != nil {
-					return errors.Errorf("error building query for %q: %s", table.SchemaID, err)
+					return errors.Errorf("error building query for %q: %s", getTableSchemaId(table), err)
 				}
 
-				queries[table.SchemaID], err = session.DB.Prepare(queryText)
+				queries[getTableSchemaId(table)], err = session.DB.Prepare(queryText)
 				if err != nil {
-					return errors.Errorf("error preparing query for %q: %s\nquery text:\n%s", table.SchemaID, err, queryText)
+					return errors.Errorf("error preparing query for %q: %s\nquery text:\n%s", getTableSchemaId(table), err, queryText)
 				}
 			}
 
@@ -449,44 +471,43 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 				// Capture the version for this point in time. We'll publish
 				// The publish will get everything that has changed between
 				// the previous max version and the current version.
-				maxVersion, err = getChangeTrackingVersion(session)
+				maxVersions, err = getChangeTrackingVersion(session, versionedTableIDs)
 				if err != nil {
 					return errors.Wrap(err, "get next change tracking version")
 				}
-				log.Info("Got max version for this batch of changes", "maxVersion", maxVersion)
-				if maxVersion == minVersion {
-					log.Info("Version has not changed since last poll", "version", maxVersion)
-				} else {
+				log.Info("Got max version for this batch of changes", "maxVersion", maxVersions)
 
-					var allChanges []Changes
+				var allChanges []Changes
 
-					for _, table := range realTimeSettings.Tables {
-
-						tableLog := log.Named(fmt.Sprintf("GetRecordsRealTime(%s)", table.SchemaID))
+				for _, table := range realTimeSettings.Tables {
+					if maxVersions[getTableSchemaId(table)] == minVersions[getTableSchemaId(table)] {
+						log.Info("Version has not changed since last poll", "version", maxVersions)
+					} else {
+						tableLog := log.Named(fmt.Sprintf("GetRecordsRealTime(%s)", getTableSchemaId(table)))
 
 						if session.Ctx.Err() != nil {
 							log.Warn("Session context has been cancelled")
 							return nil
 						}
 
-						query := queries[table.SchemaID]
+						query := queries[getTableSchemaId(table)]
 
-						tableLog.Debug("Getting changes since last commit", "minVersion", minVersion, "maxVersion", maxVersion)
-						tableLog.Trace(queryTexts[table.SchemaID])
+						tableLog.Debug("Getting changes since last commit", "minVersion", minVersions, "maxVersion", maxVersions)
+						tableLog.Trace(queryTexts[getTableSchemaId(table)])
 
-						rows, err := query.QueryContext(session.Ctx, sql.Named("minVersion", minVersion), sql.Named("maxVersion", maxVersion))
+						rows, err := query.QueryContext(session.Ctx, sql.Named("minVersion", minVersions[getTableSchemaId(table)]), sql.Named("maxVersion", maxVersions[getTableSchemaId(table)]))
 						if err != nil {
-							return errors.Errorf("getting changes for %q: %s\nquery text:\n%s", table.SchemaID, err, queryTexts[table.SchemaID])
+							return errors.Errorf("getting changes for %q: %s\nquery text:\n%s", getTableSchemaId(table), err, queryTexts[getTableSchemaId(table)])
 						}
 
 						changes := Changes{
-							DependencyID: table.SchemaID,
+							DependencyID: getTableSchemaId(table),
 						}
 
 						for rows.Next() {
 							data, err := scanToMap(rows)
 							if err != nil {
-								return errors.Errorf("scanning changes for %q: %s", table.SchemaID, err)
+								return errors.Errorf("scanning changes for %q: %s", getTableSchemaId(table), err)
 							}
 							changes.Data = append(changes.Data, data)
 						}
@@ -497,24 +518,22 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 						}
 
 						allChanges = append(allChanges, changes)
-
 					}
-
-					if len(allChanges) > 0 {
-						log.Debug("Changes detected in dependencies", "dependencies", len(allChanges))
-
-						err = handler.Handle(req.WithChanges(allChanges))
-
-						if err != nil {
-							return errors.Errorf("next handler couldn't handle changes: %s", err)
-						}
-					}
-
-					log.Debug("Completed publish of recent changes, committing max version", "maxVersion", maxVersion)
-					// commit the most recent version we captured so that if something goes wrong we'll start at that version next time
-					minVersion, err = commitVersionToHandler(req, maxVersion, handler)
-
 				}
+
+				if len(allChanges) > 0 {
+					log.Debug("Changes detected in dependencies", "dependencies", len(allChanges))
+
+					err = handler.Handle(req.WithChanges(allChanges))
+
+					if err != nil {
+						return errors.Errorf("next handler couldn't handle changes: %s", err)
+					}
+				}
+
+				log.Debug("Completed publish of recent changes, committing max version", "maxVersion", maxVersions)
+				// commit the most recent version we captured so that if something goes wrong we'll start at that version next time
+				minVersions, err = commitVersionToHandler(req, maxVersions, handler)
 
 				log.Debug("Waiting until interval elapses before checking for more changes", "interval", interval)
 				// wait until interval elapses, then we'll loop again.
@@ -585,6 +604,13 @@ func StoreChangeTrackingDataMiddleware() PublishMiddleware {
 					for depID, data := range req.Dependencies {
 
 						schema := req.OpSession.SchemaInfo[depID]
+						if schema == nil {
+							schema, err = getMetaSchemaForSchemaId(req.OpSession, depID)
+							if err != nil {
+								return errors.Errorf("error getting meta schema for %q: %s", depID, err)
+							}
+						}
+
 						depKeys, err := data.ExtractRowKeys(schema)
 						if err != nil {
 							return errors.Errorf("dependency on %q had invalid data: %s", depID, err)
@@ -741,7 +767,15 @@ func buildSchemaDataQueryArgs(req PublishRequest, allRowKeys []meta.RowKeys) (te
 	}
 	if req.RealTimeSettings != nil {
 		for _, dep := range req.RealTimeSettings.Tables {
-			depArgs := req.OpSession.SchemaInfo[dep.SchemaID]
+			depArgs := req.OpSession.SchemaInfo[getTableSchemaId(dep)]
+
+			if depArgs == nil {
+				depArgs, err = getMetaSchemaForSchemaId(req.OpSession, getTableSchemaId(dep))
+				if err != nil {
+					return templateArgs, errors.Wrap(err, "get meta schema")
+				}
+			}
+
 			depArgs.Query = dep.Query
 			templateArgs.DependencyTables = append(templateArgs.DependencyTables, depArgs)
 		}
@@ -752,9 +786,9 @@ func buildSchemaDataQueryArgs(req PublishRequest, allRowKeys []meta.RowKeys) (te
 
 // commitVersion commits the version by writing out a state commit to the out channel.
 // It will return early if the session is cancelled. It returns the version for clarity.
-func commitVersionToHandler(req PublishRequest, version int, handler PublishHandler) (int, error) {
+func commitVersionToHandler(req PublishRequest, version VersionSet, handler PublishHandler) (VersionSet, error) {
 	state := RealTimeState{
-		Version: version,
+		Versions: version,
 	}
 	req.Record = &pub.Record{
 		Action:            pub.Record_REAL_TIME_STATE_COMMIT,
@@ -762,6 +796,27 @@ func commitVersionToHandler(req PublishRequest, version int, handler PublishHand
 	}
 
 	return version, handler.Handle(req)
+}
+
+type VersionSet map[string]int
+
+func (v VersionSet) String() string {
+	j, _ := json.Marshal(v)
+	return string(j)
+}
+
+func (v VersionSet) Equals(other VersionSet) bool {
+	for k, vs := range v {
+		if other[k] != vs {
+			return false
+		}
+	}
+	for k, vs := range other {
+		if v[k] != vs {
+			return false
+		}
+	}
+	return true
 }
 
 func BuildHandlerAndRequest(session *OpSession, externalRequest *pub.ReadRequest, handler PublishHandler) (PublishHandler, PublishRequest, error) {
@@ -831,19 +886,23 @@ func getItemsAndHandle(session *OpSession, externalRequest *pub.ReadRequest, han
 
 func handleRows(req PublishRequest, args templates.SchemaDataQueryArgs, rows *sql.Rows, causes map[string]Cause, handler PublishHandler) error {
 
+	session := req.OpSession
+	shape := req.PluginRequest.Schema
+
 	var err error
 	columns, err := rows.ColumnTypes()
 	if err != nil {
 		return errors.Errorf("error getting columns from result set: %s", err)
 	}
 
-	session := req.OpSession
-	shape := req.PluginRequest.Schema
+	session.Log.Debug("handleRows Got columns")
 
 	shapePropertiesMap := map[string]*pub.Property{}
 	for _, p := range shape.Properties {
 		shapePropertiesMap[p.Id] = p
 	}
+
+	session.Log.Debug("handleRows made shape prop map")
 
 	metaMap := map[string]bool{
 		DeletedFlagColumnName: true,
@@ -856,14 +915,18 @@ func handleRows(req PublishRequest, args templates.SchemaDataQueryArgs, rows *sq
 		}
 	}
 
+	session.Log.Debug("handleRows made dependency column map")
+
 	valueBuffer := make([]interface{}, len(columns))
 	dataBuffer := make(map[string]interface{}, len(columns))
 	metaBuffer := make(map[string]interface{}, len(columns))
 
 	escapedNameMap := make(map[string]string, len(columns))
 	for _, c := range columns {
-		escapedNameMap[c.Name()] = 				"[" + c.Name() + "]"
+		escapedNameMap[c.Name()] = "[" + c.Name() + "]"
 	}
+
+	session.Log.Debug("handleRows made escaped name map")
 
 	for rows.Next() {
 		if session.Ctx.Err() != nil {
@@ -900,6 +963,8 @@ func handleRows(req PublishRequest, args templates.SchemaDataQueryArgs, rows *sq
 		}
 
 		action := pub.Record_UPSERT
+
+		session.Log.Debug("handleRows scanned row into buffer")
 
 		for i, c := range columns {
 			value := valueBuffer[i]
