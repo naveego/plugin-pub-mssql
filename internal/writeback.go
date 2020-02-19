@@ -184,12 +184,12 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 
 		// drop tables if needed
 		if dropGoldenReason != "" {
-			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable()); err != nil {
+			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedGoldenRecordTable(), dropGoldenReason); err != nil {
 				return nil, errors.Wrap(err, fmt.Sprintf("dropping golden record table reason: %s", dropGoldenReason))
 			}
 		}
 		if dropVersionReason != "" {
-			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedVersionRecordTable()); err != nil {
+			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedVersionRecordTable(), dropVersionReason); err != nil {
 				return nil, errors.Wrap(err, fmt.Sprintf("dropping version table reason: %s", dropVersionReason))
 			}
 		}
@@ -395,7 +395,7 @@ func (r *ReplicationWriter) reconcileSchemas(session *OpSession, current *pub.Sc
 
 	if needsDelete && current != nil {
 		session.Log.Debug("deleting table", "schema id", desired.Id)
-		if err := r.dropTable(session, current.Id); err != nil {
+		if err := r.dropTable(session, current.Id, "reconcile schemas"); err != nil {
 			session.Log.Error("Could not drop table.", "table", current.Id, "err", err)
 		}
 	}
@@ -411,9 +411,9 @@ func (r *ReplicationWriter) reconcileSchemas(session *OpSession, current *pub.Sc
 	return nil
 }
 
-func (r *ReplicationWriter) dropTable(session *OpSession, table string) error {
+func (r *ReplicationWriter) dropTable(session *OpSession, table string, reason string) error {
 	_, err := session.DB.Exec(fmt.Sprintf(`IF OBJECT_ID('%s', 'U') IS NOT NULL DROP TABLE %s`, table, table))
-	r.recordChange("Dropped table %q (if it existed) because of changes.", table)
+	r.recordChange("Dropped table %q (if it existed) because of changes. Reason: %q", table, reason)
 	return err
 }
 
