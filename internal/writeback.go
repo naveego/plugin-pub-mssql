@@ -381,21 +381,24 @@ func (r *ReplicationWriter) recordChange(f string, args ...interface{}) {
 
 func (r *ReplicationWriter) reconcileSchemas(session *OpSession, current *pub.Schema, desired *pub.Schema) error {
 	session.Log.Debug("reconcile schemas", "current", fmt.Sprintf("%v", current), "desired", fmt.Sprintf("%v", desired))
-	needsDelete := false
-	needsCreate := false
+	needsDelete  := false
+	needsCreate  := false
+	propsAreSame := true
+	deleteReason       := ""
 	if current == nil {
 		needsCreate = true
 	} else {
 		//needsDelete = r.arePropsSame(current, desired) || r.arePropsSame(desired, current)
-		needsDelete = !r.arePropsSame(current, desired)
+		propsAreSame, deleteReason = r.arePropsSame(current, desired)
+		needsDelete = !propsAreSame
 		needsCreate = needsDelete
 	}
 
 	session.Log.Debug("reconcile schemas", "needsDelete", needsDelete, "needsCreate", needsCreate)
 
 	if needsDelete && current != nil {
-		session.Log.Debug("deleting table", "schema id", desired.Id)
-		if err := r.dropTable(session, current.Id, "reconcile schemas"); err != nil {
+		session.Log.Debug("deleting table", "schema id", desired.Id, "reason", deleteReason)
+		if err := r.dropTable(session, current.Id, deleteReason); err != nil {
 			session.Log.Error("Could not drop table.", "table", current.Id, "err", err)
 		}
 	}
@@ -417,29 +420,29 @@ func (r *ReplicationWriter) dropTable(session *OpSession, table string, reason s
 	return err
 }
 
-func (r *ReplicationWriter) arePropsSame(left, right *pub.Schema) (same bool) {
-	if len(left.Properties) != len(right.Properties) {
-		return false
+func (r *ReplicationWriter) arePropsSame(current, desired *pub.Schema) (same bool, reason string) {
+	if len(current.Properties) != len(desired.Properties) {
+		return false, fmt.Sprintf("different number of properties current(%v) desired(%v)", len(current.Properties), len(desired.Properties))
 	}
-	rightProps := map[string]*pub.Property{}
-	for _, prop := range right.Properties {
-		rightProps[prop.Id] = prop
+	desiredProps := map[string]*pub.Property{}
+	for _, prop := range desired.Properties {
+		desiredProps[prop.Id] = prop
 	}
 
-	for _, leftProp := range left.Properties {
-		rightProp, ok := rightProps[leftProp.Id]
+	for _, currentProp := range current.Properties {
+		desiredProp, ok := desiredProps[currentProp.Id]
 		if !ok {
-			return false
+			return false, fmt.Sprintf("current property: %q is not present in desired properties", currentProp.Id)
 		}
-		if rightProp.Type != leftProp.Type {
-			return false
+		if desiredProp.Type != currentProp.Type {
+			return false, fmt.Sprintf("different type for property: %q current(%v) desired(%v)", desiredProp.Id, currentProp.Type, desiredProp.Type)
 		}
-		if rightProp.TypeAtSource != leftProp.TypeAtSource {
-			return false
+		if desiredProp.TypeAtSource != currentProp.TypeAtSource {
+			return false, fmt.Sprintf("different type at source for property: %q current(%v) desired(%v)", desiredProp.Id, currentProp.TypeAtSource, desiredProp.TypeAtSource)
 		}
 	}
 
-	return true
+	return true, ""
 }
 
 func (r *ReplicationWriter) canonicalizeProperties(schema *pub.Schema) map[string]string {
