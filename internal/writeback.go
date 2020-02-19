@@ -434,10 +434,11 @@ func (r *ReplicationWriter) arePropsSame(current, desired *pub.Schema) (same boo
 		if !ok {
 			return false, fmt.Sprintf("current property: %q is not present in desired properties", currentProp.Id)
 		}
-		if desiredProp.Type != currentProp.Type {
-			return false, fmt.Sprintf("different type for property: %q current(%v) desired(%v)", desiredProp.Id, currentProp.Type, desiredProp.Type)
-		}
-		if desiredProp.TypeAtSource != currentProp.TypeAtSource {
+		// replaced by checking type at source
+		//if desiredProp.Type != currentProp.Type {
+		//	return false, fmt.Sprintf("different type for property: %q current(%v) desired(%v)", desiredProp.Id, currentProp.Type, desiredProp.Type)
+		//}
+		if strings.Replace(strings.ToLower(desiredProp.TypeAtSource), " ", "", -1) != strings.Replace(strings.ToLower(currentProp.TypeAtSource), " ", "", -1) {
 			return false, fmt.Sprintf("different type at source for property: %q current(%v) desired(%v)", desiredProp.Id, currentProp.TypeAtSource, desiredProp.TypeAtSource)
 		}
 	}
@@ -567,6 +568,10 @@ func (r *ReplicationWriter) augmentGoldenProperties(goldenSchema *pub.Schema) {
 
 func applyCustomSQLTypes(schema *pub.Schema, propertyConfig []PropertyConfig){
 	for _, property := range schema.Properties {
+		if property.TypeAtSource == "" {
+			property.TypeAtSource = meta.ConvertPluginTypeToSQLType(property.Type)
+		}
+
 		for _, config := range propertyConfig {
 			if strings.Trim(config.Name, "[]") == strings.Trim(property.Name, "[]") {
 				property.Type = meta.ConvertSQLTypeToPluginType(strings.ToLower(config.Type), -1)
