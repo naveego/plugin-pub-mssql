@@ -94,7 +94,7 @@ func (s *SchemaDiscoverer) DiscoverSchemas(session *OpSession, req *pub.Discover
 				}()
 
 				s.Log.Debug("Getting details for discovered schema", "id", schema.Id)
-				err := s.populateShapeColumns(session, schema)
+				err := s.populateShapeColumns(session, schema, req)
 				if err != nil {
 					s.Log.With("shape", schema.Id).With("err", err).Error("Error discovering columns")
 					schema.Errors = append(schema.Errors, fmt.Sprintf("Could not discover columns: %s", err))
@@ -277,24 +277,30 @@ func describeResultSet(session *OpSession, query string) ([]describeResult, erro
 	return metadata, nil
 }
 
-func (s *SchemaDiscoverer) populateShapeColumns(session *OpSession, schema *pub.Schema) error {
+func (s *SchemaDiscoverer) populateShapeColumns(session *OpSession, schema *pub.Schema, req *pub.DiscoverSchemasRequest) error {
 	var metadata []describeResult
 	var err error
 
 	query := schema.Query
+
 	// schema is not query based
 	if query == "" {
-		// attempt to get meta schema
-		metaSchema, ok := session.SchemaInfo[schema.Id]
-		if ok {
-			// get describe result set from meta schema
-			metadata, err = makeDescribeResultSetFromMetaSchema(metaSchema)
-			if err != nil {
-				return err
-			}
-		} else {
-			// fall back to query
+		// always use describe result set when refresh mode
+		if req.Mode == pub.DiscoverSchemasRequest_REFRESH {
 			query = fmt.Sprintf("SELECT * FROM %s", schema.Id)
+		} else {
+			// attempt to get meta schema
+			metaSchema, ok := session.SchemaInfo[schema.Id]
+			if ok {
+				// get describe result set from meta schema
+				metadata, err = makeDescribeResultSetFromMetaSchema(metaSchema)
+				if err != nil {
+					return err
+				}
+			} else {
+				// fall back to query
+				query = fmt.Sprintf("SELECT * FROM %s", schema.Id)
+			}
 		}
 	}
 
