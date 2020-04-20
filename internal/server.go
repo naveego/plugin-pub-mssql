@@ -296,9 +296,9 @@ ORDER BY TABLE_NAME`)
 		columnInfo.IsNullable = strings.ToUpper(isNullable) == "YES"
 		if maxLength.Valid {
 			columnInfo.MaxLength = maxLength.Int64
-			columnInfo.SQLType = fmt.Sprintf("%s (%v)", dataType, maxLength.Int64)
+			columnInfo.SQLType = fmt.Sprintf("%s(%v)", dataType, maxLength.Int64)
 			if maxLength.Int64 == -1 {
-				columnInfo.SQLType = fmt.Sprintf("%s (max)", dataType)
+				columnInfo.SQLType = fmt.Sprintf("%s(max)", dataType)
 			}
 		} else {
 			columnInfo.MaxLength = 0

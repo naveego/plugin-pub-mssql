@@ -39,6 +39,7 @@
         "auth",
         "username",
         "password",
+        "advancedSettings",
         "prePublishQuery",
         "postPublishQuery"
       ],
@@ -89,6 +90,11 @@
         "password": {
           "type": "string",
           "title": "Password"
+        },
+        "advancedSettings": {
+          "type": "string",
+          "title": "Advanced Settings",
+          "description": "Optional config to append to the connection string."
         },
         "prePublishQuery": {
           "title": "Pre-publish Query",

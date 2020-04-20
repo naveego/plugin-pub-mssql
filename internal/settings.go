@@ -18,6 +18,7 @@ type Settings struct {
 	Auth             AuthType `json:"auth"`
 	Username         string   `json:"username"`
 	Password         string   `json:"password"`
+	AdvancedSettings string   `json:"advancedSettings"`
 	PrePublishQuery  string   `json:"prePublishQuery"`
 	PostPublishQuery string   `json:"postPublishQuery"`
 }
@@ -86,7 +87,7 @@ func (s *Settings) GetConnectionString() (string, error) {
 		u.User = url.UserPassword(s.Username, s.Password)
 	}
 
-	return u.String(), nil
+	return fmt.Sprintf("%s;%s", u.String(), s.AdvancedSettings), nil
 }
 
 type ErrorMap map[string]interface{}
