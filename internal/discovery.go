@@ -306,8 +306,6 @@ func (s *SchemaDiscoverer) populateShapeColumns(session *OpSession, schema *pub.
 
 	// fallback for query based schemas and no meta schema
 	if query != "" {
-		query = strings.Replace(query, "'", "''", -1)
-
 		metadata, err = describeResultSet(session, query)
 		if err != nil {
 			return err
