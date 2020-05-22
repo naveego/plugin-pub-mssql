@@ -102,6 +102,15 @@ type ReplicationWriter struct {
 	changes      []string
 }
 
+// gets the ID to use to store replication metadata related to this request.
+func getReplicatedShapeID(req *pub.PrepareWriteRequest) string {
+	if req.DataVersions == nil {
+		return req.Schema.Id
+	}
+
+	return fmt.Sprintf("%s/%s", req.DataVersions.ShapeId, req.DataVersions.JobId)
+}
+
 func NewReplicationWriteHandler(session *OpSession, req *pub.PrepareWriteRequest) (Writer, error) {
 
 	w := &ReplicationWriter{
@@ -123,24 +132,38 @@ func NewReplicationWriteHandler(session *OpSession, req *pub.PrepareWriteRequest
 		return nil, errors.Wrap(err, "ensure replication supporting tables exist")
 	}
 
-	// get the most recent versioning record
-	query := fmt.Sprintf(`select top (1) * 
-from [%s].[%s]
-where ReplicatedShapeID = '%s'
-order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.Id)
-
-	rows, err := session.DB.Query(query)
-	if err != nil {
-		return nil, errors.Wrap(err, "get replication metadata")
-	}
-
+	var rows *sql.Rows
 	var previousMetadata NaveegoReplicationVersioning
 	var previousMetadataSettings NaveegoReplicationVersioningSettings
 	naveegoReplicationMetadataRows := make([]NaveegoReplicationVersioning, 0, 0)
-	err = sqlstructs.UnmarshalRows(rows, &naveegoReplicationMetadataRows)
-	if err != nil {
-		return nil, err
+
+	// We check the job-namespaced shape ID first, then fall back to the shape ID
+	// so that we can migrate replications stored before we started namespacing.
+	replicatedShapeIDs := []string{
+		getReplicatedShapeID(req),
+		req.Schema.Id,
 	}
+	for _, replicatedShapeID := range replicatedShapeIDs {
+		// get the most recent versioning record
+		query := fmt.Sprintf(`select top (1) * 
+from [%s].[%s]
+where ReplicatedShapeID = '%s'
+order by id desc`, sqlSchema, constants.ReplicationVersioningTable, replicatedShapeID)
+
+		rows, err = session.DB.Query(query)
+		if err != nil {
+			return nil, errors.Wrap(err, "get replication metadata")
+		}
+		err = sqlstructs.UnmarshalRows(rows, &naveegoReplicationMetadataRows)
+		if err != nil {
+			return nil, err
+		}
+		if len(naveegoReplicationMetadataRows) > 0 {
+			// got a hit using this replicationShapeID
+			break
+		}
+	}
+
 	if len(naveegoReplicationMetadataRows) > 0 {
 		const (
 			GoldenNameChange = "golden record table name changed"
@@ -318,7 +341,7 @@ order by id desc`, sqlSchema, constants.ReplicationVersioningTable, req.Schema.I
 			Settings:            metadataSettings.JSON(),
 			Timestamp:           time.Now().UTC(),
 			APIVersion:          ReplicationAPIVersion,
-			ReplicatedShapeID:   req.Schema.Id,
+			ReplicatedShapeID:   getReplicatedShapeID(req),
 			ReplicatedShapeName: req.Schema.Name,
 		}
 

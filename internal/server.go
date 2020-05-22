@@ -659,33 +659,37 @@ func (s *Server) configureReplication(ctx context.Context, req *pub.ConfigureRep
 			}
 		}
 
-		if settings.SQLSchema != "" &&
-			settings.VersionRecordTable != "" &&
-			settings.GoldenRecordTable != "" &&
-			req.Schema != nil &&
-			req.Form.IsSave {
+		// No longer committing the configuration on save,
+		// it's too destructive and dangerous, and we don't have enough
+		// versioning information to do it correctly.
 
-			s.log.Info("Configure replication request had IsSave=true, committing replication settings to database.")
-
-			// The settings have been filled in, let's make sure it's ready to go.
-
-			session, err := s.getOpSession(ctx)
-			if err != nil {
-				return nil, err
-			}
-
-			_, err = PrepareWriteHandler(session, &pub.PrepareWriteRequest{
-				Schema: req.Schema,
-				Replication: &pub.ReplicationWriteRequest{
-					SettingsJson: req.Form.DataJson,
-					Versions:     req.Versions,
-				},
-			})
-			if err != nil {
-				s.log.Error("Configuring replication failed.", "req", string(req.Form.DataJson), "err", err)
-				builder.Response.Errors = []string{err.Error()}
-			}
-		}
+		// if settings.SQLSchema != "" &&
+		// 	settings.VersionRecordTable != "" &&
+		// 	settings.GoldenRecordTable != "" &&
+		// 	req.Schema != nil &&
+		// 	req.Form.IsSave {
+		//
+		// 	s.log.Info("Configure replication request had IsSave=true, committing replication settings to database.")
+		//
+		// 	// The settings have been filled in, let's make sure it's ready to go.
+		//
+		// 	session, err := s.getOpSession(ctx)
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
+		//
+		// 	_, err = PrepareWriteHandler(session, &pub.PrepareWriteRequest{
+		// 		Schema: req.Schema,
+		// 		Replication: &pub.ReplicationWriteRequest{
+		// 			SettingsJson: req.Form.DataJson,
+		// 			Versions:     req.Versions,
+		// 		},
+		// 	})
+		// 	if err != nil {
+		// 		s.log.Error("Configuring replication failed.", "req", string(req.Form.DataJson), "err", err)
+		// 		builder.Response.Errors = []string{err.Error()}
+		// 	}
+		// }
 	}
 
 	builder.FormSchema = jsonschema.NewGenerator().WithRoot(ReplicationSettings{}).MustGenerate()
