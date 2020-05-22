@@ -6,7 +6,7 @@ apps:
     release: ""
     feature: issue/{{.Number}}/{{.Slug}}
   repo: naveego/plugin-pub-mssql
-  version: 3.6.9-beta1
+  version: 3.9.7-beta1
   labels:
     category: plugin
     repo-kind: own
