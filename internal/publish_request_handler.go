@@ -529,11 +529,14 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 					if err != nil {
 						return errors.Errorf("next handler couldn't handle changes: %s", err)
 					}
+
+					log.Debug("Completed publish of recent changes, committing max version", "maxVersion", maxVersions)
+					// commit the most recent version we captured so that if something goes wrong we'll start at that version next time
+					minVersions, err = commitVersionToHandler(req, maxVersions, handler)
+				} else {
+					log.Debug("No changes detected in dependencies")
 				}
 
-				log.Debug("Completed publish of recent changes, committing max version", "maxVersion", maxVersions)
-				// commit the most recent version we captured so that if something goes wrong we'll start at that version next time
-				minVersions, err = commitVersionToHandler(req, maxVersions, handler)
 
 				log.Debug("Waiting until interval elapses before checking for more changes", "interval", interval)
 				// wait until interval elapses, then we'll loop again.

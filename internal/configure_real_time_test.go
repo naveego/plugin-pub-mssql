@@ -61,12 +61,6 @@ var _ = Describe("ConfigureRealTime", func() {
 					Expect(jsonSchemaForForm.Description).ToNot(BeEmpty())
 				})
 			})
-			Describe("when table does not have change tracking enabled", func() {
-				It("should return an form schema with an error", func() {
-					resp := configureRealTime(&pub.Schema{Id: "[Agents]"}, RealTimeSettings{})
-					Expect(resp.Form.Errors).To(ContainElement(ContainSubstring("Table does not have change tracking enabled.")))
-				})
-			})
 		})
 
 		Describe("when schema is a view", func() {
@@ -114,7 +108,7 @@ var _ = Describe("ConfigureRealTime", func() {
 					resp := configureRealTime(&pub.Schema{
 						Id: "[RealTimeDuplicateView]",
 						Properties:[]*pub.Property{
-							{Name:"id", Id:"[id]", IsKey:true, Type:pub.PropertyType_INTEGER, TypeAtSource:"int"},
+							{Name:"recordID", Id:"[recordID]", IsKey:true, Type:pub.PropertyType_INTEGER, TypeAtSource:"int"},
 							{Name:"ownValue", Id:"[ownValue]", Type:pub.PropertyType_STRING, TypeAtSource:"varchar(10)"},
 							{Name:"mergeValue", Id:"[mergeValue]", Type:pub.PropertyType_STRING, TypeAtSource:"varchar(10)"},
 							{Name:"spreadValue", Id:"[spreadValue]", Type:pub.PropertyType_STRING, TypeAtSource:"varchar(10)"},
@@ -126,7 +120,7 @@ var _ = Describe("ConfigureRealTime", func() {
 					errs := errorMap.GetErrors("tables", "0", "query")
 					Expect(errs).To(ContainElement(
 						And(
-							ContainSubstring("[Schema.id]"),
+							ContainSubstring("[Schema.recordID]"),
 							ContainSubstring("[Dependency.id]"),
 						)))
 				})

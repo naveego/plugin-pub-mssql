@@ -222,7 +222,9 @@ var _ = Describe("PublishStream with Real Time", func() {
 
 			var actualRecord *pub.Record
 			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
-			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
+			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Versions: map[string]int{
+				"[HumanResources].[Employee]": expectedVersion,
+			}}))
 		})
 
 		By("detecting inserted data", func() {
@@ -237,7 +239,9 @@ var _ = Describe("PublishStream with Real Time", func() {
 			expectedVersion = getChangeTrackingVersion()
 			var actualRecord *pub.Record
 			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
-			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
+			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Versions: map[string]int{
+				"[HumanResources].[Employee]": expectedVersion,
+			}}))
 		})
 
 		By("running the publish periodically, multiple changed record should be detected", func() {
@@ -306,7 +310,9 @@ var _ = Describe("PublishStream with Real Time", func() {
 		By("committing most recent version, the state should be stored", func() {
 			var actualRecord *pub.Record
 			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
-			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
+			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Versions: map[string]int{
+				"[RealTime]": expectedVersion,
+			}}))
 		})
 
 		var actualID int64
@@ -328,7 +334,9 @@ var _ = Describe("PublishStream with Real Time", func() {
 			expectedVersion = getChangeTrackingVersion()
 			var actualRecord *pub.Record
 			Eventually(stream.out, timeout).Should(Receive(&actualRecord))
-			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
+			Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Versions: map[string]int{
+				"[RealTime]": expectedVersion,
+			}}))
 		})
 
 		By("running the publish periodically, a changed record should be detected when it is updated", func() {
@@ -348,7 +356,9 @@ var _ = Describe("PublishStream with Real Time", func() {
 
 		By("committing most recent version, the state should be stored", func() {
 			expectedVersion = getChangeTrackingVersion()
-			Eventually(stream.out, timeout).Should(Receive(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion})))
+			Eventually(stream.out, timeout).Should(Receive(BeARealTimeStateCommit(RealTimeState{Versions: map[string]int{
+				"[RealTime]": expectedVersion,
+			}})))
 		})
 
 		By("running the publish periodically, a deleted record should be detected when it is deleted", func() {
@@ -403,12 +413,11 @@ var _ = Describe("PublishStream with Real Time", func() {
 		Entry("when schema is view", &pub.Schema{
 			Id: "[RealTimeDuplicateView]",
 			Properties: []*pub.Property{
-				{Id: "[recordID]", Name:"recordID", IsKey:true},
+				{Id: "[recordID]", Name: "recordID", IsKey: true},
 				{Id: "[ownValue]"},
 				{Id: "[mergeValue]"},
 				{Id: "[spreadValue]"},
 			},
-
 		}, RealTimeSettings{
 			PollingInterval: "100ms",
 			Tables: []RealTimeTableSettings{
@@ -442,7 +451,6 @@ JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id`,
 			return r
 		}),
 	)
-
 
 	Describe("large change sets", func() {
 
@@ -484,14 +492,16 @@ JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id`,
 			By("committing most recent version, the state should be stored", func() {
 				var actualRecord *pub.Record
 				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
-				Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Version: expectedVersion}))
+				Expect(actualRecord).To(BeARealTimeStateCommit(RealTimeState{Versions: map[string]int{
+					"[dev].[Developers]": expectedVersion,
+				}}))
 			})
 
 			By("running the publish periodically, a new record should be detected when it is written", func() {
 				var queries []string
 				expectedCount := 1010
 				start := 1000
-				for i := start; i < start+expectedCount;  i++{
+				for i := start; i < start+expectedCount; i++ {
 					queries = append(queries, fmt.Sprintf("INSERT INTO dev.Developers VALUES (%d, 'test+%d')", i, i))
 				}
 
@@ -504,7 +514,7 @@ COMMIT TRANSACTION
 				Expect(db.Exec(query)).ToNot(BeNil())
 
 				doneCh := make(chan struct{})
-				go func(){
+				go func() {
 
 					for j := 0; j < expectedCount; j++ {
 						_ = <-stream.out
@@ -516,12 +526,12 @@ COMMIT TRANSACTION
 					close(doneCh)
 				}()
 
-				Eventually(doneCh, 10 *time.Second).Should(BeClosed())
+				Eventually(doneCh, 10*time.Second).Should(BeClosed())
 			})
 
 			Expect(sut.Disconnect(context.Background(), &pub.DisconnectRequest{})).ToNot(BeNil())
 
-			Eventually(done, 3 * time.Second).Should(BeClosed())
+			Eventually(done, 3*time.Second).Should(BeClosed())
 
 		})
 
@@ -646,7 +656,7 @@ VALUES ('a1', 'a', NULL),
 			Schema: &pub.Schema{
 				Id: "[RealTimeDuplicateView]",
 				Properties: []*pub.Property{
-					{Id: "[recordID]", Name:"recordID", IsKey:true},
+					{Id: "[recordID]", Name: "recordID", IsKey: true},
 					{Id: "[ownValue]"},
 					{Id: "[mergeValue]"},
 					{Id: "[spreadValue]"},
@@ -682,7 +692,7 @@ VALUES ('a1', 'a', NULL),
 					row := db.QueryRow("INSERT INTO RealTime VALUES ('inserted', NULL, NULL); SELECT SCOPE_IDENTITY()")
 					Expect(row.Scan(&actualID)).To(Succeed())
 					state["inserted"] = RealTimeDuplicateViewRecord{
-						RecordID:       int(actualID),
+						RecordID: int(actualID),
 						OwnValue: "inserted",
 					}
 				},
@@ -691,7 +701,7 @@ VALUES ('a1', 'a', NULL),
 					Expect(err).ToNot(HaveOccurred())
 					Expect(result.RowsAffected()).To(BeNumerically("==", 1))
 					state["updated"] = RealTimeDuplicateViewRecord{
-						RecordID:         1,
+						RecordID:   1,
 						MergeValue: "a",
 						OwnValue:   "updated",
 					}
@@ -718,12 +728,12 @@ VALUES ('a1', 'a', NULL),
 			Schema: &pub.Schema{
 				// Id: "user-defined-query-x",
 				Properties: []*pub.Property{
-					{Id: "[id]", Name:"id", IsKey:true, Type:pub.PropertyType_INTEGER, TypeAtSource:"int"},
-					{Id: "[ownValue]", Type:pub.PropertyType_STRING, TypeAtSource:"varchar(10)"},
-					{Id: "[mergeValue]", Type:pub.PropertyType_STRING, TypeAtSource:"varchar(10)"},
-					{Id: "[spreadValue]", Type:pub.PropertyType_STRING, TypeAtSource:"varchar(10)"},
+					{Id: "[id]", Name: "id", IsKey: true, Type: pub.PropertyType_INTEGER, TypeAtSource: "int"},
+					{Id: "[ownValue]", Type: pub.PropertyType_STRING, TypeAtSource: "varchar(10)"},
+					{Id: "[mergeValue]", Type: pub.PropertyType_STRING, TypeAtSource: "varchar(10)"},
+					{Id: "[spreadValue]", Type: pub.PropertyType_STRING, TypeAtSource: "varchar(10)"},
 				},
-				Query:`SELECT * from [RealTime]`,
+				Query: `SELECT * from [RealTime]`,
 			},
 			RealTimeSettings: RealTimeSettings{
 				PollingInterval: "100ms",
@@ -786,7 +796,7 @@ VALUES ('a1', 'a', NULL),
 				return nil
 			},
 		}),
-		)
+	)
 })
 
 type RealTimeTestCase struct {
@@ -810,7 +820,7 @@ func BeRecordMatching(action pub.Record_Action, data interface{}) GomegaMatcher 
 	j, _ := json.Marshal(data)
 	_ = json.Unmarshal(j, &expectedData)
 	for k, v := range expectedData {
-		switch x := v.(type){
+		switch x := v.(type) {
 		case string:
 			if x == "" {
 				expectedData[k] = nil

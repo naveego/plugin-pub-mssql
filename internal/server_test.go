@@ -585,7 +585,7 @@ var _ = Describe("Server", func() {
 
 			It("should return a schema when a valid stored procedure is input", func() {
 				req.Form = &pub.ConfigurationFormRequest{
-					DataJson: `{"storedProcedure":"TEST"}`,
+					DataJson: `{"storedProcedure":"InsertIntoTypes"}`,
 				}
 
 				response, err := sut.ConfigureWrite(context.Background(), req)
@@ -594,8 +594,8 @@ var _ = Describe("Server", func() {
 				Expect(response.Form).ToNot(BeNil())
 				Expect(response.Schema).ToNot(BeNil())
 
-				Expect(response.Schema.Id).To(Equal("TEST"))
-				Expect(response.Schema.Query).To(Equal("TEST"))
+				Expect(response.Schema.Id).To(Equal("InsertIntoTypes"))
+				Expect(response.Schema.Query).To(Equal("InsertIntoTypes"))
 				Expect(response.Schema.Properties).To(HaveLen(23))
 				Expect(response.Schema.Properties[0].Id).To(Equal("int"))
 				Expect(response.Schema.Properties[1].Id).To(Equal("bigint"))
