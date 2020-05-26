@@ -39,7 +39,7 @@
         "auth",
         "username",
         "password",
-        "advancedSettings",
+        "advancedSettings"
       ],
       "password": {
         "ui:widget": "password"
