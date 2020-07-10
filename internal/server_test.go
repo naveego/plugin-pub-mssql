@@ -596,7 +596,7 @@ var _ = Describe("Server", func() {
 
 				Expect(response.Schema.Id).To(Equal("InsertIntoTypes"))
 				Expect(response.Schema.Query).To(Equal("InsertIntoTypes"))
-				Expect(response.Schema.Properties).To(HaveLen(23))
+				Expect(response.Schema.Properties).To(HaveLen(24))
 				Expect(response.Schema.Properties[0].Id).To(Equal("int"))
 				Expect(response.Schema.Properties[1].Id).To(Equal("bigint"))
 				Expect(response.Schema.Properties[2].Id).To(Equal("numeric"))
@@ -780,6 +780,10 @@ var _ = Describe("Server", func() {
 								Id: "ntext",
 								Type: pub.PropertyType_STRING,
 								TypeAtSource: "ntext",
+							},							{
+								Id: "uniqueidentifier",
+								Type: pub.PropertyType_STRING,
+								TypeAtSource: "uniqueidentifier",
 							},
 						},
 					},
@@ -836,6 +840,7 @@ var _ = Describe("Server", func() {
 					"ntext": "ntext",
 					"binary": base64.StdEncoding.EncodeToString([]byte("abc")),
 					"varbinary": base64.StdEncoding.EncodeToString([]byte("cde")),
+					"uniqueidentifier": uniqueIdentifierIdSteve,
 				})
 
 				Expect(sut.WriteStream(stream)).To(Succeed())

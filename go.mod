@@ -13,13 +13,14 @@ require (
 	github.com/aws/aws-sdk-go v1.15.44 // indirect
 	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/coreos/go-semver v0.2.0
+	github.com/davecgh/go-spew v1.1.1
 	github.com/denisenkom/go-mssqldb v0.0.0-20180707235734-242fa5aa1b45
 	github.com/dimdin/decimal v0.0.0-20160219162123-26155721110e
 	github.com/fastly/go-utils v0.0.0-20180712184237-d95a45783239 // indirect
 	github.com/go-ini/ini v1.38.2 // indirect
 	github.com/golang/protobuf v1.3.1
 	github.com/google/go-cmp v0.3.0 // indirect
-	github.com/google/uuid v1.1.0 // indirect
+	github.com/google/uuid v1.1.0
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
 	github.com/hashicorp/go-hclog v0.9.0
 	github.com/hashicorp/go-plugin v1.0.0

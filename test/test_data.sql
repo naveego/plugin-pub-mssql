@@ -1,6 +1,7 @@
 IF NOT EXISTS(SELECT name
               FROM master.dbo.sysdatabases
-              WHERE name = N'w3')
+              WHERE
+                  name = N'w3')
     BEGIN
         CREATE DATABASE w3
 
@@ -11,13 +12,15 @@ GO
 
 IF NOT exists(SELECT *
               FROM w3.sys.schemas
-              WHERE name = 'fact')
+              WHERE
+                  name = 'fact')
     BEGIN
         EXEC sp_executesql N'CREATE SCHEMA fact'
     END;
 IF NOT exists(SELECT *
               FROM w3.sys.schemas
-              WHERE name = 'dev')
+              WHERE
+                  name = 'dev')
     BEGIN
         EXEC sp_executesql N'CREATE SCHEMA dev'
     END;
@@ -108,7 +111,8 @@ CREATE OR ALTER VIEW dbo.[RealTimeMergeView] (mergeValue, count)
 AS
 SELECT mergeValue, count(1)
 FROM w3.dbo.RealTime
-WHERE mergeValue IS NOT NULL
+WHERE
+    mergeValue IS NOT NULL
 GROUP BY mergeValue
 GO
 
@@ -118,7 +122,8 @@ AS
 SELECT ROW_NUMBER() OVER (ORDER BY A.id ASC), A.id, A.ownValue, A.spreadValue
 FROM w3.dbo.RealTime A
          JOIN w3.dbo.RealTime B ON A.spreadValue = b.spreadValue
-WHERE A.spreadValue IS NOT NULL
+WHERE
+    A.spreadValue IS NOT NULL
 GO
 ;
 
@@ -231,31 +236,32 @@ GO
 
 CREATE TABLE w3.dbo.Types
 (
-    "int"            INT NOT NULL PRIMARY KEY,
-    "bigint"         BIGINT,
-    "numeric"        NUMERIC(18, 5),
-    "bit"            BIT NOT NULL,
-    "smallint"       SMALLINT,
-    "decimal"        DECIMAL(18, 4),
-    "smallmoney"     SMALLMONEY,
-    "tinyint"        TINYINT,
-    "money"          MONEY,
-    "float"          FLOAT,
-    "real"           REAL,
-    "date"           DATE,
-    "datetimeoffset" DATETIMEOFFSET,
-    "datetime2"      DATETIME2,
-    "smalldatetime"  SMALLDATETIME,
-    "datetime"       DATETIME,
-    "time"           TIME,
-    "char"           CHAR(6),
-    "varchar"        VARCHAR(10),
-    "text"           TEXT,
-    "nchar"          NCHAR(6),
-    "nvarchar"       NVARCHAR(10),
-    "ntext"          NTEXT,
-    "binary"         BINARY(3),
-    "varbinary"      VARBINARY(100),
+    "int"              INT NOT NULL PRIMARY KEY,
+    "bigint"           BIGINT,
+    "numeric"          NUMERIC(18, 5),
+    "bit"              BIT NOT NULL,
+    "smallint"         SMALLINT,
+    "decimal"          DECIMAL(18, 4),
+    "smallmoney"       SMALLMONEY,
+    "tinyint"          TINYINT,
+    "money"            MONEY,
+    "float"            FLOAT,
+    "real"             REAL,
+    "date"             DATE,
+    "datetimeoffset"   DATETIMEOFFSET,
+    "datetime2"        DATETIME2,
+    "smalldatetime"    SMALLDATETIME,
+    "datetime"         DATETIME,
+    "time"             TIME,
+    "char"             CHAR(6),
+    "varchar"          VARCHAR(10),
+    "text"             TEXT,
+    "nchar"            NCHAR(6),
+    "nvarchar"         NVARCHAR(10),
+    "ntext"            NTEXT,
+    "binary"           BINARY(3),
+    "varbinary"        VARBINARY(100),
+    "uniqueidentifier" UNIQUEIDENTIFIER
 )
 
 
@@ -287,8 +293,8 @@ VALUES (42,
         'nvarchar',-- nvarchar
         'ntext',-- ntext
         CAST('abc' AS BINARY(3)),-- binary
-        CAST('cde' AS VARBINARY(6))-- varbinary
-       )
+        CAST('cde' AS VARBINARY(6)),-- varbinary
+        'ff0df4a2-c2b6-11ea-93a8-e335bc66abae')
 
 GO
 ;
@@ -535,60 +541,59 @@ CREATE TABLE w3.dbo.PrePost
 
 GO
 
-CREATE OR ALTER PROCEDURE InsertIntoTypes
-    @int            INT,
-    @bigint         BIGINT,
-    @numeric        NUMERIC(18, 5),
-    @bit            BIT,
-    @smallint       SMALLINT,
-    @decimal        DECIMAL(18, 4),
-    @smallmoney     SMALLMONEY,
-    @tinyint        TINYINT,
-    @money          MONEY,
-    @float          FLOAT,
-    @real           REAL,
-    @date           DATE,
-    @datetimeoffset DATETIMEOFFSET,
-    @datetime2      DATETIME2,
-    @smalldatetime  SMALLDATETIME,
-    @datetime       DATETIME,
-    @time           TIME,
-    @char           CHAR(6),
-    @varchar        VARCHAR(10),
-    @text           TEXT,
-    @nchar          NCHAR(6),
-    @nvarchar       NVARCHAR(10),
-    @ntext          NTEXT
+CREATE OR ALTER PROCEDURE InsertIntoTypes @int INT,
+                                          @bigint BIGINT,
+                                          @numeric NUMERIC(18, 5),
+                                          @bit BIT,
+                                          @smallint SMALLINT,
+                                          @decimal DECIMAL(18, 4),
+                                          @smallmoney SMALLMONEY,
+                                          @tinyint TINYINT,
+                                          @money MONEY,
+                                          @float FLOAT,
+                                          @real REAL,
+                                          @date DATE,
+                                          @datetimeoffset DATETIMEOFFSET,
+                                          @datetime2 DATETIME2,
+                                          @smalldatetime SMALLDATETIME,
+                                          @datetime DATETIME,
+                                          @time TIME,
+                                          @char CHAR(6),
+                                          @varchar VARCHAR(10),
+                                          @text TEXT,
+                                          @nchar NCHAR(6),
+                                          @nvarchar NVARCHAR(10),
+                                          @ntext NTEXT,
+                                          @uniqueidentifier UNIQUEIDENTIFIER
 AS
 BEGIN
     INSERT INTO w3.dbo.Types
-    VALUES (
-@int,
-@bigint,
-@numeric,
-@bit,
-@smallint,
-@decimal,
-@smallmoney,
-@tinyint,
-@money,
-@float,
-@real,
-@date,
-@datetimeoffset,
-@datetime2,
-@smalldatetime,
-@datetime,
-@time,
-@char,
-@varchar,
-@text,
-@nchar,
-@nvarchar,
-@ntext,
-            null,
-            null
-           )
+    VALUES (@int,
+            @bigint,
+            @numeric,
+            @bit,
+            @smallint,
+            @decimal,
+            @smallmoney,
+            @tinyint,
+            @money,
+            @float,
+            @real,
+            @date,
+            @datetimeoffset,
+            @datetime2,
+            @smalldatetime,
+            @datetime,
+            @time,
+            @char,
+            @varchar,
+            @text,
+            @nchar,
+            @nvarchar,
+            @ntext,
+            NULL,
+            NULL,
+            @uniqueidentifier)
 END
 GO
 
@@ -622,14 +627,16 @@ GO
 
 IF NOT exists(SELECT *
               FROM w3.sys.schemas
-              WHERE name = 'HumanResources')
+              WHERE
+                  name = 'HumanResources')
     BEGIN
         EXEC sp_executesql N'CREATE SCHEMA HumanResources'
     END;
 
 IF NOT exists(SELECT *
               FROM w3.sys.schemas
-              WHERE name = 'Person')
+              WHERE
+                  name = 'Person')
     BEGIN
         EXEC sp_executesql N'CREATE SCHEMA Person'
     END;
@@ -657,7 +664,7 @@ CREATE TABLE Person.Person
         CONSTRAINT PK_Person_BusinessEntityID
             PRIMARY KEY,
     PersonType            NVARCHAR(2),
-    NameStyle NameStyle,
+    NameStyle             NAMESTYLE,
     Title                 NVARCHAR(8),
     FirstName             NAME                              NOT NULL,
     MiddleName            NAME,
@@ -677,35 +684,58 @@ CREATE TABLE Person.Person
 GO
 
 INSERT INTO w3.Person.Person (BusinessEntityID, PersonType, NameStyle, Title, FirstName, MiddleName,
-                                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
-                                              rowguid, ModifiedDate)
+                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
+                              rowguid, ModifiedDate)
 VALUES (1, 'EM', 0, NULL, 'Terri', 'Lee', 'Duffy', NULL, 0, NULL,
-        '<IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey"><TotalPurchaseYTD>0</TotalPurchaseYTD></IndividualSurvey>',
+        '
+        <IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey">
+            <TotalPurchaseYTD>0</TotalPurchaseYTD>
+        </IndividualSurvey>',
         '92C4279F-1207-48A3-8448-4636514EB7E2', '2003-02-08 00:00:00.000');
+GO
 INSERT INTO w3.Person.Person (BusinessEntityID, PersonType, NameStyle, Title, FirstName, MiddleName,
-                                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
-                                              rowguid, ModifiedDate)
+                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
+                              rowguid, ModifiedDate)
 VALUES (2, 'EM', 0, NULL, 'Terri', 'Lee', 'Duffy', NULL, 1, NULL,
-        '<IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey"><TotalPurchaseYTD>0</TotalPurchaseYTD></IndividualSurvey>',
+        '
+        <IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey">
+            <TotalPurchaseYTD>0</TotalPurchaseYTD>
+        </IndividualSurvey>',
         'D8763459-8AA8-47CC-AFF7-C9079AF79033', '2002-02-24 00:00:00.000');
+GO
+
 INSERT INTO w3.Person.Person (BusinessEntityID, PersonType, NameStyle, Title, FirstName, MiddleName,
-                                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
-                                              rowguid, ModifiedDate)
+                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
+                              rowguid, ModifiedDate)
 VALUES (3, 'EM', 0, NULL, 'Roberto', NULL, 'Tamburello', NULL, 0, NULL,
-        '<IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey"><TotalPurchaseYTD>0</TotalPurchaseYTD></IndividualSurvey>',
+        '
+        <IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey">
+            <TotalPurchaseYTD>0</TotalPurchaseYTD>
+        </IndividualSurvey>',
         'E1A2555E-0828-434B-A33B-6F38136A37DE', '2001-12-05 00:00:00.000');
+GO
+
 INSERT INTO w3.Person.Person (BusinessEntityID, PersonType, NameStyle, Title, FirstName, MiddleName,
-                                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
-                                              rowguid, ModifiedDate)
+                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
+                              rowguid, ModifiedDate)
 VALUES (4, 'EM', 0, NULL, 'Rob', NULL, 'Walters', NULL, 0, NULL,
-        '<IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey"><TotalPurchaseYTD>0</TotalPurchaseYTD></IndividualSurvey>',
+        '
+        <IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey">
+            <TotalPurchaseYTD>0</TotalPurchaseYTD>
+        </IndividualSurvey>',
         'F2D7CE06-38B3-4357-805B-F4B6B71C01FF', '2001-12-29 00:00:00.000');
+GO
+
 INSERT INTO w3.Person.Person (BusinessEntityID, PersonType, NameStyle, Title, FirstName, MiddleName,
-                                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
-                                              rowguid, ModifiedDate)
+                              LastName, Suffix, EmailPromotion, AdditionalContactInfo, Demographics,
+                              rowguid, ModifiedDate)
 VALUES (5, 'EM', 0, 'Ms.', 'Gail', 'A', 'Erickson', NULL, 0, NULL,
-        '<IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey"><TotalPurchaseYTD>0</TotalPurchaseYTD></IndividualSurvey>',
+        '
+        <IndividualSurvey xmlns="http://schemas.microsoft.com/sqlserver/2004/07/adventure-works/IndividualSurvey">
+            <TotalPurchaseYTD>0</TotalPurchaseYTD>
+        </IndividualSurvey>',
         'F3A3F6B4-AE3B-430C-A754-9F2231BA6FEF', '2002-01-30 00:00:00.000');
+GO
 
 
 CREATE TABLE w3.HumanResources.[Employee]
@@ -744,24 +774,31 @@ CREATE TABLE w3.HumanResources.[Employee]
     CONSTRAINT [CK_Employee_SickLeaveHours] CHECK ([SickLeaveHours] BETWEEN 0 AND 120),
 ) ON [PRIMARY];
 
+GO
+
 ALTER TABLE w3.HumanResources.Employee
     ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
 
+GO
 INSERT INTO HumanResources.Employee (BusinessEntityID, NationalIDNumber, LoginID, OrganizationNode, JobTitle, BirthDate,
                                      MaritalStatus, Gender, HireDate, SalariedFlag, VacationHours, SickLeaveHours,
                                      CurrentFlag, rowguid, ModifiedDate)
 VALUES (1, '295847284', 'adventure-works\ken0', 0x, 'Chief Executive Officer', '1963-03-28', 'S', 'M', '2003-02-15', 1,
         99, 69, 1, 'F01251E5-96A3-448D-981E-0F99D789110D', '2008-07-31 00:00:00.000');
+GO
+
 INSERT INTO HumanResources.Employee (BusinessEntityID, NationalIDNumber, LoginID, OrganizationNode, JobTitle, BirthDate,
                                      MaritalStatus, Gender, HireDate, SalariedFlag, VacationHours, SickLeaveHours,
                                      CurrentFlag, rowguid, ModifiedDate)
 VALUES (2, '245797967', 'adventure-works\terri0', 0x58, 'Vice President of Engineering', '1965-09-27', 'S', 'F',
         '2002-03-03', 1, 1, 20, 1, '45E8F437-670D-4409-93CB-F9424A40D6EE', '2008-07-31 00:00:00.000');
+GO
 INSERT INTO HumanResources.Employee (BusinessEntityID, NationalIDNumber, LoginID, OrganizationNode, JobTitle, BirthDate,
                                      MaritalStatus, Gender, HireDate, SalariedFlag, VacationHours, SickLeaveHours,
                                      CurrentFlag, rowguid, ModifiedDate)
 VALUES (3, '509647174', 'adventure-works\roberto0', 0x5AC0, 'Engineering Manager', '1945-05-24', 'M', 'M', '2001-12-12',
         1, 2, 21, 1, '9BBBFB2C-EFBB-4217-9AB7-F97689328841', '2008-07-31 00:00:00.000');
+GO
 INSERT INTO HumanResources.Employee (BusinessEntityID, NationalIDNumber, LoginID, OrganizationNode, JobTitle, BirthDate,
                                      MaritalStatus, Gender, HireDate, SalariedFlag, VacationHours, SickLeaveHours,
                                      CurrentFlag, rowguid, ModifiedDate)
@@ -772,7 +809,8 @@ GO
 
 IF NOT exists(SELECT *
               FROM w3.sys.schemas
-              WHERE name = 'ReplicationTest')
+              WHERE
+                  name = 'ReplicationTest')
     BEGIN
         EXEC sp_executesql N'CREATE SCHEMA ReplicationTest'
     END;
@@ -780,7 +818,50 @@ IF NOT exists(SELECT *
 
 GO
 
+/*
 
+
+ The following tables are for testing change tracking with unique identifiers
+
+ */
+
+IF OBJECT_ID('w3.dbo.UniqueIdentifier', 'U') IS NOT NULL
+    DROP TABLE w3.dbo.UniqueIdentifier;
+GO
+
+CREATE TABLE w3.dbo.UniqueIdentifier
+(
+    "id"        UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+    "firstName" VARCHAR(40),
+    "lastName"  VARCHAR(40)
+)
+
+GO
+
+
+CREATE OR ALTER VIEW dbo.[UniqueIdentifierView] (id, fullName)
+AS
+SELECT id, firstName + ' ' + lastName AS fullName
+FROM w3.dbo.UniqueIdentifier;
+
+GO
+
+INSERT INTO w3.dbo.UniqueIdentifier
+VALUES ('0E984725-FACE-4BF4-9960-E1C80E27ABA0', 'steve', 'ruble');
+INSERT INTO w3.dbo.UniqueIdentifier
+VALUES ('6F9619FF-CAFE-D011-B42D-00C04FC964FF', 'casey', 'brady');
+
+GO
+
+/* After inserting, enable change tracking. Otherwise inserts show up as changes, making testing confusing */
+ALTER TABLE w3.dbo.UniqueIdentifier
+    ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
+GO
+/*
+
+ Clean up replication tables if present:
+
+ */
 
 IF OBJECT_ID(' w3.ReplicationTest.Golden', 'U') IS NOT NULL
     DROP TABLE w3.ReplicationTest.Golden;

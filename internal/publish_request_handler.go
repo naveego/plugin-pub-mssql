@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/naveego/plugin-pub-mssql/internal/meta"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/naveego/plugin-pub-mssql/internal/templates"
+	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
 	"github.com/naveego/plugin-pub-mssql/pkg/store"
 	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
@@ -19,6 +21,7 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 )
@@ -504,13 +507,20 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 							DependencyID: getTableSchemaId(table),
 						}
 
-						for rows.Next() {
-							data, err := scanToMap(rows)
-							if err != nil {
-								return errors.Errorf("scanning changes for %q: %s", getTableSchemaId(table), err)
-							}
-							changes.Data = append(changes.Data, data)
+						rawChangeData, err := sqlstructs.UnmarshalRowsToMaps(rows)
+						if err != nil {
+							return errors.Errorf("scanning changes for %q: %s", getTableSchemaId(table), err)
 						}
+						changes.Data = make([]meta.RowMap, len(rawChangeData))
+						for i, rawChangeRow := range rawChangeData {
+							changes.Data[i] = rawChangeRow
+						}
+
+						// for rows.Next() {
+						// 	data, err := scanToMap(rows)
+						//
+						// 	changes.Data = append(changes.Data, data)
+						// }
 
 						if len(changes.Data) == 0 {
 							log.Debug("No changes detected in table")
@@ -979,6 +989,22 @@ func handleRows(req PublishRequest, args templates.SchemaDataQueryArgs, rows *sq
 						value = r.Interface()
 					}
 				}
+			}
+
+			// Handle parsing to correct type:
+			switch strings.ToUpper(c.DatabaseTypeName()) {
+			case "UNIQUEIDENTIFIER":
+				if b, ok := (value).([]byte); ok {
+					// SQL package mangles the guid bytes, this fixes it
+					b[0], b[1], b[2], b[3] = b[3], b[2], b[1], b[0]
+					b[4], b[5] = b[5], b[4]
+					b[6], b[7] = b[7], b[6]
+					parsed, parseErr := uuid.FromBytes(b)
+					if parseErr == nil {
+						value = strings.ToUpper(parsed.String())
+					}
+				}
+				break
 			}
 
 			if p, ok := shapePropertiesMap[escapedNameMap[c.Name()]]; ok {

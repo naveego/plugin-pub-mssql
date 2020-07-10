@@ -81,6 +81,11 @@ type RealTimeSpreadViewRecord struct {
 	SpreadValue string `sql:"spreadValue"`
 }
 
+type UniqueIdentifierViewRecord struct {
+	Id string `sql:"id" json:"[id]"`
+	FullName string `sql:"fullName" json:"[fullName]"`
+}
+
 var (
 	developersRecords            []DeveloperRecord
 	realTimeRecords              []RealTimeRecord
@@ -724,6 +729,48 @@ VALUES ('a1', 'a', NULL),
 				return nil
 			},
 		}),
+
+		Entry("publish from view with uniqueidentifier keys", RealTimeTestCase{
+			Schema: &pub.Schema{
+				Id: "[UniqueIdentifierView]",
+				Properties: []*pub.Property{
+					{Id: "[id]", Name: "id", IsKey: true},
+					{Id: "[fullName]"},
+				},
+			},
+			RealTimeSettings: RealTimeSettings{
+				PollingInterval: "100ms",
+				Tables: []RealTimeTableSettings{
+					{
+						SchemaID: "[UniqueIdentifier]",
+						Query: `SELECT [UniqueIdentifierView].id as [Schema.id], [UniqueIdentifier].id as [Dependency.id]
+FROM UniqueIdentifierView
+JOIN UniqueIdentifier on [UniqueIdentifierView].id = [UniqueIdentifier].id`,
+					},
+				},
+			},
+
+			Setup: func() {
+
+			},
+			Actions: []func(state map[string]interface{}){
+				func(state map[string]interface{}) {
+					result, err := db.Exec("UPDATE [UniqueIdentifier] SET [firstName] = 'updated' WHERE id = @id", sql.Named("id", uniqueIdentifierIdSteve))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.RowsAffected()).To(BeNumerically("==", 1))
+					state["updated"] = UniqueIdentifierViewRecord{
+						Id: uniqueIdentifierIdSteve,
+						FullName: "updated ruble",
+					}
+				},
+			},
+			Expectation: func(state map[string]interface{}, records []*pub.Record) error {
+
+				Expect(records).To(ContainElement(BeRecordMatching(pub.Record_UPDATE, state["updated"])))
+
+				return nil
+			},
+		}),
 		Entry("publish from user defined query", RealTimeTestCase{
 			Schema: &pub.Schema{
 				// Id: "user-defined-query-x",
@@ -878,3 +925,6 @@ func toString(i interface{}) string {
 
 	return strings.Join(out, "; ")
 }
+
+const uniqueIdentifierIdSteve = "0E984725-FACE-4BF4-9960-E1C80E27ABA0"
+const uniqueIdentifierIdCasey = "6F9619FF-CAFE-D011-B42D-00C04FC964FF"

@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="TestMSSQL in github.com/naveego/plugin-pub-mssql/internal" type="GoTestRunConfiguration" factoryName="Go Test" nameIsGenerated="true">
+    <module name="plugin-pub-mssql" />
+    <working_directory value="$PROJECT_DIR$/internal" />
+    <envs>
+      <env name="TEST_TIMEOUT" value="1s" />
+    </envs>
+    <framework value="gotest" />
+    <kind value="PACKAGE" />
+    <package value="github.com/naveego/plugin-pub-mssql/internal" />
+    <directory value="$PROJECT_DIR$/internal" />
+    <filePath value="$PROJECT_DIR$/" />
+    <pattern value="^TestMSSQL$" />
+    <method v="2" />
+  </configuration>
+</component>
