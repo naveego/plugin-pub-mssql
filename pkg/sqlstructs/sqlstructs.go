@@ -2,8 +2,10 @@ package sqlstructs
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"github.com/dimdin/decimal"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"reflect"
 	"strconv"
@@ -16,10 +18,9 @@ func Insert(db *sql.DB, table string, item interface{}) error {
 	itemValue := reflect.ValueOf(item)
 	itemType := itemValue.Type()
 
-
-	columnNames := make([]string,0, itemValue.NumField())
-	parameterNames := make([]string,0, itemValue.NumField())
-	parameters := make([]interface{},0, itemValue.NumField())
+	columnNames := make([]string, 0, itemValue.NumField())
+	parameterNames := make([]string, 0, itemValue.NumField())
+	parameters := make([]interface{}, 0, itemValue.NumField())
 
 	for i := 0; i < itemValue.NumField(); i++ {
 		f := itemType.Field(i)
@@ -32,15 +33,15 @@ func Insert(db *sql.DB, table string, item interface{}) error {
 		}
 		columnNames = append(columnNames, n)
 		parameterName := fmt.Sprintf("p%d", i)
-		parameterNames = append(parameterNames, "@" + parameterName)
+		parameterNames = append(parameterNames, "@"+parameterName)
 		parameters = append(parameters, sql.Named(parameterName, itemValue.Field(i).Interface()))
 	}
 
 	query := fmt.Sprintf(`insert into %s (%s) 
 values (%s)`,
-table,
-strings.Join(columnNames, ", "),
-strings.Join(parameterNames, ", "))
+		table,
+		strings.Join(columnNames, ", "),
+		strings.Join(parameterNames, ", "))
 
 	_, err := db.Exec(query, parameters...)
 	if err != nil {
@@ -178,10 +179,15 @@ func UnmarshalRowsToMaps(rows *sql.Rows) ([]map[string]interface{}, error) {
 		for i := 0; i < len(columnNames); i++ {
 
 			columnType := columnTypes[i]
-			switch columnType.DatabaseTypeName() {
-				case "DECIMAL":
-					var d *decimal.Dec
-					columnPointers[i] = &d
+			switch getCanonicalSQLType(columnType) {
+			case "DECIMAL", "MONEY", "SMALLMONEY":
+				var d *decimal.Dec
+				columnPointers[i] = &d
+				break
+			case "UNIQUEIDENTIFIER":
+				var d *[]byte
+				columnPointers[i] = &d
+				break
 			default:
 				columnPointers[i] = &columns[i]
 
@@ -196,14 +202,34 @@ func UnmarshalRowsToMaps(rows *sql.Rows) ([]map[string]interface{}, error) {
 			// fmt.Printf("%d: %s: %#v %s\n", i, name, columnType, columnType.ScanType().Name())
 			v := columnPointers[i]
 			if v == nil {
-			outElement[name] = nil
+				outElement[name] = nil
 			} else {
 				outElement[name] = reflect.ValueOf(v).Elem().Interface()
 			}
-			switch columnType.DatabaseTypeName() {
-			case "DECIMAL":
+			switch getCanonicalSQLType(columnType) {
+			case "DECIMAL", "MONEY", "SMALLMONEY":
 				if !reflect.ValueOf(outElement[name]).IsNil() {
 					outElement[name] = fmt.Sprint(outElement[name])
+				}
+				break
+			case "BINARY", "VARBINARY":
+				value := outElement[name]
+				if b, ok := (value).([]byte); ok {
+					outElement[name] = base64.StdEncoding.EncodeToString(b)
+				}
+
+			case "UNIQUEIDENTIFIER":
+				value := outElement[name]
+				if bp, ok := (value).(*[]byte); ok {
+					b := *bp
+					// SQL package mangles the guid bytes, this fixes it
+						b[0], b[1], b[2], b[3] = b[3], b[2], b[1], b[0]
+						b[4], b[5] = b[5], b[4]
+						b[6], b[7] = b[7], b[6]
+					parsed, parseErr := uuid.FromBytes(b)
+					if parseErr == nil {
+						outElement[name] = parsed.String()
+					}
 				}
 			}
 
@@ -212,4 +238,8 @@ func UnmarshalRowsToMaps(rows *sql.Rows) ([]map[string]interface{}, error) {
 	}
 
 	return out, nil
+}
+
+func getCanonicalSQLType(columnType *sql.ColumnType) string {
+	return strings.ToUpper(strings.Split(columnType.DatabaseTypeName(), "(")[0])
 }

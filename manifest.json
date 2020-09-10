@@ -2,7 +2,7 @@
   "id": "pub-mssql",
   "displayName": "Microsoft SQL Server Publisher",
   "description": "Publisher which pulls data from an MS SQL Server instance.",
-  "version": "3.1.5",
+  "version": "3.1.6",
   "apiVersion": "2",
   "iconFile": "icon.png",
   "executable": "plugin-pub-mssql",
@@ -39,18 +39,10 @@
         "auth",
         "username",
         "password",
-        "advancedSettings",
-        "prePublishQuery",
-        "postPublishQuery"
+        "advancedSettings"
       ],
       "password": {
         "ui:widget": "password"
-      },
-      "prePublishQuery": {
-        "ui:widget": "textarea"
-      },
-      "postPublishQuery": {
-        "ui:widget": "textarea"
       }
     },
     "schema": {
@@ -95,16 +87,6 @@
           "type": "string",
           "title": "Advanced Settings",
           "description": "Optional config to append to the connection string."
-        },
-        "prePublishQuery": {
-          "title": "Pre-publish Query",
-          "description": "Optional query to be run before a publish begins.",
-          "type": "string"
-        },
-        "postPublishQuery": {
-          "title": "Post-publish Query",
-          "description": "Optional query to be run after a publish completes.",
-          "type": "string"
         }
       },
       "required": [
