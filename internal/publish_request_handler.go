@@ -513,16 +513,18 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 						}
 
 						if len(changes.Data) == 0 {
-							log.Debug("No changes detected in table")
+							log.Debug("No changes detected in table", "table name", getTableSchemaId(table))
 							continue
 						}
+
+						log.Info("Changes detected in table", "table name", getTableSchemaId(table), "total changes", len(changes.Data))
 
 						allChanges = append(allChanges, changes)
 					}
 				}
 
 				if len(allChanges) > 0 {
-					log.Debug("Changes detected in dependencies", "dependencies", len(allChanges))
+					log.Info("Changes detected in dependencies", "total dependencies", len(allChanges))
 
 					err = handler.Handle(req.WithChanges(allChanges))
 

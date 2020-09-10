@@ -34,7 +34,7 @@ Runs the publisher in externally controlled mode.`, version.Version.String()),
 		logf, err := rotatelogs.New(
 			"./log.%Y%m%d%H%M",
 			rotatelogs.WithLinkName("./log"),
-			rotatelogs.WithMaxAge(24 * time.Hour),
+			rotatelogs.WithMaxAge(7 * 24 * time.Hour),
 			rotatelogs.WithRotationTime(time.Hour),
 		)
 		if err != nil {
