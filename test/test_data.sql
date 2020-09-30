@@ -1,14 +1,18 @@
-IF NOT EXISTS(SELECT name
-              FROM master.dbo.sysdatabases
-              WHERE
-                  name = N'w3')
-    BEGIN
-        CREATE DATABASE w3
 
-        ALTER DATABASE [w3] SET CHANGE_TRACKING = ON (CHANGE_RETENTION = 14 DAYS)
+IF NOT EXISTS(SELECT name
+          FROM master.dbo.sysdatabases
+          WHERE
+              name = N'w3')
+    BEGIN
+        CREATE DATABASE [w3];
+        ALTER DATABASE [w3] SET CHANGE_TRACKING = ON (CHANGE_RETENTION = 14 DAYS);
+        ALTER DATABASE [w3] COLLATE Latin1_General_BIN;
 
     END
 GO
+
+
+USE [w3]
 
 IF NOT exists(SELECT *
               FROM w3.sys.schemas
@@ -121,7 +125,7 @@ CREATE OR ALTER VIEW dbo.[RealTimeSpreadView] (row, id, ownValue, spreadValue)
 AS
 SELECT ROW_NUMBER() OVER (ORDER BY A.id ASC), A.id, A.ownValue, A.spreadValue
 FROM w3.dbo.RealTime A
-         JOIN w3.dbo.RealTime B ON A.spreadValue = b.spreadValue
+         JOIN w3.dbo.RealTime B ON A.spreadValue = B.spreadValue
 WHERE
     A.spreadValue IS NOT NULL
 GO
@@ -541,30 +545,31 @@ CREATE TABLE w3.dbo.PrePost
 
 GO
 
-CREATE OR ALTER PROCEDURE InsertIntoTypes @int INT,
-                                          @bigint BIGINT,
-                                          @numeric NUMERIC(18, 5),
-                                          @bit BIT,
-                                          @smallint SMALLINT,
-                                          @decimal DECIMAL(18, 4),
-                                          @smallmoney SMALLMONEY,
-                                          @tinyint TINYINT,
-                                          @money MONEY,
-                                          @float FLOAT,
-                                          @real REAL,
-                                          @date DATE,
-                                          @datetimeoffset DATETIMEOFFSET,
-                                          @datetime2 DATETIME2,
-                                          @smalldatetime SMALLDATETIME,
-                                          @datetime DATETIME,
-                                          @time TIME,
-                                          @char CHAR(6),
-                                          @varchar VARCHAR(10),
-                                          @text TEXT,
-                                          @nchar NCHAR(6),
-                                          @nvarchar NVARCHAR(10),
-                                          @ntext NTEXT,
-                                          @uniqueidentifier UNIQUEIDENTIFIER
+CREATE OR
+ALTER PROCEDURE InsertIntoTypes @int INT,
+                                @bigint BIGINT,
+                                @numeric NUMERIC(18, 5),
+                                @bit BIT,
+                                @smallint SMALLINT,
+                                @decimal DECIMAL(18, 4),
+                                @smallmoney SMALLMONEY,
+                                @tinyint TINYINT,
+                                @money MONEY,
+                                @float FLOAT,
+                                @real REAL,
+                                @date DATE,
+                                @datetimeoffset DATETIMEOFFSET,
+                                @datetime2 DATETIME2,
+                                @smalldatetime SMALLDATETIME,
+                                @datetime DATETIME,
+                                @time TIME,
+                                @char CHAR(6),
+                                @varchar VARCHAR(10),
+                                @text TEXT,
+                                @nchar NCHAR(6),
+                                @nvarchar NVARCHAR(10),
+                                @ntext NTEXT,
+                                @uniqueidentifier UNIQUEIDENTIFIER
 AS
 BEGIN
     INSERT INTO w3.dbo.Types
@@ -597,9 +602,10 @@ BEGIN
 END
 GO
 
-CREATE OR ALTER PROCEDURE dev.TEST @AgentId CHAR(4),
-                                   @Name VARCHAR(40),
-                                   @Commission FLOAT
+CREATE OR
+ALTER PROCEDURE dev.TEST @AgentId CHAR(4),
+                         @Name VARCHAR(40),
+                         @Commission FLOAT
 AS
 BEGIN
     UPDATE w3.dbo.Agents
@@ -664,16 +670,14 @@ CREATE TABLE Person.Person
         CONSTRAINT PK_Person_BusinessEntityID
             PRIMARY KEY,
     PersonType            NVARCHAR(2),
-    NameStyle             NAMESTYLE,
+    NameStyle             NameStyle,
     Title                 NVARCHAR(8),
-    FirstName             NAME                              NOT NULL,
-    MiddleName            NAME,
-    LastName              NAME                              NOT NULL,
+    FirstName             Name                              NOT NULL,
+    MiddleName            Name,
+    LastName              Name                              NOT NULL,
     Suffix                NVARCHAR(10),
     EmailPromotion        INT
-        CONSTRAINT DF_Person_EmailPromotion DEFAULT 0       NOT NULL
-        CONSTRAINT CK_Person_EmailPromotion
-            CHECK ([EmailPromotion] >= 0 AND [EmailPromotion] <= 2),
+        CONSTRAINT DF_Person_EmailPromotion DEFAULT 0       NOT NULL,
     AdditionalContactInfo XML,
     Demographics          XML,
     rowguid               UNIQUEIDENTIFIER

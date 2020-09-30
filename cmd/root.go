@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/hashicorp/go-hclog"
 	"github.com/lestrrat-go/file-rotatelogs"
 	"github.com/pkg/errors"
@@ -32,12 +33,13 @@ Runs the publisher in externally controlled mode.`, version.Version.String()),
 	RunE: func(cmd *cobra.Command, args []string)  error {
 
 		logf, err := rotatelogs.New(
-			"./log.%Y%m%d%H%M",
-			rotatelogs.WithLinkName("./log"),
+			"./log.%Y%m%d%H%M%S",
+			// rotatelogs.WithLinkName("./log"),
 			rotatelogs.WithMaxAge(7 * 24 * time.Hour),
 			rotatelogs.WithRotationTime(time.Hour),
 		)
 		if err != nil {
+			recordCrashFile( fmt.Sprintf("Could not create log file: %s", err))
 			return errors.Wrap(err, "log file")
 		}
 
@@ -51,6 +53,7 @@ Runs the publisher in externally controlled mode.`, version.Version.String()),
 
 		defer func(){
 			if err := recover(); err != nil{
+				recordCrashFile( fmt.Sprintf("Panic: %s", err))
 				log.Error("panic", "error", err)
 			}
 		}()
@@ -111,4 +114,9 @@ func Execute() {
 
 func init() {
 	verbose = RootCmd.Flags().BoolP("verbose", "v", false, "enable verbose logging")
+}
+
+func recordCrashFile(message string) {
+	startupFailureErrorPath := fmt.Sprintf("./crash-%d-%s.log", time.Now().Unix(), uuid.New().String())
+	_ = ioutil.WriteFile(startupFailureErrorPath, []byte(message), 0666)
 }

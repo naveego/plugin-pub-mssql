@@ -148,7 +148,7 @@ func NewReplicationWriteHandler(session *OpSession, req *pub.PrepareWriteRequest
 		query := fmt.Sprintf(`select top (1) * 
 from [%s].[%s]
 where ReplicatedShapeID = '%s'
-order by id desc`, sqlSchema, constants.ReplicationVersioningTable, replicatedShapeID)
+order by ID desc`, sqlSchema, constants.ReplicationVersioningTable, replicatedShapeID)
 
 		rows, err = session.DB.Query(query)
 		if err != nil {

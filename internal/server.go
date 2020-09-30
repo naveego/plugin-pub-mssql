@@ -305,7 +305,7 @@ ORDER BY TABLE_NAME`)
 		}
 	}
 
-	rows, err = session.DB.Query("SELECT ROUTINE_SCHEMA, ROUTINE_NAME FROM information_schema.routines WHERE routine_type = 'PROCEDURE'")
+	rows, err = session.DB.Query("SELECT ROUTINE_SCHEMA, ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE routine_type = 'PROCEDURE'")
 	if err != nil {
 		return nil, errors.Errorf("could not read stored procedures from database: %s", err)
 	}
@@ -544,7 +544,7 @@ func (s *Server) ConfigureWrite(ctx context.Context, req *pub.ConfigureWriteRequ
 	_, sprocSchema, sprocName = DecomposeSafeName(formData.StoredProcedure)
 	// check if stored procedure exists
 	query = `SELECT 1
-FROM information_schema.routines
+FROM INFORMATION_SCHEMA.ROUTINES
 WHERE routine_type = 'PROCEDURE'
 AND SPECIFIC_SCHEMA = @schema
 AND SPECIFIC_NAME = @name

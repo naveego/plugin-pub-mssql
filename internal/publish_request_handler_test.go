@@ -219,7 +219,7 @@ var _ = Describe("PublishStream with Real Time", func() {
 			for i := 0; i < 4; i++ {
 				var actualRecord *pub.Record
 				Eventually(stream.out, timeout).Should(Receive(&actualRecord))
-				Expect(actualRecord.Action).To(Equal(pub.Record_INSERT))
+				Expect(actualRecord.Action).To(Equal(pub.Record_INSERT), fmt.Sprintf("for record %d", i))
 			}
 		})
 
@@ -443,7 +443,7 @@ JOIN RealTime on [RealTimeDuplicateView].recordID = [RealTime].id`,
 		}),
 		Entry("when schema is query", &pub.Schema{
 			Id:    "duplicateQuery",
-			Query: "select * from realtime",
+			Query: "select * from RealTime",
 		}, RealTimeSettings{
 			PollingInterval: "100ms",
 			Tables: []RealTimeTableSettings{
