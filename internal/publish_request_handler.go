@@ -378,7 +378,7 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 						return errors.Wrap(err, "validate version")
 					}
 					if !versionValid {
-						log.Info("Last committed version is no longer valid, running initial load of entire table.")
+						log.Debug("Last committed version is no longer valid, running initial load of entire table.")
 						initializeNeeded = true
 					}
 				}
@@ -416,7 +416,7 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 					return errors.Wrap(err, "initial load of table")
 				}
 
-				log.Info("Completed initial load, committing current version checkpoint", "version", maxVersions)
+				log.Debug("Completed initial load, committing current version checkpoint", "version", maxVersions)
 				// Commit the version we captured before the initial load.
 				// Now we want subsequent publishes to begin at the
 				// version we got before we did the full load,
@@ -478,13 +478,13 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 				if err != nil {
 					return errors.Wrap(err, "get next change tracking version")
 				}
-				log.Info("Got max version for this batch of changes", "maxVersion", maxVersions)
+				log.Debug("Got max version for this batch of changes", "maxVersion", maxVersions)
 
 				var allChanges []Changes
 
 				for _, table := range realTimeSettings.Tables {
 					if maxVersions[getTableSchemaId(table)] == minVersions[getTableSchemaId(table)] {
-						log.Info("Version has not changed since last poll", "version", maxVersions)
+						log.Debug("Version has not changed since last poll", "version", maxVersions)
 					} else {
 						tableLog := log.Named(fmt.Sprintf("GetRecordsRealTime(%s)", getTableSchemaId(table)))
 
@@ -527,14 +527,14 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 							continue
 						}
 
-						log.Info("Changes detected in table", "table name", getTableSchemaId(table), "total changes", len(changes.Data))
+						log.Debug("Changes detected in table", "table name", getTableSchemaId(table), "total changes", len(changes.Data))
 
 						allChanges = append(allChanges, changes)
 					}
 				}
 
 				if len(allChanges) > 0 {
-					log.Info("Changes detected in dependencies", "total dependencies", len(allChanges))
+					log.Debug("Changes detected in dependencies", "total dependencies", len(allChanges))
 
 					err = handler.Handle(req.WithChanges(allChanges))
 
@@ -556,7 +556,7 @@ func GetRecordsRealTimeMiddleware() PublishMiddleware {
 				case <-time.After(interval):
 					log.Debug("Interval elapsed")
 				case <-session.Ctx.Done():
-					log.Info("Session canceled")
+					log.Debug("Session canceled")
 					return nil
 				}
 			}
@@ -852,7 +852,7 @@ func BuildHandlerAndRequest(session *OpSession, externalRequest *pub.ReadRequest
 	}
 
 	names := DescribeMiddlewares(middlewares...)
-	session.Log.Info("Preparing handler with middlewares...", "names", names)
+	session.Log.Debug("Preparing handler with middlewares...", "names", names)
 
 	handler = ApplyMiddleware(handler, middlewares...)
 
