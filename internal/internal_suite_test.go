@@ -49,6 +49,7 @@ func GetTestSettings() *Settings {
 		Username: "sa",
 		Password: "n5o_ADMIN",
 		Database: "w3",
+		SkipCustomQueryCount: false,
 	}
 }
 
