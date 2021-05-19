@@ -220,7 +220,7 @@ func UnmarshalRowsToMaps(rows *sql.Rows) ([]map[string]interface{}, error) {
 
 			case "UNIQUEIDENTIFIER":
 				value := outElement[name]
-				if bp, ok := (value).(*[]byte); ok {
+				if bp, ok := (value).(*[]byte); ok && bp != nil {
 					b := *bp
 					// SQL package mangles the guid bytes, this fixes it
 						b[0], b[1], b[2], b[3] = b[3], b[2], b[1], b[0]
