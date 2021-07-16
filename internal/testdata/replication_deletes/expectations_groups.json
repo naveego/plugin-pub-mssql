@@ -1,0 +1,18 @@
+[
+  {
+    "NaveegoGroupID": "group-3",
+    "DateOfBirth": "2007-08-03T00:00:00Z",
+    "FirstName": "Roy",
+    "ID": 3,
+    "LastName": "O'Logan",
+    "Latitude": "12.340000000000000000"
+  },
+  {
+    "NaveegoGroupID": "group-4",
+    "DateOfBirth": "2005-07-26T00:00:00Z",
+    "FirstName": "Jard",
+    "ID": 4,
+    "LastName": "O'Finan",
+    "Latitude": "12.340000000000000000"
+  }
+]

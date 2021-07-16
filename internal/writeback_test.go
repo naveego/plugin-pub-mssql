@@ -145,7 +145,7 @@ IF OBJECT_ID('w3.Replication.Versions', 'U') IS NOT NULL
 
 	It("should write data to replication", func() {
 
-		const pathPrefix = "testdata/replication_1"
+		const pathPrefix = "testdata/replication_basics/"
 		records := GetInputs(pathPrefix, req)
 
 		sut, err := NewReplicationWriteHandler(op, req)
@@ -170,13 +170,49 @@ IF OBJECT_ID('w3.Replication.Versions', 'U') IS NOT NULL
 			Expect(versionActuals).To(ContainElement(BeEquivalentTo(expectation)), "in version records")
 		}
 
+		Expect(goldenActuals).To(HaveLen(len(goldenExpectations)), "only the expected golden records should be present")
+		Expect(versionActuals).To(HaveLen(len(versionExpectations)), "only the expected version records should be present")
+
+
+	})
+
+	It("should write data to replication and treat all null records as deletes", func() {
+
+		const pathPrefix = "testdata/replication_deletes/"
+		records := GetInputs(pathPrefix, req)
+
+		sut, err := NewReplicationWriteHandler(op, req)
+
+		Expect(err).ToNot(HaveOccurred())
+
+		for _, record := range records {
+			Expect(sut.Write(op, record)).To(Succeed())
+		}
+
+		goldenExpectations, versionExpectations := GetExpectations(pathPrefix)
+		Expect(goldenExpectations).ToNot(BeEmpty())
+		Expect(versionExpectations).ToNot(BeEmpty())
+		goldenActuals, versionActuals := GetActuals(op, replicationSettings)
+		Expect(goldenActuals).ToNot(BeEmpty())
+		Expect(versionActuals).ToNot(BeEmpty())
+
+		for _, expectation := range goldenExpectations {
+			Expect(goldenActuals).To(ContainElement(BeEquivalentTo(expectation)), "in golden records")
+		}
+		for _, expectation := range versionExpectations {
+			Expect(versionActuals).To(ContainElement(BeEquivalentTo(expectation)), "in version records")
+		}
+
+		Expect(goldenActuals).To(HaveLen(len(goldenExpectations)), "only the expected golden records should be present")
+		Expect(versionActuals).To(HaveLen(len(versionExpectations)), "only the expected version records should be present")
+
 	})
 
 })
 
 func GetInputs(pathPrefix string, req *pub.PrepareWriteRequest) []*pub.UnmarshalledRecord {
 
-	path := pathPrefix + "_input.json"
+	path := pathPrefix + "input.json"
 	b, err := ioutil.ReadFile(path)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -238,14 +274,14 @@ func GetActuals(session *OpSession, settings ReplicationSettings) (golden []map[
 
 func GetExpectations(pathPrefix string) (golden []map[string]interface{}, versions []map[string]interface{}) {
 
-	groupPath := pathPrefix + "_expectations_groups.json"
+	groupPath := pathPrefix + "expectations_groups.json"
 	b, err := ioutil.ReadFile(groupPath)
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(json.Unmarshal(b, &golden)).To(Succeed())
 
 
-	versionPath := pathPrefix + "_expectations_versions.json"
+	versionPath := pathPrefix + "expectations_versions.json"
 	b, err = ioutil.ReadFile(versionPath)
 	Expect(err).ToNot(HaveOccurred())
 

@@ -1,0 +1,192 @@
+[
+  {
+    "record_id": "group-1",
+    "data": {
+      "id": 1,
+      "first_name": "group-1-g1",
+      "last_name": "should end up with updated version",
+      "dob": "1966-07-19",
+      "latitude": "123456789.9876543210"
+    },
+    "unmarshalledVersions": [
+      {
+        "record_id": "de18d510-3ca0-4934-965e-72a0217fe92d",
+        "data": {
+          "id": 11,
+          "first_name": "group-1-v-1",
+          "last_name": "v1",
+          "latitude": "123456789.9876543210"
+        }
+      },
+      {
+        "record_id": "7370f072-bb71-484c-86f5-4aca14a14d94",
+        "data": {
+          "id": 12,
+          "first_name": "Janaya",
+          "last_name": "Mucci"
+        }
+      }
+    ]
+  },
+  {
+    "record_id": "group-2",
+    "data": {
+      "id": 2,
+      "first_name": "Grazia",
+      "last_name": "should be deleted",
+      "dob": "1982-02-06",
+      "latitude": "12.34"
+    },
+    "unmarshalledVersions": [
+      {
+        "record_id": "527378bc-b844-4fa4-b2a6-bafd1ea72c91",
+        "data": {
+          "id": 21,
+          "first_name": "Stanfield",
+          "last_name": "De Lacey"
+        }
+      },
+      {
+        "record_id": "67759432-df29-44fd-a8eb-d6c20ff8519f",
+        "data": {
+          "id": 22,
+          "first_name": "Curt",
+          "last_name": "Lofty"
+        }
+      }
+    ]
+  },  {
+    "record_id": "group-2",
+    "data": {
+      "id": 2,
+      "first_name": "Grazia",
+      "last_name": "McGuckin",
+      "dob": "1982-02-06",
+      "latitude": "12.34"
+    },
+    "unmarshalledVersions": []
+  },
+  {
+    "record_id": "group-3",
+    "data": {
+      "id": 3,
+      "first_name": "Roy",
+      "last_name": "O'Logan",
+      "dob": "2007-08-03",
+      "latitude": "12.34"
+    },
+    "unmarshalledVersions": [
+      {
+        "record_id": "0ddd787c-62b5-47c4-bea9-5668f1ea35c0",
+        "data": {
+          "id": 31,
+          "first_name": "Charil",
+          "last_name": "Pye"
+        }
+      },
+      {
+        "record_id": "491cc03a-ac08-412b-af6c-740e0c92b2f6",
+        "data": {
+          "id": 32,
+          "first_name": "Rivalee",
+          "last_name": "Tschirasche"
+        }
+      }
+    ]
+  },
+  {
+    "record_id": "group-4",
+    "data": {
+      "id": 4,
+      "first_name": "Jard",
+      "last_name": "O'Finan",
+      "dob": "2005-07-26",
+      "latitude": "12.34"
+    },
+    "unmarshalledVersions": [
+      {
+        "record_id": "7a97be9f-8003-49b2-b456-a8e6ac968f22",
+        "data": {
+          "id": 41,
+          "first_name": "Amelia",
+          "last_name": "Walters"
+        }
+      },
+      {
+        "record_id": "703be2f0-38e3-416c-995b-f0b804afbe4b",
+        "data": {
+          "id": 42,
+          "first_name": "Cele",
+          "last_name": "Patient"
+        }
+      }
+    ]
+  },
+  {
+    "record_id": "group-5",
+    "data": {
+      "id": 5,
+      "first_name": "Lev",
+      "last_name": "Pomeroy",
+      "dob": "1988-05-27",
+      "latitude": "12.34"
+    },
+    "unmarshalledVersions": [
+      {
+        "record_id": "44fa114e-ba11-4130-acec-de8770e2b155",
+        "data": {
+          "id": 51,
+          "first_name": "Sydney",
+          "last_name": "Allmond"
+        }
+      },
+      {
+        "record_id": "47191a7e-c073-40c1-bde6-67eddd4b6f1b",
+        "data": {
+          "id": 52,
+          "first_name": "Fifine",
+          "last_name": "Matokhnin"
+        }
+      }
+    ]
+  } , {
+    "record_id": "group-5",
+    "data": {
+      "id": null,
+      "first_name": null,
+      "last_name": null,
+      "dob": null
+    },
+    "unmarshalledVersions": [
+      {
+        "record_id": "47191a7e-c073-40c1-bde6-67eddd4b6f1b",
+        "data": {
+          "id": 52,
+          "first_name": "Fifine",
+          "last_name": "Matokhnin"
+        }
+      }
+    ]
+  },
+  {
+    "record_id": "group-1",
+    "action": 3,
+    "data": {
+      "id": "x",
+      "first_name": null,
+      "last_name": null,
+      "dob": null,
+      "latitude": null
+    },
+    "unmarshalledVersions": [
+      {
+        "record_id": "47191a7e-c073-40c1-bde6-67eddd4b6f1b",
+        "data": {
+          "id": 52,
+          "first_name": "Fifine",
+          "last_name": "Matokhnin"
+        }
+      }
+    ]
+  }
+]

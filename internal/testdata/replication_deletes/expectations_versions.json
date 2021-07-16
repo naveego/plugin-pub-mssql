@@ -1,0 +1,50 @@
+[
+  {
+    "NaveegoRecordID": "0ddd787c-62b5-47c4-bea9-5668f1ea35c0",
+    "NaveegoConnectionID": "connection-1",
+    "NaveegoGroupID": "group-3",
+    "LastName": "Pye",
+    "NaveegoJobID": "job-1",
+    "DateOfBirth": null,
+    "FirstName": "Charil",
+    "ID": 31,
+    "NaveegoSchemaID": "schema-1",
+    "Latitude": null
+  },
+  {
+    "DateOfBirth": null,
+    "FirstName": "Rivalee",
+    "NaveegoGroupID": "group-3",
+    "ID": 32,
+    "NaveegoJobID": "job-2",
+    "NaveegoRecordID": "491cc03a-ac08-412b-af6c-740e0c92b2f6",
+    "NaveegoConnectionID": "connection-2",
+    "LastName": "Tschirasche",
+    "NaveegoSchemaID": "schema-2",
+    "Latitude": null
+  },
+  {
+    "NaveegoRecordID": "7a97be9f-8003-49b2-b456-a8e6ac968f22",
+    "NaveegoConnectionID": "connection-1",
+    "DateOfBirth": null,
+    "FirstName": "Amelia",
+    "LastName": "Walters",
+    "NaveegoSchemaID": "schema-1",
+    "NaveegoJobID": "job-1",
+    "NaveegoGroupID": "group-4",
+    "ID": 41,
+    "Latitude": null
+  },
+  {
+    "NaveegoSchemaID": "schema-2",
+    "NaveegoRecordID": "703be2f0-38e3-416c-995b-f0b804afbe4b",
+    "NaveegoGroupID": "group-4",
+    "LastName": "Patient",
+    "FirstName": "Cele",
+    "ID": 42,
+    "NaveegoJobID": "job-2",
+    "NaveegoConnectionID": "connection-2",
+    "DateOfBirth": null,
+    "Latitude": null
+  }
+]
