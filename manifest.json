@@ -39,7 +39,8 @@
         "auth",
         "username",
         "password",
-        "advancedSettings"
+        "advancedSettings",
+        "skipCustomQueryCount"
       ],
       "password": {
         "ui:widget": "password"
@@ -87,6 +88,11 @@
           "type": "string",
           "title": "Advanced Settings",
           "description": "Optional config to append to the connection string."
+        },
+        "skipCustomQueryCount": {
+          "type": "boolean",
+          "title": "Skip Custom Query Count",
+          "description": "Optional performance enhancement to prevent discovering counts on custom queries."
         }
       },
       "required": [

@@ -373,11 +373,13 @@ func (s *SchemaDiscoverer) getCount(session *OpSession, shape *pub.Schema) (*pub
 
 	var query string
 	var err error
+	shouldSkipQuery := false
 
 	schemaInfo := session.SchemaInfo[shape.Id]
 
 	if shape.Query != "" {
 		query = fmt.Sprintf("SELECT COUNT(1) FROM (%s) as Q", shape.Query)
+		shouldSkipQuery = session.Settings.SkipCustomQueryCount
 	} else if schemaInfo == nil || !schemaInfo.IsTable {
 		return &pub.Count{Kind: pub.Count_UNAVAILABLE}, nil
 	} else {
@@ -400,6 +402,12 @@ func (s *SchemaDiscoverer) getCount(session *OpSession, shape *pub.Schema) (*pub
 			WHERE t.name = N'%s'
 			AND s.name = N'%s'
 			AND p.index_id IN (0,1);`, table, schema)
+	}
+
+	if shouldSkipQuery {
+		return &pub.Count{
+			Kind:  pub.Count_UNAVAILABLE,
+		}, nil
 	}
 
 	ctx, cancel := context.WithTimeout(session.Ctx, time.Second)
