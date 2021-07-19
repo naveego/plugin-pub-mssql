@@ -40,7 +40,7 @@ func (t TxHelper) SetSchemaHash(schemaID string, keys meta.RowKeys, values meta.
 
 	keyBytes := keys.Marshal()
 
-	if values == nil {
+	if len(values) == 0 {
 		result = StoreDeleted
 		err = b.Delete(keyBytes)
 		return

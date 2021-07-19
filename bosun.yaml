@@ -1,15 +1,12 @@
 apps:
-- name: plugin-pub-mssql
-  branching:
-    master: master
-    develop: master
-    release: ""
-    feature: issue/{{.Number}}/{{.Slug}}
-  repo: naveego/plugin-pub-mssql
-  version: 3.10.7
-  labels:
-    category: plugin
-    repo-kind: own
-  images: []
-  files: []
-  releaseHistory: []
+  - name: plugin-pub-mssql
+    branching: null
+    repo: naveego/plugin-pub-mssql
+    version: 3.11.2-beta1
+    labels:
+      category: plugin
+      repo-kind: own
+    images: []
+    files: []
+    releaseHistory: []
+    providerinfo: workspace

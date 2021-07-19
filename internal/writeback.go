@@ -365,14 +365,52 @@ func (r *ReplicationWriter) Write(session *OpSession, record *pub.UnmarshalledRe
 
 	// Canonicalize all the fields in the record data and the version data
 	record.Data[constants.GroupID] = record.RecordId
+
+	allGroupPropertiesAreNull := true
+	for k, v := range record.Data{
+		if !constants.NaveegoMetadataColumnNames[k] && v != nil {
+			allGroupPropertiesAreNull = false
+			break
+		}
+	}
+
 	record.Data = r.getCanonicalizedMap(record.Data, r.GoldenIDMap)
+
+	var versions []*pub.UnmarshalledVersionRecord
+
 	for _, version := range record.UnmarshalledVersions {
 		version.Data[constants.GroupID] = record.RecordId
 		version.Data[constants.RecordID] = version.RecordId
 		version.Data[constants.JobID] = version.JobId
 		version.Data[constants.ConnectionID] = version.ConnectionId
 		version.Data[constants.SchemaID] = version.SchemaId
+
+		allVersionPropertiesAreNull := true
+		for k, v := range version.Data{
+			if !constants.NaveegoMetadataColumnNames[k] && v != nil {
+				allVersionPropertiesAreNull = false
+				break
+			}
+		}
+
 		version.Data = r.getCanonicalizedMap(version.Data, r.VersionIDMap)
+
+		// We only want versions which have some non-null data in them
+		if !allVersionPropertiesAreNull {
+			versions = append(versions, version)
+		}
+	}
+
+	// Use the canonicalized and filtered versions
+	record.UnmarshalledVersions = versions
+
+
+
+	// If all the properties of the group are nil then it's a delete
+	// whether it was marked that way or not, and it has no versions.
+	if allGroupPropertiesAreNull {
+		record.Action = pub.Record_DELETE
+		record.UnmarshalledVersions = []*pub.UnmarshalledVersionRecord{}
 	}
 
 	// Merge group data
