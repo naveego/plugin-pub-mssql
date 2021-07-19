@@ -2,7 +2,7 @@ apps:
   - name: plugin-pub-mssql
     branching: null
     repo: naveego/plugin-pub-mssql
-    version: 3.11.2-beta1
+    version: 3.11.3
     labels:
       category: plugin
       repo-kind: own
