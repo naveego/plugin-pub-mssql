@@ -2,7 +2,7 @@ version: "2.0"
 
 services:
   sql:
-    image: microsoft/mssql-server-linux:2017-latest
+    image: mcr.microsoft.com/mssql/server:2017-latest
     ports:
       - 1433:1433
       - 1434:1434

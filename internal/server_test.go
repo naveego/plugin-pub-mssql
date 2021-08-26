@@ -53,23 +53,28 @@ var _ = Describe("Server", func() {
 
 
 	Describe("Connect", func() {
-
 		It("should succeed when connection is valid", func() {
-			_, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should error when connection is invalid", func() {
+				response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response.HasError()).To(BeFalse())
+			})
+		It("should error when connection (username) is invalid", func() {
 			settings.Username = "a"
-			_, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
-			Expect(err).To(HaveOccurred())
+			response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(response.OauthError).To(BeEquivalentTo("Authentication Error: Username or password are incorrect"))
 		})
-
+		It("should error when connection (port) is invalid", func() {
+			settings.Port = 1
+			response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(response.ConnectionError).To(BeEquivalentTo("Unable to connect to using port"))
+		})
 		It("should error when settings are malformed", func() {
-			_, err := sut.Connect(context.Background(), &pub.ConnectRequest{SettingsJson: "{"})
-			Expect(err).To(HaveOccurred())
+			response, err := sut.Connect(context.Background(), &pub.ConnectRequest{SettingsJson: "{"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(response.SettingsError).To(BeEquivalentTo("Settings are malformed"))
 		})
-
 	})
 
 	Describe("wsarecv error handling", func() {
