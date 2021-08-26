@@ -62,7 +62,7 @@ var _ = Describe("Server", func() {
 			settings.Username = "a"
 			response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(response.OauthError).To(BeEquivalentTo("Authentication Error: Username or password are incorrect"))
+			Expect(response.ConnectionError).To(BeEquivalentTo("Authentication Error: Username or password are incorrect"))
 		})
 		It("should error when connection (port) is invalid", func() {
 			settings.Port = 1
