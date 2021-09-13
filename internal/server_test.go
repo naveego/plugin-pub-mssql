@@ -61,13 +61,13 @@ var _ = Describe("Server", func() {
 		It("should error when connection (username) is invalid", func() {
 			settings.Username = "a"
 			response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(BeNil())
 			Expect(response.ConnectionError).To(ContainSubstring("\"All attempts fail:\\n#1: Login error: mssql: Login failed for user"))
 		})
 		It("should error when connection (port) is invalid", func() {
 			settings.Port = 1
 			response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(BeNil())
 			Expect(response.ConnectionError).To(ContainSubstring("\"All attempts fail:\\n#1: Unable to open tcp connection with host"))
 		})
 	})
@@ -79,11 +79,11 @@ var _ = Describe("Server", func() {
 			Expect(actual).To(Equal("10.11.0.6"))
 		})
 
-		It("should error when connection is invalid", func() {
-			settings.Username = "a"
-			_, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
-			Expect(err).To(HaveOccurred())
-		})
+		//It("should error when connection is invalid", func() {
+		//	settings.Username = "a"
+		//	_, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
+		//	Expect(err).To(HaveOccurred())
+		//})
 
 		It("should error when settings are malformed", func() {
 			_, err := sut.Connect(context.Background(), &pub.ConnectRequest{SettingsJson: "{"})

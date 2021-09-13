@@ -234,10 +234,10 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 		var connectionResponse = new(pub.ConnectResponse)
 		if originalHost != settings.Host {
 			connectionResponse.ConnectionError = fmt.Sprintf("tried original host %q and raw IP %q: %q", originalHost, settings.Host, err.Error())
-			return connectionResponse, err
+			return connectionResponse, nil
 		}
-		connectionResponse.ConnectionError = fmt.Sprintf("tried original host %q and port %d: %q", originalHost, settings.Port, err.Error())
-		return connectionResponse, err
+		connectionResponse.ConnectionError = fmt.Sprintf("xtried using host %q and port %d: %q", originalHost, settings.Port, err.Error())
+		return connectionResponse, nil
 	}
 
 	rows, err := session.DB.Query(`SELECT t.TABLE_NAME
