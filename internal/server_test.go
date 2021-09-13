@@ -64,17 +64,12 @@ var _ = Describe("Server", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(response.ConnectionError).To(ContainSubstring("\"All attempts fail:\\n#1: Login error: mssql: Login failed for user"))
 		})
-		//It("should error when connection (port) is invalid", func() {
-		//	settings.Port = 1
-		//	response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
-		//	Expect(err).To(HaveOccurred())
-		//	Expect(response.ConnectionError).To(BeEquivalentTo("Unable to connect to using port"))
-		//})
-		//It("should error when settings are malformed", func() {
-		//	response, err := sut.Connect(context.Background(), &pub.ConnectRequest{SettingsJson: "{"})
-		//	Expect(err).To(HaveOccurred())
-		//	Expect(response.SettingsError).To(BeEquivalentTo("Settings are malformed"))
-		//})
+		It("should error when connection (port) is invalid", func() {
+			settings.Port = 1
+			response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
+			Expect(err).To(HaveOccurred())
+			Expect(response.ConnectionError).To(ContainSubstring("\"All attempts fail:\\n#1: Unable to open tcp connection with host"))
+		})
 	})
 
 	Describe("wsarecv error handling", func() {
