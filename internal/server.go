@@ -162,22 +162,6 @@ var configSchemaUIJSON string
 var configSchemaSchema map[string]interface{}
 var configSchemaSchemaJSON string
 
-func GetUserErrorMessage(error error) string {
-	//var errorCode = error.Code()
-	var errorCode = 1
-	return GetErrorMessage(errorCode)
-}
-
-func GetErrorMessage(errorCode int) string {
-	switch errorCode {
-	case 1:
-		return ""
-	case 2:
-		return ""
-	default:
-		return "Unknown error"
-	}
-}
 
 // Connect connects to the data base and validates the connections
 func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.ConnectResponse, error) {
@@ -250,11 +234,9 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 		var connectionResponse = new(pub.ConnectResponse)
 		if originalHost != settings.Host {
 			connectionResponse.ConnectionError = fmt.Sprintf("tried original host %q and raw IP %q: %q", originalHost, settings.Host, err.Error())
-			//return nil, errors.Wrapf(err, "tried original host %q and raw IP %q", originalHost, settings.Host)
 			return connectionResponse, err
 		}
 		connectionResponse.ConnectionError = fmt.Sprintf("tried original host %q and port %d: %q", originalHost, settings.Port, err.Error())
-		//return nil, errors.Wrapf(err, "tried using host %q, port %d", settings.Host, settings.Port)
 		return connectionResponse, err
 	}
 
