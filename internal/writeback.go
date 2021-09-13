@@ -212,7 +212,7 @@ order by ID desc`, sqlSchema, constants.ReplicationVersioningTable, replicatedSh
 				return nil, errors.Wrap(err, fmt.Sprintf("dropping golden record table reason: %s", dropGoldenReason))
 			}
 		}
-		if dropVersionReason != "" {
+		if dropVersionReason != "" && previousMetadataSettings.Settings.VersionRecordTableExists() {
 			if err := w.dropTable(session, previousMetadataSettings.Settings.GetNamespacedVersionRecordTable(), dropVersionReason); err != nil {
 				return nil, errors.Wrap(err, fmt.Sprintf("dropping version table reason: %s", dropVersionReason))
 			}
