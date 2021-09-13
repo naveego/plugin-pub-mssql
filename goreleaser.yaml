@@ -16,13 +16,14 @@ builds:
   - windows
   goarch:
   - amd64
-archive:
-  format: zip
-  files:
-  - manifest.json
-  - icon.png
-  - LICENSE
-  replacements:
+archives:
+  - id: output
+    format: zip
+    files:
+      - manifest.json
+      - icon.png
+      - LICENSE
+    replacements:
 
 checksum:
   name_template: 'checksums.txt'
