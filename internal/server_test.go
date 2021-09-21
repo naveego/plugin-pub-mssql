@@ -79,12 +79,6 @@ var _ = Describe("Server", func() {
 			Expect(actual).To(Equal("10.11.0.6"))
 		})
 
-		//It("should error when connection is invalid", func() {
-		//	settings.Username = "a"
-		//	_, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
-		//	Expect(err).To(HaveOccurred())
-		//})
-
 		It("should error when settings are malformed", func() {
 			_, err := sut.Connect(context.Background(), &pub.ConnectRequest{SettingsJson: "{"})
 			Expect(err).To(HaveOccurred())

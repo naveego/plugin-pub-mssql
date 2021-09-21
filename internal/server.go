@@ -162,7 +162,6 @@ var configSchemaUIJSON string
 var configSchemaSchema map[string]interface{}
 var configSchemaSchemaJSON string
 
-
 // Connect connects to the data base and validates the connections
 func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.ConnectResponse, error) {
 
@@ -236,7 +235,7 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 			connectionResponse.ConnectionError = fmt.Sprintf("tried original host %q and raw IP %q: %q", originalHost, settings.Host, err.Error())
 			return connectionResponse, nil
 		}
-		connectionResponse.ConnectionError = fmt.Sprintf("xtried using host %q and port %d: %q", originalHost, settings.Port, err.Error())
+		connectionResponse.ConnectionError = fmt.Sprintf("tried using host %q and port %d: %q", originalHost, settings.Port, err.Error())
 		return connectionResponse, nil
 	}
 
