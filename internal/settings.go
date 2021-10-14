@@ -22,6 +22,7 @@ type Settings struct {
 	PrePublishQuery  string   `json:"prePublishQuery"`
 	PostPublishQuery string   `json:"postPublishQuery"`
 	SkipCustomQueryCount bool `json:"skipCustomQueryCount"`
+	ConnectDiscovery bool     `json:"connectDiscovery"`
 }
 
 // AuthType underlying type

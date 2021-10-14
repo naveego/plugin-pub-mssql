@@ -239,6 +239,30 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 		return connectionResponse, nil
 	}
 
+	if settings.ConnectDiscovery {
+		err = s.GetTablesAndViews(session)
+		if err != nil {
+			return nil, err
+		}
+
+		err = s.GetStoredProcedures(session)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	s.session = session
+
+	session.SchemaDiscoverer = SchemaDiscoverer{
+		Log: s.log.With("cmp", "SchemaDiscoverer"),
+	}
+
+	s.log.Debug("Connect completed successfully.")
+
+	return new(pub.ConnectResponse), err
+}
+
+func (s *Server) GetTablesAndViews(session *Session) error {
 	rows, err := session.DB.Query(`SELECT t.TABLE_NAME
      , t.TABLE_SCHEMA
      , t.TABLE_TYPE
@@ -263,7 +287,7 @@ FROM INFORMATION_SCHEMA.TABLES AS t
 ORDER BY TABLE_NAME`)
 
 	if err != nil {
-		return nil, errors.Errorf("could not read database schema: %s", err)
+		return errors.Errorf("could not read database schema: %s", err)
 	}
 
 	// Collect table names for display in UIs.
@@ -276,7 +300,7 @@ ORDER BY TABLE_NAME`)
 		)
 		err = rows.Scan(&table, &schema, &typ, &columnName, &dataType, &isNullable, &maxLength, &constraint, &changeTracking)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not read table schema")
+			return errors.Wrap(err, "could not read table schema")
 		}
 		id := GetSchemaID(schema, table)
 		info, ok := session.SchemaInfo[id]
@@ -308,9 +332,13 @@ ORDER BY TABLE_NAME`)
 		}
 	}
 
-	rows, err = session.DB.Query("SELECT ROUTINE_SCHEMA, ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE routine_type = 'PROCEDURE'")
+	return nil
+}
+
+func (s *Server) GetStoredProcedures(session *Session) error {
+	rows, err := session.DB.Query("SELECT ROUTINE_SCHEMA, ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE routine_type = 'PROCEDURE'")
 	if err != nil {
-		return nil, errors.Errorf("could not read stored procedures from database: %s", err)
+		return errors.Errorf("could not read stored procedures from database: %s", err)
 	}
 
 	for rows.Next() {
@@ -318,7 +346,7 @@ ORDER BY TABLE_NAME`)
 		var safeName string
 		err = rows.Scan(&schema, &name)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not read stored procedure schema")
+			return errors.Wrap(err, "could not read stored procedure schema")
 		}
 		if schema == "dbo" {
 			safeName = makeSQLNameSafe(name)
@@ -329,15 +357,7 @@ ORDER BY TABLE_NAME`)
 	}
 	sort.Strings(session.StoredProcedures)
 
-	s.session = session
-
-	session.SchemaDiscoverer = SchemaDiscoverer{
-		Log: s.log.With("cmp", "SchemaDiscoverer"),
-	}
-
-	s.log.Debug("Connect completed successfully.")
-
-	return new(pub.ConnectResponse), err
+	return nil
 }
 
 func (s *Server) ConnectSession(*pub.ConnectRequest, pub.Publisher_ConnectSessionServer) error {
@@ -432,6 +452,13 @@ func (s *Server) DiscoverSchemas(ctx context.Context, req *pub.DiscoverSchemasRe
 		return nil, err
 	}
 
+	if !session.Settings.ConnectDiscovery {
+		err = s.GetTablesAndViews(&session.Session)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	schemas, err := DiscoverSchemasSync(session, session.SchemaDiscoverer, req)
 
 	return &pub.DiscoverSchemasResponse{
@@ -493,6 +520,13 @@ func (s *Server) ConfigureWrite(ctx context.Context, req *pub.ConfigureWriteRequ
 	}
 
 	var errArray []string
+
+	if !session.Settings.ConnectDiscovery {
+		err = s.GetStoredProcedures(&session.Session)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	storedProcedures, _ := json.Marshal(session.StoredProcedures)
 	schemaJSON := fmt.Sprintf(`{
