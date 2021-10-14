@@ -581,6 +581,10 @@ func (m *ConnectResponse) GetOauthStateJson() string {
 	return ""
 }
 
+func (m *ConnectResponse) HasError() bool {
+	return m.ConnectionError != "" || m.OauthError != "" || m.SettingsError != "";
+}
+
 type ReadRequest struct {
 	// The schema of the records to publish.
 	Schema *Schema `protobuf:"bytes,1,opt,name=schema" json:"schema,omitempty"`

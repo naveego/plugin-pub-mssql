@@ -53,23 +53,23 @@ var _ = Describe("Server", func() {
 
 
 	Describe("Connect", func() {
-
 		It("should succeed when connection is valid", func() {
-			_, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should error when connection is invalid", func() {
+				response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response.HasError()).To(BeFalse())
+			})
+		It("should error when connection (username) is invalid", func() {
 			settings.Username = "a"
-			_, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
-			Expect(err).To(HaveOccurred())
+			response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
+			Expect(err).To(BeNil())
+			Expect(response.ConnectionError).To(ContainSubstring("\"All attempts fail:\\n#1: Login error: mssql: Login failed for user"))
 		})
-
-		It("should error when settings are malformed", func() {
-			_, err := sut.Connect(context.Background(), &pub.ConnectRequest{SettingsJson: "{"})
-			Expect(err).To(HaveOccurred())
+		It("should error when connection (port) is invalid", func() {
+			settings.Port = 1
+			response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
+			Expect(err).To(BeNil())
+			Expect(response.ConnectionError).To(ContainSubstring("\"All attempts fail:\\n#1: Unable to open tcp connection with host"))
 		})
-
 	})
 
 	Describe("wsarecv error handling", func() {
@@ -77,12 +77,6 @@ var _ = Describe("Server", func() {
 		It("should extract IP from error", func() {
 			actual := ExtractIPFromWsarecvErr("rpc error: code = Unknown desc = All attempts fail: #1: read tcp 10.11.0.105:54695->10.11.0.6:1433: wsarecv: An existing connection was forcibly closed by the")
 			Expect(actual).To(Equal("10.11.0.6"))
-		})
-
-		It("should error when connection is invalid", func() {
-			settings.Username = "a"
-			_, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
-			Expect(err).To(HaveOccurred())
 		})
 
 		It("should error when settings are malformed", func() {

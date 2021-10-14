@@ -230,10 +230,13 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 
 	// retry end
 	if err != nil {
+		var connectionResponse = new(pub.ConnectResponse)
 		if originalHost != settings.Host {
-			return nil, errors.Wrapf(err, "tried original host %q and raw IP %q", originalHost, settings.Host)
+			connectionResponse.ConnectionError = fmt.Sprintf("tried original host %q and raw IP %q: %q", originalHost, settings.Host, err.Error())
+			return connectionResponse, nil
 		}
-		return nil, errors.Wrapf(err, "tried using host %q, port %d", settings.Host, settings.Port)
+		connectionResponse.ConnectionError = fmt.Sprintf("tried using host %q and port %d: %q", originalHost, settings.Port, err.Error())
+		return connectionResponse, nil
 	}
 
 	rows, err := session.DB.Query(`SELECT t.TABLE_NAME
