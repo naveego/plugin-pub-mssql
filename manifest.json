@@ -41,7 +41,7 @@
         "password",
         "advancedSettings",
         "skipCustomQueryCount",
-        "connectDiscovery"
+        "skipConnectDiscovery"
       ],
       "password": {
         "ui:widget": "password"
