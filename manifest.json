@@ -95,9 +95,9 @@
           "title": "Skip Custom Query Count",
           "description": "Optional performance enhancement to prevent discovering counts on custom queries."
         },
-        "connectDiscovery": {
+        "skipConnectDiscovery": {
           "type": "boolean",
-          "title": "Connect Discovery",
+          "title": "Skip Connect Discovery",
           "description": "Optional performance enhancement to prevent metadata querying during connect. Most impactful on large databases."
         }
       },

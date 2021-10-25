@@ -239,7 +239,7 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 		return connectionResponse, nil
 	}
 
-	if settings.ConnectDiscovery {
+	if !settings.SkipConnectDiscovery {
 		err = s.GetTablesAndViews(session)
 		if err != nil {
 			return nil, err
@@ -386,6 +386,13 @@ func (s *Server) ConfigureRealTime(ctx context.Context, req *pub.ConfigureRealTi
 		return nil, err
 	}
 
+	if session.Settings.SkipConnectDiscovery {
+		err = s.GetTablesAndViews(&session.Session)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if req.Form == nil {
 		req.Form = &pub.ConfigurationFormRequest{}
 	}
@@ -452,7 +459,7 @@ func (s *Server) DiscoverSchemas(ctx context.Context, req *pub.DiscoverSchemasRe
 		return nil, err
 	}
 
-	if !session.Settings.ConnectDiscovery {
+	if session.Settings.SkipConnectDiscovery {
 		err = s.GetTablesAndViews(&session.Session)
 		if err != nil {
 			return nil, err
@@ -521,7 +528,7 @@ func (s *Server) ConfigureWrite(ctx context.Context, req *pub.ConfigureWriteRequ
 
 	var errArray []string
 
-	if !session.Settings.ConnectDiscovery {
+	if session.Settings.SkipConnectDiscovery {
 		err = s.GetStoredProcedures(&session.Session)
 		if err != nil {
 			return nil, err
