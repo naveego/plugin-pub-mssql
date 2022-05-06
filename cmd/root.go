@@ -60,8 +60,8 @@ Runs the publisher in externally controlled mode.`, version.Version.String()),
 
 		go func(){
 			_, _ = ioutil.ReadAll(os.Stdin)
-			_, _ = fmt.Fprintf(logf, "Stdin has been closed. This probably means the agent has exited. Plugin will now exit.\n")
-			os.Exit(0)
+			_, _ = fmt.Fprintf(logf, "Stdin has been closed. This probably means the agent has exited.\n")
+			//os.Exit(0) causes rpc error race condition when shutting down the agent while running a real time job
 		}()
 
 
@@ -81,8 +81,8 @@ Runs the publisher in externally controlled mode.`, version.Version.String()),
 			sigCh := make(chan os.Signal)
 			signal.Notify(sigCh, os.Interrupt, os.Kill)
 			sig:=<-sigCh
-			_, _ = fmt.Fprintf(logf, "Got %s signal. This probably means the agent wants us to exit. Plugin will now exit.\n", sig)
-			os.Exit(0)
+			_, _ = fmt.Fprintf(logf, "Got %s signal. This probably means the agent wants us to exit.\n", sig)
+			//os.Exit(0) causes rpc error race condition when shutting down the agent while running a real time job
 		}()
 
 		server := internal.NewServer(log)
