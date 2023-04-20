@@ -263,6 +263,10 @@ func (s *Server) Connect(ctx context.Context, req *pub.ConnectRequest) (*pub.Con
 }
 
 func (s *Server) GetTablesAndViews(session *Session) error {
+	if session.Settings.DisableDiscovery {
+		return nil
+	}
+
 	rows, err := session.DB.Query(`SELECT t.TABLE_NAME
      , t.TABLE_SCHEMA
      , t.TABLE_TYPE
@@ -336,6 +340,10 @@ ORDER BY TABLE_NAME`)
 }
 
 func (s *Server) GetStoredProcedures(session *Session) error {
+	if session.Settings.DisableDiscovery {
+		return nil
+	}
+
 	rows, err := session.DB.Query("SELECT ROUTINE_SCHEMA, ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE routine_type = 'PROCEDURE'")
 	if err != nil {
 		return errors.Errorf("could not read stored procedures from database: %s", err)
