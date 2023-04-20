@@ -41,7 +41,8 @@
         "password",
         "advancedSettings",
         "skipCustomQueryCount",
-        "skipConnectDiscovery"
+        "skipConnectDiscovery",
+        "disableDiscovery"
       ],
       "password": {
         "ui:widget": "password"
@@ -99,6 +100,11 @@
           "type": "boolean",
           "title": "Skip Connect Discovery",
           "description": "Optional performance enhancement to prevent metadata querying during connect. Most impactful on large databases."
+        },
+        "disableDiscovery": {
+          "type": "boolean",
+          "title": "Disable Discovery",
+          "description": "Optionally disables all forms of automated discovery (inputs and outputs)."
         }
       },
       "required": [

@@ -11,18 +11,19 @@ import (
 // Settings object for plugin
 // Contains connection information and pre/post queries
 type Settings struct {
-	Host             string   `json:"host"`
-	Port             int      `json:"port"`
-	Instance         string   `json:"instance"`
-	Database         string   `json:"database"`
-	Auth             AuthType `json:"auth"`
-	Username         string   `json:"username"`
-	Password         string   `json:"password"`
-	AdvancedSettings string   `json:"advancedSettings"`
-	PrePublishQuery  string   `json:"prePublishQuery"`
-	PostPublishQuery string   `json:"postPublishQuery"`
-	SkipCustomQueryCount bool `json:"skipCustomQueryCount"`
+	Host                 string   `json:"host"`
+	Port                 int      `json:"port"`
+	Instance             string   `json:"instance"`
+	Database             string   `json:"database"`
+	Auth                 AuthType `json:"auth"`
+	Username             string   `json:"username"`
+	Password             string   `json:"password"`
+	AdvancedSettings     string   `json:"advancedSettings"`
+	PrePublishQuery      string   `json:"prePublishQuery"`
+	PostPublishQuery     string   `json:"postPublishQuery"`
+	SkipCustomQueryCount bool     `json:"skipCustomQueryCount"`
 	SkipConnectDiscovery bool     `json:"skipConnectDiscovery"`
+	DisableDiscovery     bool     `json:"disableDiscovery"`
 }
 
 // AuthType underlying type
@@ -123,17 +124,17 @@ func (e ErrorMap) GetErrors(path ...string) []string {
 	switch len(path) {
 	case 0:
 		errs, _ := e[ErrorMapKey]
-		switch x := errs.(type){
+		switch x := errs.(type) {
 		case []string:
 			return x
 
 		case []interface{}: // after unmarshalling
-		var out []string
-		for _, i := range x {
-			s, _ := i.(string)
-			out = append(out, s)
-		}
-		return out
+			var out []string
+			for _, i := range x {
+				s, _ := i.(string)
+				out = append(out, s)
+			}
+			return out
 		case nil:
 			return nil
 		default:
@@ -145,7 +146,7 @@ func (e ErrorMap) GetErrors(path ...string) []string {
 }
 
 func (e ErrorMap) String() string {
-	j, _  := json.Marshal(e)
+	j, _ := json.Marshal(e)
 	return string(j)
 }
 
@@ -157,11 +158,11 @@ func (s SchemaMap) String() string {
 }
 
 type RealTimeState struct {
-	Version int `json:"version"`
+	Version  int            `json:"version"`
 	Versions map[string]int `json:"versions"`
 }
 
-func (r RealTimeState) String() string{
+func (r RealTimeState) String() string {
 	b, _ := json.MarshalIndent(r, "", "  ")
 	return string(b)
 }
@@ -171,9 +172,9 @@ type RealTimeTableState struct {
 }
 
 type RealTimeSettings struct {
-	meta string `title:"Real Time Settings" description:"Configure the tables to monitor for changes."`
-	Tables []RealTimeTableSettings `json:"tables" title:"Tables" description:"Add tables which will be checked for changes." minLength:"1"`
-	PollingInterval string `json:"pollingInterval" title:"Polling Interval" default:"5s" description:"Interval between checking for changes.  Defaults to 5s." pattern:"\\d+(ms|s|m|h)" required:"true"`
+	meta            string                  `title:"Real Time Settings" description:"Configure the tables to monitor for changes."`
+	Tables          []RealTimeTableSettings `json:"tables" title:"Tables" description:"Add tables which will be checked for changes." minLength:"1"`
+	PollingInterval string                  `json:"pollingInterval" title:"Polling Interval" default:"5s" description:"Interval between checking for changes.  Defaults to 5s." pattern:"\\d+(ms|s|m|h)" required:"true"`
 }
 
 func (r RealTimeSettings) String() string {
@@ -182,15 +183,14 @@ func (r RealTimeSettings) String() string {
 }
 
 type RealTimeTableSettings struct {
-	CustomTarget 		   string `json:"customTarget" title:"Custom Target" description:"Custom target for change tracking."`
-	SchemaID               string `json:"schemaID" title:"Table" description:"The table to monitor for changes." required:"true"`
-	Query                  string `json:"query"  required:"true" title:"Query" description:"A query which matches up the primary keys of the the table where change tracking is enabled with the keys of the view or query you are publishing from." `
+	CustomTarget string `json:"customTarget" title:"Custom Target" description:"Custom target for change tracking."`
+	SchemaID     string `json:"schemaID" title:"Table" description:"The table to monitor for changes." required:"true"`
+	Query        string `json:"query"  required:"true" title:"Query" description:"A query which matches up the primary keys of the the table where change tracking is enabled with the keys of the view or query you are publishing from." `
 }
 
 func GetRealTimeSchemas() (form *jsonschema.JSONSchema, ui SchemaMap) {
 
 	form = jsonschema.NewGenerator().WithRoot(RealTimeSettings{}).MustGenerate()
-
 
 	_ = updateProperty(&form.Property, func(p *jsonschema.Property) {
 		p.Pattern = `\d+(ms|s|m|h)`
@@ -202,23 +202,23 @@ func GetRealTimeSchemas() (form *jsonschema.JSONSchema, ui SchemaMap) {
 	}, "tables")
 
 	ui = SchemaMap{
-		"pollingInterval": SchemaMap {
+		"pollingInterval": SchemaMap{
 			"ui:help": "Provide a number and a unit (s = second, m = minute, h = hour).",
 		},
 		"tables": SchemaMap{
 			"items": SchemaMap{
 				"ui:order": []string{"schemaID", "customTarget", "query"},
-				"query":SchemaMap{
-					"ui:widget":"textarea",
+				"query": SchemaMap{
+					"ui:widget": "textarea",
 					"ui:options": SchemaMap{
-						"rows":3,
+						"rows": 3,
 					},
 					"ui:help": "The query must select the keys into columns with specific names." +
 						"The columns from the change tracked table must be named `[Dependency.{column}]`," +
 						"where `{column}` is the name of the column. The columns from the view or query " +
 						"must be named `[Schema.{column}]`",
 				},
-				"customTarget":SchemaMap{
+				"customTarget": SchemaMap{
 					"ui:help": "Format: `[database].[schema].[table]`",
 				},
 			},
@@ -280,22 +280,21 @@ func updateProperty(property *jsonschema.Property, fn func(property *jsonschema.
 		return nil
 	}
 
-	if property.Type == "array"{
+	if property.Type == "array" {
 		return updateProperty(property.Items, fn, path...)
 	}
 
-	if property.Properties == nil{
+	if property.Properties == nil {
 		property.Properties = map[string]*jsonschema.Property{}
 	}
 
 	child, ok := property.Properties[path[0]]
 	if !ok {
 		child = &jsonschema.Property{
-			Type:"object",
+			Type: "object",
 		}
 		property.Properties[path[0]] = child
 	}
-
 
 	err := updateProperty(child, fn, path[1:]...)
 	if err != nil {
