@@ -386,7 +386,7 @@ func (s *Server) ConfigureRealTime(ctx context.Context, req *pub.ConfigureRealTi
 		return nil, err
 	}
 
-	if session.Settings.SkipConnectDiscovery {
+	if !session.Settings.SkipConnectDiscovery {
 		err = s.GetTablesAndViews(&session.Session)
 		if err != nil {
 			return nil, err
@@ -459,7 +459,7 @@ func (s *Server) DiscoverSchemas(ctx context.Context, req *pub.DiscoverSchemasRe
 		return nil, err
 	}
 
-	if session.Settings.SkipConnectDiscovery {
+	if !session.Settings.SkipConnectDiscovery {
 		err = s.GetTablesAndViews(&session.Session)
 		if err != nil {
 			return nil, err
