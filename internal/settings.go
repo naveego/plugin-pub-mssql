@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/naveego/go-json-schema"
 	"github.com/pkg/errors"
-	"net/url"
 )
 
 // Settings object for plugin
@@ -66,31 +65,20 @@ func (s *Settings) Validate() error {
 
 // GetConnectionString builds a connection string from a settings object
 func (s *Settings) GetConnectionString() (string, error) {
-	var host string
-	err := s.Validate()
-	if err != nil {
-		return "", err
+	instance := s.Instance
+	if s.Instance != "" {
+		instance = "\\" + s.Instance
 	}
 
-	if s.Port != 0 {
-		host = fmt.Sprintf("%s:%d", s.Host, s.Port)
-	} else {
-		host = fmt.Sprintf("%s:%d", s.Host, 1433)
-	}
-
-	u := &url.URL{
-		Scheme:   "sqlserver",
-		Host:     host,
-		Path:     s.Instance, // if connecting to an instance instead of a port
-		RawQuery: fmt.Sprintf("database=%s", s.Database),
-	}
-
+	login := ""
 	switch s.Auth {
 	case AuthTypeSQL:
-		u.User = url.UserPassword(s.Username, s.Password)
+		login = fmt.Sprintf("user id=%s;password=%s;", s.Username, s.Password)
+	case AuthTypeWindows:
+		login = "Trusted_Connection=Yes"
 	}
 
-	return fmt.Sprintf("%s;%s", u.String(), s.AdvancedSettings), nil
+	return fmt.Sprintf("server=%s%s;port=%d;database=%s;%s;%s;", s.Host, instance, s.Port, s.Database, login, s.AdvancedSettings), nil
 }
 
 type ErrorMap map[string]interface{}
