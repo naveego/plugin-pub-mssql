@@ -481,6 +481,10 @@ func (s *Server) DiscoverSchemas(ctx context.Context, req *pub.DiscoverSchemasRe
 	}, err
 }
 
+func (s *Server) DiscoverRelatedEntities(ctx context.Context, req *pub.DiscoverRelatedEntitiesRequest) (*pub.DiscoverRelatedEntitiesResponse, error) {
+	return nil, errors.New("Not implemented.")
+}
+
 func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStreamServer) error {
 
 	session, err := s.getOpSession(context.Background())

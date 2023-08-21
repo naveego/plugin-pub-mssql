@@ -5,16 +5,17 @@ import (
 	"encoding"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"os"
+	"strings"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/naveego/go-json-schema"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"io"
-	"log"
-	"os"
-	"strings"
 )
 
 type ShapeMetadata struct {
@@ -138,7 +139,7 @@ func (c *Count) Format() string {
 	}
 }
 
-func NewConnectRequest(settings interface{}) (*ConnectRequest) {
+func NewConnectRequest(settings interface{}) *ConnectRequest {
 	b, err := json.Marshal(settings)
 	if err != nil {
 		return &ConnectRequest{}
@@ -353,7 +354,7 @@ func (l *hclLogAdapter) StandardLogger(opts *hclog.StandardLoggerOptions) *log.L
 
 type UnmarshalledRecord struct {
 	Record
-	Data                 map[string]interface{} `json:"data"`
+	Data                 map[string]interface{}       `json:"data"`
 	UnmarshalledVersions []*UnmarshalledVersionRecord `json:"unmarshalledVersions"`
 }
 
@@ -363,7 +364,7 @@ func (u UnmarshalledRecord) String() string {
 }
 
 func (u UnmarshalledRecord) Clone() *UnmarshalledRecord {
-	j, _:= json.Marshal(u)
+	j, _ := json.Marshal(u)
 	var other UnmarshalledRecord
 	_ = json.Unmarshal(j, &other)
 	return &other
@@ -409,4 +410,8 @@ func (r *Record) AsUnmarshalled() (*UnmarshalledRecord, error) {
 	}
 
 	return u, nil
+}
+
+func (m *ConnectResponse) HasError() bool {
+	return m.ConnectionError != "" || m.OauthError != "" || m.SettingsError != ""
 }

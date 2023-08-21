@@ -18,6 +18,7 @@
   "canWriteReplication": true,
   "canWriteBatch": true,
   "canWrite": true,
+  "canDiscoverRelatedEntities": true,
   "querySchema": {
     "ui": {
       "ui:widget": "code",
