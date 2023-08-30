@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"time"
 
@@ -291,25 +292,57 @@ var _ = Describe("Server", func() {
 		Describe("when discovering", func() {
 
 			It("should get all related entities", func() {
+				agents := &pub.Schema{
+					Name: "w3.dbo.Agents",
+				}
+
+				customers := &pub.Schema{
+					Name: "w3.dbo.Customers",
+				}
+
+				orders := &pub.Schema{
+					Name: "w3.fact.Orders",
+				}
 
 				response, err := sut.DiscoverRelatedEntities(context.Background(), &pub.DiscoverRelatedEntitiesRequest{
-					ToRelate: []*pub.Schema{},
+					ToRelate: []*pub.Schema{agents, customers, orders},
 				})
+				fmt.Println("Error", err)
+				fmt.Println("Response", response)
 				Expect(err).ToNot(HaveOccurred())
 
 				relatedEntities := response.RelatedEntities
 
-				Expect(relatedEntities).To(ContainElement(&pub.RelatedEntity{
-					SchemaId:         "",
-					SourceResource:   "",
-					SourceColumn:     "",
-					ForeignResource:  "",
-					ForeignColumn:    "",
-					RelationshipName: "",
-				}), "the related entity should have been discovered")
+				Expect(relatedEntities).To(ConsistOf(
+					&pub.RelatedEntity{
+						SchemaId:         "dbo",
+						SourceResource:   "Customers",
+						SourceColumn:     "AGENT_CODE",
+						ForeignResource:  "Agents",
+						ForeignColumn:    "AGENT_CODE",
+						RelationshipName: "FOREIGN KEY",
+					},
+					&pub.RelatedEntity{
+						SchemaId:         "fact",
+						SourceResource:   "Orders",
+						SourceColumn:     "AGENT_CODE",
+						ForeignResource:  "Agents",
+						ForeignColumn:    "AGENT_CODE",
+						RelationshipName: "FOREIGN KEY",
+					},
+					&pub.RelatedEntity{
+						SchemaId:         "fact",
+						SourceResource:   "Orders",
+						SourceColumn:     "CUST_CODE",
+						ForeignResource:  "Customers",
+						ForeignColumn:    "CUST_CODE",
+						RelationshipName: "FOREIGN KEY",
+					},
+				), "all related entities should be discovered")
 
-				Expect(relatedEntities).To(HaveLen(4), "all related entities should be discovered")
+				Expect(relatedEntities).To(HaveLen(3), "all related entities should be discovered")
 			})
+
 		})
 	})
 
