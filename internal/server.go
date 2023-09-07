@@ -514,8 +514,11 @@ func (s *Server) DiscoverRelatedEntities(ctx context.Context, req *pub.DiscoverR
 	OBJECT_SCHEMA_NAME(fk.referenced_object_id) AS FOREIGN_TABLE_SCHEMA,
 	OBJECT_NAME(fk.referenced_object_id) AS FOREIGN_TABLE_NAME,
 	STRING_AGG(COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id), ', ') AS FOREIGN_COLUMNS,
-	'FOREIGN KEY' AS RELATIONSHIP_NAME
-	
+	CASE 
+		WHEN COUNT(DISTINCT fkc.referenced_column_id) > 1 THEN 'MULTI-PART FOREIGN KEY'
+		ELSE 'FOREIGN KEY'
+	END AS RELATIONSHIP_NAME
+
 	FROM sys.foreign_keys AS fk
 	INNER JOIN sys.foreign_key_columns AS fkc ON fk.object_id = fkc.constraint_object_id
 	` + whereClause + `

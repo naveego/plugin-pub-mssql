@@ -347,7 +347,7 @@ var _ = Describe("Server", func() {
 						SourceColumn:     "ProductID, CategoryID",
 						ForeignResource:  "ProductTable",
 						ForeignColumn:    "ProductID, CategoryID",
-						RelationshipName: "FOREIGN KEY",
+						RelationshipName: "MULTI-PART FOREIGN KEY",
 					},
 					&pub.RelatedEntity{
 						SchemaId:         "dbo",
