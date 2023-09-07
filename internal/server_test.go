@@ -303,9 +303,12 @@ var _ = Describe("Server", func() {
 				orders := &pub.Schema{
 					Name: "w3.fact.Orders",
 				}
+				orderdetailstable := &pub.Schema{
+					Name: "w3.dbo.OrderDetailsTable",
+				}
 
 				response, err := sut.DiscoverRelatedEntities(context.Background(), &pub.DiscoverRelatedEntitiesRequest{
-					ToRelate: []*pub.Schema{agents, customers, orders},
+					ToRelate: []*pub.Schema{agents, customers, orders, orderdetailstable},
 				})
 				fmt.Println("Error", err)
 				fmt.Println("Response", response)
@@ -338,9 +341,25 @@ var _ = Describe("Server", func() {
 						ForeignColumn:    "CUST_CODE",
 						RelationshipName: "FOREIGN KEY",
 					},
+					&pub.RelatedEntity{
+						SchemaId:         "dbo",
+						SourceResource:   "OrderDetailsTable",
+						SourceColumn:     "ProductID, CategoryID",
+						ForeignResource:  "ProductTable",
+						ForeignColumn:    "ProductID, CategoryID",
+						RelationshipName: "FOREIGN KEY",
+					},
+					&pub.RelatedEntity{
+						SchemaId:         "dbo",
+						SourceResource:   "OrderDetailsTable",
+						SourceColumn:     "OrderID",
+						ForeignResource:  "OrderTable",
+						ForeignColumn:    "OrderID",
+						RelationshipName: "FOREIGN KEY",
+					},
 				), "all related entities should be discovered")
 
-				Expect(relatedEntities).To(HaveLen(3), "all related entities should be discovered")
+				Expect(relatedEntities).To(HaveLen(5), "all related entities should be discovered")
 			})
 
 		})
