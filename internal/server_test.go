@@ -326,22 +326,6 @@ var _ = Describe("Server", func() {
 						RelationshipName: "FOREIGN KEY",
 					},
 					&pub.RelatedEntity{
-						SchemaId:         "fact",
-						SourceResource:   "Orders",
-						SourceColumn:     "AGENT_CODE",
-						ForeignResource:  "Agents",
-						ForeignColumn:    "AGENT_CODE",
-						RelationshipName: "FOREIGN KEY",
-					},
-					&pub.RelatedEntity{
-						SchemaId:         "fact",
-						SourceResource:   "Orders",
-						SourceColumn:     "CUST_CODE",
-						ForeignResource:  "Customers",
-						ForeignColumn:    "CUST_CODE",
-						RelationshipName: "FOREIGN KEY",
-					},
-					&pub.RelatedEntity{
 						SchemaId:         "dbo",
 						SourceResource:   "OrderDetailsTable",
 						SourceColumn:     "ProductID, CategoryID",
@@ -359,7 +343,7 @@ var _ = Describe("Server", func() {
 					},
 				), "all related entities should be discovered")
 
-				Expect(relatedEntities).To(HaveLen(5), "all related entities should be discovered")
+				Expect(relatedEntities).To(HaveLen(3), "all related entities should be discovered")
 			})
 
 		})

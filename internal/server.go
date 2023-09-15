@@ -488,20 +488,21 @@ func (s *Server) DiscoverRelatedEntities(ctx context.Context, req *pub.DiscoverR
 		return nil, errors.New("database connection not available")
 	}
 
-	var schemaNames []string
+	var schemaList []string
 	for _, schema := range req.GetToRelate() {
-		parts := strings.Split(schema.GetName(), ".")
-		if len(parts) >= 1 {
-			schemaNames = append(schemaNames, parts[0])
+		schemaId := schema.GetId()
+		_, schemaName, _ := DecomposeSafeName(schemaId)
+		if schemaName != "" {
+			schemaList = append(schemaList, schemaName)
 		}
 	}
 
-	if len(schemaNames) == 0 {
+	if len(schemaList) == 0 {
 		return nil, errors.New("no schemas provided to relate")
 	}
 
-	placeholders := make([]string, len(schemaNames))
-	for i := range schemaNames {
+	placeholders := make([]string, len(schemaList))
+	for i := range schemaList {
 		placeholders[i] = fmt.Sprintf("@p%d", i+1)
 	}
 	whereClause := fmt.Sprintf("WHERE OBJECT_SCHEMA_NAME(fk.parent_object_id) IN (%s)", strings.Join(placeholders, ","))
@@ -527,8 +528,8 @@ func (s *Server) DiscoverRelatedEntities(ctx context.Context, req *pub.DiscoverR
 	`
 
 	// Convert schemaNames to a slice of interface{}
-	args := make([]interface{}, len(schemaNames))
-	for i, v := range schemaNames {
+	args := make([]interface{}, len(schemaList))
+	for i, v := range schemaList {
 		args[i] = v
 	}
 
