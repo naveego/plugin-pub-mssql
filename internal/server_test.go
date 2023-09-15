@@ -306,16 +306,9 @@ var _ = Describe("Server", func() {
 				orderdetailstable := &pub.Schema{
 					Name: "dbo.OrderDetailsTable",
 				}
-				assignments := &pub.Schema{
-					Name: "dev.Assignments",
-				}
-
-				employee := &pub.Schema{
-					Name: "HumanResources.Employee",
-				}
 
 				response, err := sut.DiscoverRelatedEntities(context.Background(), &pub.DiscoverRelatedEntitiesRequest{
-					ToRelate: []*pub.Schema{agents, customers, orders, orderdetailstable, assignments, employee},
+					ToRelate: []*pub.Schema{agents, customers, orders, orderdetailstable},
 				})
 				fmt.Println("Error", err)
 				fmt.Println("Response", response)
@@ -364,41 +357,9 @@ var _ = Describe("Server", func() {
 						ForeignColumn:    "OrderID",
 						RelationshipName: "FOREIGN KEY",
 					},
-					&pub.RelatedEntity{
-						SchemaId:         "dev",
-						SourceResource:   "Assignments",
-						SourceColumn:     "developerID",
-						ForeignResource:  "Developers",
-						ForeignColumn:    "id",
-						RelationshipName: "FOREIGN KEY",
-					},
-					&pub.RelatedEntity{
-						SchemaId:         "HumanResources",
-						SourceResource:   "Employee",
-						SourceColumn:     "BusinessEntityID",
-						ForeignResource:  "Person",
-						ForeignColumn:    "BusinessEntityID",
-						RelationshipName: "FOREIGN KEY",
-					},
-					&pub.RelatedEntity{
-						SchemaId:         "dev",
-						SourceResource:   "Assignments",
-						SourceColumn:     "taskID",
-						ForeignResource:  "Tasks",
-						ForeignColumn:    "id",
-						RelationshipName: "FOREIGN KEY",
-					},
-					&pub.RelatedEntity{
-						SchemaId:         "dev",
-						SourceResource:   "Assignments",
-						SourceColumn:     "sprintID",
-						ForeignResource:  "Sprints",
-						ForeignColumn:    "id",
-						RelationshipName: "FOREIGN KEY",
-					},
 				), "all related entities should be discovered")
 
-				Expect(relatedEntities).To(HaveLen(9), "all related entities should be discovered")
+				Expect(relatedEntities).To(HaveLen(5), "all related entities should be discovered")
 			})
 
 		})

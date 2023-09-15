@@ -488,6 +488,24 @@ func (s *Server) DiscoverRelatedEntities(ctx context.Context, req *pub.DiscoverR
 		return nil, errors.New("database connection not available")
 	}
 
+	var schemaNames []string
+	for _, schema := range req.GetToRelate() {
+		parts := strings.Split(schema.GetName(), ".")
+		if len(parts) >= 1 {
+			schemaNames = append(schemaNames, parts[0])
+		}
+	}
+
+	if len(schemaNames) == 0 {
+		return nil, errors.New("no schemas provided to relate")
+	}
+
+	placeholders := make([]string, len(schemaNames))
+	for i := range schemaNames {
+		placeholders[i] = fmt.Sprintf("@p%d", i+1)
+	}
+	whereClause := fmt.Sprintf("WHERE OBJECT_SCHEMA_NAME(fk.parent_object_id) IN (%s)", strings.Join(placeholders, ","))
+
 	query := `
 	SELECT 
 	OBJECT_SCHEMA_NAME(fk.parent_object_id) AS SOURCE_TABLE_SCHEMA,
@@ -496,16 +514,25 @@ func (s *Server) DiscoverRelatedEntities(ctx context.Context, req *pub.DiscoverR
 	OBJECT_SCHEMA_NAME(fk.referenced_object_id) AS FOREIGN_TABLE_SCHEMA,
 	OBJECT_NAME(fk.referenced_object_id) AS FOREIGN_TABLE_NAME,
 	STRING_AGG(COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id), ', ') AS FOREIGN_COLUMNS,
-	CASE WHEN COUNT(DISTINCT fkc.referenced_column_id) > 1 THEN 'MULTI-PART FOREIGN KEY'
+	CASE 
+		WHEN COUNT(DISTINCT fkc.referenced_column_id) > 1 THEN 'MULTI-PART FOREIGN KEY'
 		ELSE 'FOREIGN KEY'
 	END AS RELATIONSHIP_NAME
+
 	FROM sys.foreign_keys AS fk
 	INNER JOIN sys.foreign_key_columns AS fkc ON fk.object_id = fkc.constraint_object_id
+	` + whereClause + `
 	GROUP BY fk.object_id, fk.parent_object_id, fk.referenced_object_id
 	ORDER BY SOURCE_TABLE_SCHEMA, SOURCE_TABLE_NAME;
 	`
 
-	rows, err := db.Query(query)
+	// Convert schemaNames to a slice of interface{}
+	args := make([]interface{}, len(schemaNames))
+	for i, v := range schemaNames {
+		args[i] = v
+	}
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
