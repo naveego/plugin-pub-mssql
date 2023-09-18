@@ -488,93 +488,76 @@ func (s *Server) DiscoverRelatedEntities(ctx context.Context, req *pub.DiscoverR
 		return nil, errors.New("database connection not available")
 	}
 
-	var schemaList []string
-	for _, schema := range req.GetToRelate() {
-		schemaId := schema.GetId()
-		_, schemaName, _ := DecomposeSafeName(schemaId)
-		if schemaName != "" {
-			schemaList = append(schemaList, schemaName)
-		}
+	if len(req.ToRelate) == 0 {
+		return nil, errors.New("No schemas provided to relate")
 	}
-
-	if len(schemaList) == 0 {
-		return nil, errors.New("no schemas provided to relate")
-	}
-
-	placeholders := make([]string, len(schemaList))
-	for i := range schemaList {
-		placeholders[i] = fmt.Sprintf("@p%d", i+1)
-	}
-	whereClause := fmt.Sprintf("WHERE OBJECT_SCHEMA_NAME(fk.parent_object_id) IN (%s)", strings.Join(placeholders, ","))
-
-	query := `
-	SELECT 
-	OBJECT_SCHEMA_NAME(fk.parent_object_id) AS SOURCE_TABLE_SCHEMA,
-	OBJECT_NAME(fk.parent_object_id) AS SOURCE_TABLE_NAME,
-	STRING_AGG(COL_NAME(fkc.parent_object_id, fkc.parent_column_id), ', ') AS SOURCE_COLUMNS,
-	OBJECT_SCHEMA_NAME(fk.referenced_object_id) AS FOREIGN_TABLE_SCHEMA,
-	OBJECT_NAME(fk.referenced_object_id) AS FOREIGN_TABLE_NAME,
-	STRING_AGG(COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id), ', ') AS FOREIGN_COLUMNS,
-	CASE 
-		WHEN COUNT(DISTINCT fkc.referenced_column_id) > 1 THEN 'MULTI-PART FOREIGN KEY'
-		ELSE 'FOREIGN KEY'
-	END AS RELATIONSHIP_NAME
-
-	FROM sys.foreign_keys AS fk
-	INNER JOIN sys.foreign_key_columns AS fkc ON fk.object_id = fkc.constraint_object_id
-	` + whereClause + `
-	GROUP BY fk.object_id, fk.parent_object_id, fk.referenced_object_id
-	ORDER BY SOURCE_TABLE_SCHEMA, SOURCE_TABLE_NAME;
-	`
-
-	// Convert schemaNames to a slice of interface{}
-	args := make([]interface{}, len(schemaList))
-	for i, v := range schemaList {
-		args[i] = v
-	}
-
-	rows, err := db.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
 
 	response := &pub.DiscoverRelatedEntitiesResponse{
 		RelatedEntities: []*pub.RelatedEntity{},
 	}
 
-	for rows.Next() {
-		var sourceTableSchema, sourceTableName, sourceColumn string
-		var foreignTableSchema, foreignTableName, foreignColumn string
-		var relationshipName string
+	for _, schema := range req.ToRelate {
+		_, schemaName, tableName := DecomposeSafeName(schema.Id)
 
-		err := rows.Scan(
-			&sourceTableSchema,
-			&sourceTableName,
-			&sourceColumn,
-			&foreignTableSchema,
-			&foreignTableName,
-			&foreignColumn,
-			&relationshipName,
-		)
+		query := fmt.Sprintf(`
+		SELECT
+		OBJECT_SCHEMA_NAME(fk.parent_object_id) AS SOURCE_TABLE_SCHEMA,
+		OBJECT_NAME(fk.parent_object_id) AS SOURCE_TABLE_NAME,
+		STRING_AGG(COL_NAME(fkc.parent_object_id, fkc.parent_column_id), ', ') AS SOURCE_COLUMNS,
+		OBJECT_SCHEMA_NAME(fk.referenced_object_id) AS FOREIGN_TABLE_SCHEMA,
+		OBJECT_NAME(fk.referenced_object_id) AS FOREIGN_TABLE_NAME,
+		STRING_AGG(COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id), ', ') AS FOREIGN_COLUMNS,
+		CASE
+			WHEN COUNT(DISTINCT fkc.referenced_column_id) > 1 THEN 'MULTI-PART FOREIGN KEY'
+			ELSE 'FOREIGN KEY'
+		END AS RELATIONSHIP_NAME
+
+		FROM sys.foreign_keys AS fk
+		INNER JOIN sys.foreign_key_columns AS fkc ON fk.object_id = fkc.constraint_object_id
+		WHERE OBJECT_SCHEMA_NAME(fk.parent_object_id) = '%s' AND OBJECT_NAME(fk.parent_object_id) = '%s'
+		GROUP BY fk.object_id, fk.parent_object_id, fk.referenced_object_id
+		ORDER BY SOURCE_TABLE_SCHEMA, SOURCE_TABLE_NAME
+		`, schemaName, tableName)
+
+		rows, err := db.Query(query)
 		if err != nil {
 			return nil, err
 		}
+		defer rows.Close()
 
-		relatedEntity := &pub.RelatedEntity{
-			SchemaId:         sourceTableSchema,
-			SourceResource:   sourceTableName,
-			SourceColumn:     sourceColumn,
-			ForeignResource:  foreignTableName,
-			ForeignColumn:    foreignColumn,
-			RelationshipName: relationshipName,
+		for rows.Next() {
+			var sourceTableSchema, sourceTableName, sourceColumn string
+			var foreignTableSchema, foreignTableName, foreignColumn string
+			var relationshipName string
+
+			err := rows.Scan(
+				&sourceTableSchema,
+				&sourceTableName,
+				&sourceColumn,
+				&foreignTableSchema,
+				&foreignTableName,
+				&foreignColumn,
+				&relationshipName,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			relatedEntity := &pub.RelatedEntity{
+				SchemaId:         sourceTableSchema,
+				SourceResource:   sourceTableName,
+				SourceColumn:     sourceColumn,
+				ForeignResource:  foreignTableName,
+				ForeignColumn:    foreignColumn,
+				RelationshipName: relationshipName,
+			}
+
+			response.RelatedEntities = append(response.RelatedEntities, relatedEntity)
 		}
 
-		response.RelatedEntities = append(response.RelatedEntities, relatedEntity)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
 	}
 
 	return response, nil
