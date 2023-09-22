@@ -23,7 +23,6 @@ archives:
       - manifest.json
       - icon.png
       - LICENSE
-    replacements:
 
 checksum:
   name_template: 'checksums.txt'

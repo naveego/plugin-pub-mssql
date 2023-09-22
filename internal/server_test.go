@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
+	"time"
+
 	. "github.com/naveego/plugin-pub-mssql/internal"
 	"github.com/naveego/plugin-pub-mssql/internal/pub"
 	"github.com/naveego/plugin-pub-mssql/pkg/sqlstructs"
@@ -11,8 +15,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/metadata"
-	"io"
-	"time"
 )
 
 var discoverShape = func(sut pub.PublisherServer, schema *pub.Schema) *pub.Schema {
@@ -50,14 +52,12 @@ var _ = Describe("Server", func() {
 		settings = *GetTestSettings()
 	})
 
-
-
 	Describe("Connect", func() {
 		It("should succeed when connection is valid", func() {
-				response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(response.HasError()).To(BeFalse())
-			})
+			response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(response.HasError()).To(BeFalse())
+		})
 		It("should error when connection (username) is invalid", func() {
 			settings.Username = "a"
 			response, err := sut.Connect(context.Background(), pub.NewConnectRequest(settings))
@@ -85,7 +85,6 @@ var _ = Describe("Server", func() {
 		})
 
 	})
-
 
 	Describe("DiscoverShapes", func() {
 
@@ -282,7 +281,72 @@ var _ = Describe("Server", func() {
 				})
 			})
 		})
+	})
 
+	Describe("DiscoverRelatedEntities", func() {
+
+		BeforeEach(func() {
+			Expect(sut.Connect(context.Background(), pub.NewConnectRequest(settings))).ToNot(BeNil())
+		})
+
+		Describe("when discovering", func() {
+
+			It("should get all related entities", func() {
+				agents := &pub.Schema{
+					Name: "dbo.Agents",
+				}
+
+				customers := &pub.Schema{
+					Name: "dbo.Customers",
+				}
+
+				orders := &pub.Schema{
+					Name: "fact.Orders",
+				}
+				orderdetailstable := &pub.Schema{
+					Name: "dbo.OrderDetailsTable",
+				}
+
+				response, err := sut.DiscoverRelatedEntities(context.Background(), &pub.DiscoverRelatedEntitiesRequest{
+					ToRelate: []*pub.Schema{agents, customers, orders, orderdetailstable},
+				})
+				fmt.Println("Error", err)
+				fmt.Println("Response", response)
+				Expect(err).ToNot(HaveOccurred())
+
+				relatedEntities := response.RelatedEntities
+
+				Expect(relatedEntities).To(ConsistOf(
+					&pub.RelatedEntity{
+						SchemaId:         "dbo",
+						SourceResource:   "Customers",
+						SourceColumn:     "AGENT_CODE",
+						ForeignResource:  "Agents",
+						ForeignColumn:    "AGENT_CODE",
+						RelationshipName: "FOREIGN KEY",
+					},
+					&pub.RelatedEntity{
+						SchemaId:         "dbo",
+						SourceResource:   "OrderDetailsTable",
+						SourceColumn:     "ProductID, CategoryID",
+						ForeignResource:  "ProductTable",
+						ForeignColumn:    "ProductID, CategoryID",
+						RelationshipName: "MULTI-PART FOREIGN KEY",
+					},
+					&pub.RelatedEntity{
+						SchemaId:         "dbo",
+						SourceResource:   "OrderDetailsTable",
+						SourceColumn:     "OrderID",
+						ForeignResource:  "OrderTable",
+						ForeignColumn:    "OrderID",
+						RelationshipName: "FOREIGN KEY",
+					},
+				), "all related entities should be discovered")
+
+				Expect(relatedEntities).To(HaveLen(3), "all related entities should be discovered")
+			})
+
+		})
 	})
 
 	Describe("PublishStream", func() {
@@ -516,12 +580,12 @@ var _ = Describe("Server", func() {
 					HaveKeyWithValue("[smallmoney]", Equal("12.5600")),
 					HaveKeyWithValue("[tinyint]", BeNumerically("==", 12)),
 					HaveKeyWithValue("[money]", Equal("1234.5600")),
-					HaveKeyWithValue("[float]", BeNumerically("~", 123456.789, 1E8)),
-					HaveKeyWithValue("[real]", BeNumerically("~", 123456.789, 1E8)),
+					HaveKeyWithValue("[float]", BeNumerically("~", 123456.789, 1e8)),
+					HaveKeyWithValue("[real]", BeNumerically("~", 123456.789, 1e8)),
 					HaveKeyWithValue("[bit]", true),
 					HaveKeyWithValue("[date]", "1970-01-01T00:00:00Z"),
-					HaveKeyWithValue("[datetimeoffset]", "2007-05-08T12:35:29.1234567+12:15", ),
-					HaveKeyWithValue("[datetime2]", "2007-05-08T12:35:29.1234567Z", ),
+					HaveKeyWithValue("[datetimeoffset]", "2007-05-08T12:35:29.1234567+12:15"),
+					HaveKeyWithValue("[datetime2]", "2007-05-08T12:35:29.1234567Z"),
 					HaveKeyWithValue("[smalldatetime]", "2007-05-08T12:35:00Z"),
 					HaveKeyWithValue("[datetime]", "2007-05-08T12:35:29.123Z"),
 					HaveKeyWithValue("[time]", "0001-01-01T12:35:29.123Z"),
@@ -637,7 +701,7 @@ var _ = Describe("Server", func() {
 			var req *pub.PrepareWriteRequest
 			BeforeEach(func() {
 				req = &pub.PrepareWriteRequest{
-					Schema: &pub.Schema{},
+					Schema:           &pub.Schema{},
 					CommitSlaSeconds: 1,
 				}
 			})
@@ -655,128 +719,128 @@ var _ = Describe("Server", func() {
 			var req *pub.PrepareWriteRequest
 			BeforeEach(func() {
 				Expect(sut.Connect(context.Background(), pub.NewConnectRequest(settings))).ToNot(BeNil())
-				req =  &pub.PrepareWriteRequest{
+				req = &pub.PrepareWriteRequest{
 					Schema: &pub.Schema{
-						Id: "InsertIntoTypes",
+						Id:    "InsertIntoTypes",
 						Query: "InsertIntoTypes",
-						Properties: []*pub.Property {
+						Properties: []*pub.Property{
 							{
-								Id: "int",
-								Type: pub.PropertyType_INTEGER,
+								Id:           "int",
+								Type:         pub.PropertyType_INTEGER,
 								TypeAtSource: "int",
 							},
 							{
-								Id: "bigint",
-								Type: pub.PropertyType_DECIMAL,
+								Id:           "bigint",
+								Type:         pub.PropertyType_DECIMAL,
 								TypeAtSource: "bigint",
 							},
 							{
-								Id: "numeric",
-								Type: pub.PropertyType_DECIMAL,
+								Id:           "numeric",
+								Type:         pub.PropertyType_DECIMAL,
 								TypeAtSource: "numeric(18,5)",
 							},
 							{
-								Id: "bit",
-								Type: pub.PropertyType_BOOL,
+								Id:           "bit",
+								Type:         pub.PropertyType_BOOL,
 								TypeAtSource: "bit",
 							},
 							{
-								Id: "smallint",
-								Type: pub.PropertyType_INTEGER,
+								Id:           "smallint",
+								Type:         pub.PropertyType_INTEGER,
 								TypeAtSource: "smallint",
 							},
 							{
-								Id: "decimal",
-								Type: pub.PropertyType_DECIMAL,
+								Id:           "decimal",
+								Type:         pub.PropertyType_DECIMAL,
 								TypeAtSource: "decimal(18,4)",
 							},
 							{
-								Id: "smallmoney",
-								Type: pub.PropertyType_DECIMAL,
+								Id:           "smallmoney",
+								Type:         pub.PropertyType_DECIMAL,
 								TypeAtSource: "smallmoney",
 							},
 							{
-								Id: "tinyint",
-								Type: pub.PropertyType_INTEGER,
+								Id:           "tinyint",
+								Type:         pub.PropertyType_INTEGER,
 								TypeAtSource: "tinyint",
 							},
 							{
-								Id: "money",
-								Type: pub.PropertyType_DECIMAL,
+								Id:           "money",
+								Type:         pub.PropertyType_DECIMAL,
 								TypeAtSource: "money",
 							},
 							{
-								Id: "float",
-								Type: pub.PropertyType_FLOAT,
+								Id:           "float",
+								Type:         pub.PropertyType_FLOAT,
 								TypeAtSource: "float",
 							},
 							{
-								Id: "real",
-								Type: pub.PropertyType_FLOAT,
+								Id:           "real",
+								Type:         pub.PropertyType_FLOAT,
 								TypeAtSource: "real",
 							},
 							{
-								Id: "date",
-								Type: pub.PropertyType_DATE,
+								Id:           "date",
+								Type:         pub.PropertyType_DATE,
 								TypeAtSource: "date",
 							},
 							{
-								Id: "datetimeoffset",
-								Type: pub.PropertyType_STRING,
+								Id:           "datetimeoffset",
+								Type:         pub.PropertyType_STRING,
 								TypeAtSource: "datetimeoffset(7)",
 							},
 							{
-								Id: "datetime2",
-								Type: pub.PropertyType_DATETIME,
+								Id:           "datetime2",
+								Type:         pub.PropertyType_DATETIME,
 								TypeAtSource: "datetime2(7)",
 							},
 							{
-								Id: "smalldatetime",
-								Type: pub.PropertyType_DATETIME,
+								Id:           "smalldatetime",
+								Type:         pub.PropertyType_DATETIME,
 								TypeAtSource: "smalldatetime",
 							},
 							{
-								Id: "datetime",
-								Type: pub.PropertyType_DATETIME,
+								Id:           "datetime",
+								Type:         pub.PropertyType_DATETIME,
 								TypeAtSource: "datetime",
 							},
 							{
-								Id: "time",
-								Type: pub.PropertyType_TIME,
+								Id:           "time",
+								Type:         pub.PropertyType_TIME,
 								TypeAtSource: "time(7)",
 							},
 							{
-								Id: "char",
-								Type: pub.PropertyType_STRING,
+								Id:           "char",
+								Type:         pub.PropertyType_STRING,
 								TypeAtSource: "char(6)",
 							},
 							{
-								Id: "varchar",
-								Type: pub.PropertyType_STRING,
+								Id:           "varchar",
+								Type:         pub.PropertyType_STRING,
 								TypeAtSource: "varchar(10)",
 							},
 							{
-								Id: "text",
-								Type: pub.PropertyType_TEXT,
+								Id:           "text",
+								Type:         pub.PropertyType_TEXT,
 								TypeAtSource: "text",
 							},
 							{
-								Id: "nchar",
-								Type: pub.PropertyType_STRING,
+								Id:           "nchar",
+								Type:         pub.PropertyType_STRING,
 								TypeAtSource: "nchar(6)",
 							},
 							{
-								Id: "nvarchar",
-								Type: pub.PropertyType_STRING,
+								Id:           "nvarchar",
+								Type:         pub.PropertyType_STRING,
 								TypeAtSource: "nvarchar(10)",
 							},
 							{
-								Id: "ntext",
-								Type: pub.PropertyType_STRING,
+								Id:           "ntext",
+								Type:         pub.PropertyType_STRING,
 								TypeAtSource: "ntext",
-							},							{
-								Id: "uniqueidentifier",
-								Type: pub.PropertyType_STRING,
+							}, {
+								Id:           "uniqueidentifier",
+								Type:         pub.PropertyType_STRING,
 								TypeAtSource: "uniqueidentifier",
 							},
 						},
@@ -790,13 +854,13 @@ var _ = Describe("Server", func() {
 
 					records := []*pub.Record{
 						{
-						DataJson: string(dataJson),
-						CorrelationId: "test",
-					}}
+							DataJson:      string(dataJson),
+							CorrelationId: "test",
+						}}
 
 					stream := &writeStream{
 						records: records,
-						index: 0,
+						index:   0,
 					}
 					return stream
 				}
@@ -809,31 +873,31 @@ var _ = Describe("Server", func() {
 				Expect(response).ToNot(BeNil())
 
 				stream := createStream(map[string]interface{}{
-					"int": 43,
-					"bigint": "9223372036854775807",
-					"numeric": "1234.56780",
-					"smallint": 123,
-					"decimal": "1234.5678",
-					"smallmoney": "12.5600",
-					"tinyint":  12,
-					"money": "1234.5600",
-					"float": 123456.789,
-					"real": 123456.789,
-					"bit": true,
-					"date": "1970-01-01T00:00:00Z",
-					"datetimeoffset": "2007-05-08T12:35:29.1234567+12:15",
-					"datetime2": "2007-05-08T12:35:29.1234567Z",
-					"smalldatetime": "2007-05-08T12:35:00Z",
-					"datetime": "2007-05-08T12:35:29.123Z",
-					"time": "0001-01-01T12:35:29.123Z",
-					"char": "char  ",
-					"varchar": "abc",
-					"text": "abc",
-					"nchar": "nchar ",
-					"nvarchar": "nvarchar",
-					"ntext": "ntext",
-					"binary": base64.StdEncoding.EncodeToString([]byte("abc")),
-					"varbinary": base64.StdEncoding.EncodeToString([]byte("cde")),
+					"int":              43,
+					"bigint":           "9223372036854775807",
+					"numeric":          "1234.56780",
+					"smallint":         123,
+					"decimal":          "1234.5678",
+					"smallmoney":       "12.5600",
+					"tinyint":          12,
+					"money":            "1234.5600",
+					"float":            123456.789,
+					"real":             123456.789,
+					"bit":              true,
+					"date":             "1970-01-01T00:00:00Z",
+					"datetimeoffset":   "2007-05-08T12:35:29.1234567+12:15",
+					"datetime2":        "2007-05-08T12:35:29.1234567Z",
+					"smalldatetime":    "2007-05-08T12:35:00Z",
+					"datetime":         "2007-05-08T12:35:29.123Z",
+					"time":             "0001-01-01T12:35:29.123Z",
+					"char":             "char  ",
+					"varchar":          "abc",
+					"text":             "abc",
+					"nchar":            "nchar ",
+					"nvarchar":         "nvarchar",
+					"ntext":            "ntext",
+					"binary":           base64.StdEncoding.EncodeToString([]byte("abc")),
+					"varbinary":        base64.StdEncoding.EncodeToString([]byte("cde")),
 					"uniqueidentifier": uniqueIdentifierIdSteve,
 				})
 
@@ -889,36 +953,36 @@ var _ = Describe("Server", func() {
 
 type Types struct {
 	Bigint int `sql:"bigint"`
-	
-	Bit bool `sql:"bit"`
-	Char string `sql:"char"`
-	Date time.Time `sql:"date"`
-	Datetime time.Time `sql:"datetime"`
-	Datetime2 time.Time `sql:"datetime2"`
+
+	Bit            bool      `sql:"bit"`
+	Char           string    `sql:"char"`
+	Date           time.Time `sql:"date"`
+	Datetime       time.Time `sql:"datetime"`
+	Datetime2      time.Time `sql:"datetime2"`
 	DatetimeOffset time.Time `sql:"datetimeoffset"`
-	Decimal float64 `sql:"decimal"`
-	Float float64 `sql:"float"`
-	Int int `sql:"int"`
-	Money float64 `sql:"money"`
-	Nchar string `sql:"nchar"`
-	Ntext string `sql:"ntext"`
-	Numeric float64 `sql:"numeric"`
-	Nvarchar string `sql:"nvarchar"`
-	Real float64 `sql:"real"`
-	Smalldatetime time.Time `sql:"smalldatetime"`
-	Smallint int `sql:"smallint"`
-	Smallmoney float64 `sql:"smallmoney"`
-	Text string `sql:"text"`
-	Time time.Time `sql:"time"`
-	Tinyint int `sql:"tinyint"`
-	Varchar string `sql:"varchar"`
+	Decimal        float64   `sql:"decimal"`
+	Float          float64   `sql:"float"`
+	Int            int       `sql:"int"`
+	Money          float64   `sql:"money"`
+	Nchar          string    `sql:"nchar"`
+	Ntext          string    `sql:"ntext"`
+	Numeric        float64   `sql:"numeric"`
+	Nvarchar       string    `sql:"nvarchar"`
+	Real           float64   `sql:"real"`
+	Smalldatetime  time.Time `sql:"smalldatetime"`
+	Smallint       int       `sql:"smallint"`
+	Smallmoney     float64   `sql:"smallmoney"`
+	Text           string    `sql:"text"`
+	Time           time.Time `sql:"time"`
+	Tinyint        int       `sql:"tinyint"`
+	Varchar        string    `sql:"varchar"`
 }
 
 type writeStream struct {
-	records 	[]*pub.Record
-	recordAcks 	[]*pub.RecordAck
-	index 		int
-	err     	error
+	records    []*pub.Record
+	recordAcks []*pub.RecordAck
+	index      int
+	err        error
 }
 
 func (p *writeStream) Send(ack *pub.RecordAck) error {

@@ -3,13 +3,14 @@
 
 package pub
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-
 import (
-	context "golang.org/x/net/context"
+	context "context"
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -21,7 +22,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type LogLevel int32
 
@@ -40,6 +41,7 @@ var LogLevel_name = map[int32]string{
 	3: "Debug",
 	4: "Trace",
 }
+
 var LogLevel_value = map[string]int32{
 	"Error": 0,
 	"Warn":  1,
@@ -51,8 +53,9 @@ var LogLevel_value = map[string]int32{
 func (x LogLevel) String() string {
 	return proto.EnumName(LogLevel_name, int32(x))
 }
+
 func (LogLevel) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{0}
+	return fileDescriptor_41489454d08668ce, []int{0}
 }
 
 type PropertyType int32
@@ -98,6 +101,7 @@ var PropertyType_name = map[int32]string{
 	11: "JSON",
 	12: "XML",
 }
+
 var PropertyType_value = map[string]int32{
 	"STRING":   0,
 	"BOOL":     2,
@@ -116,8 +120,9 @@ var PropertyType_value = map[string]int32{
 func (x PropertyType) String() string {
 	return proto.EnumName(PropertyType_name, int32(x))
 }
+
 func (PropertyType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{1}
+	return fileDescriptor_41489454d08668ce, []int{1}
 }
 
 type PublishFilter_Kind int32
@@ -136,6 +141,7 @@ var PublishFilter_Kind_name = map[int32]string{
 	1: "LESS_THAN",
 	2: "GREATER_THAN",
 }
+
 var PublishFilter_Kind_value = map[string]int32{
 	"EQUALS":       0,
 	"LESS_THAN":    1,
@@ -145,8 +151,9 @@ var PublishFilter_Kind_value = map[string]int32{
 func (x PublishFilter_Kind) String() string {
 	return proto.EnumName(PublishFilter_Kind_name, int32(x))
 }
+
 func (PublishFilter_Kind) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{6, 0}
+	return fileDescriptor_41489454d08668ce, []int{6, 0}
 }
 
 type DiscoverSchemasRequest_Mode int32
@@ -163,6 +170,7 @@ var DiscoverSchemasRequest_Mode_name = map[int32]string{
 	0: "ALL",
 	1: "REFRESH",
 }
+
 var DiscoverSchemasRequest_Mode_value = map[string]int32{
 	"ALL":     0,
 	"REFRESH": 1,
@@ -171,8 +179,9 @@ var DiscoverSchemasRequest_Mode_value = map[string]int32{
 func (x DiscoverSchemasRequest_Mode) String() string {
 	return proto.EnumName(DiscoverSchemasRequest_Mode_name, int32(x))
 }
+
 func (DiscoverSchemasRequest_Mode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{7, 0}
+	return fileDescriptor_41489454d08668ce, []int{7, 0}
 }
 
 type Schema_DataFlowDirection int32
@@ -188,6 +197,7 @@ var Schema_DataFlowDirection_name = map[int32]string{
 	1: "WRITE",
 	2: "READ_WRITE",
 }
+
 var Schema_DataFlowDirection_value = map[string]int32{
 	"READ":       0,
 	"WRITE":      1,
@@ -197,8 +207,9 @@ var Schema_DataFlowDirection_value = map[string]int32{
 func (x Schema_DataFlowDirection) String() string {
 	return proto.EnumName(Schema_DataFlowDirection_name, int32(x))
 }
+
 func (Schema_DataFlowDirection) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{9, 0}
+	return fileDescriptor_41489454d08668ce, []int{9, 0}
 }
 
 type Count_Kind int32
@@ -214,6 +225,7 @@ var Count_Kind_name = map[int32]string{
 	1: "ESTIMATE",
 	2: "EXACT",
 }
+
 var Count_Kind_value = map[string]int32{
 	"UNAVAILABLE": 0,
 	"ESTIMATE":    1,
@@ -223,8 +235,9 @@ var Count_Kind_value = map[string]int32{
 func (x Count_Kind) String() string {
 	return proto.EnumName(Count_Kind_name, int32(x))
 }
+
 func (Count_Kind) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{10, 0}
+	return fileDescriptor_41489454d08668ce, []int{10, 0}
 }
 
 type Record_Action int32
@@ -246,6 +259,7 @@ var Record_Action_name = map[int32]string{
 	3: "DELETE",
 	4: "REAL_TIME_STATE_COMMIT",
 }
+
 var Record_Action_value = map[string]int32{
 	"UPSERT":                 0,
 	"INSERT":                 1,
@@ -257,23 +271,24 @@ var Record_Action_value = map[string]int32{
 func (x Record_Action) String() string {
 	return proto.EnumName(Record_Action_name, int32(x))
 }
+
 func (Record_Action) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{14, 0}
+	return fileDescriptor_41489454d08668ce, []int{14, 0}
 }
 
 type DataVersions struct {
 	// The ID of the job related to this request, if any. Can be used to
 	// name caches related to a specific job.
-	JobId string `protobuf:"bytes,1,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
+	JobId string `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
 	// The data version of the job related to this request. When this increments,
 	// any cached data associated with the job should be discarded.
-	JobDataVersion uint32 `protobuf:"varint,2,opt,name=job_data_version,json=jobDataVersion" json:"job_data_version,omitempty"`
+	JobDataVersion uint32 `protobuf:"varint,2,opt,name=job_data_version,json=jobDataVersion,proto3" json:"job_data_version,omitempty"`
 	// The ID of the shape related to this request, if any. Can be used to
 	// name caches related to a specific shape.
-	ShapeId string `protobuf:"bytes,3,opt,name=shape_id,json=shapeId" json:"shape_id,omitempty"`
+	ShapeId string `protobuf:"bytes,3,opt,name=shape_id,json=shapeId,proto3" json:"shape_id,omitempty"`
 	// The data version of the shape related to this request. When this
 	// increments, any cached data associated with the shape should be discarded.
-	ShapeDataVersion     uint32   `protobuf:"varint,4,opt,name=shape_data_version,json=shapeDataVersion" json:"shape_data_version,omitempty"`
+	ShapeDataVersion     uint32   `protobuf:"varint,4,opt,name=shape_data_version,json=shapeDataVersion,proto3" json:"shape_data_version,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -283,16 +298,17 @@ func (m *DataVersions) Reset()         { *m = DataVersions{} }
 func (m *DataVersions) String() string { return proto.CompactTextString(m) }
 func (*DataVersions) ProtoMessage()    {}
 func (*DataVersions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{0}
+	return fileDescriptor_41489454d08668ce, []int{0}
 }
+
 func (m *DataVersions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DataVersions.Unmarshal(m, b)
 }
 func (m *DataVersions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DataVersions.Marshal(b, m, deterministic)
 }
-func (dst *DataVersions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DataVersions.Merge(dst, src)
+func (m *DataVersions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DataVersions.Merge(m, src)
 }
 func (m *DataVersions) XXX_Size() int {
 	return xxx_messageInfo_DataVersions.Size(m)
@@ -333,17 +349,17 @@ func (m *DataVersions) GetShapeDataVersion() uint32 {
 
 type ConfigureRequest struct {
 	// The level of logging information the plugin should emit.
-	LogLevel LogLevel `protobuf:"varint,1,opt,name=log_level,json=logLevel,enum=pub.LogLevel" json:"log_level,omitempty"`
+	LogLevel LogLevel `protobuf:"varint,1,opt,name=log_level,json=logLevel,proto3,enum=pub.LogLevel" json:"log_level,omitempty"`
 	// Directory where log files should be stored.
-	LogDirectory string `protobuf:"bytes,2,opt,name=log_directory,json=logDirectory" json:"log_directory,omitempty"`
+	LogDirectory string `protobuf:"bytes,2,opt,name=log_directory,json=logDirectory,proto3" json:"log_directory,omitempty"`
 	// Directory where the plugin can store data permanently.
-	PermanentDirectory string `protobuf:"bytes,3,opt,name=permanent_directory,json=permanentDirectory" json:"permanent_directory,omitempty"`
+	PermanentDirectory string `protobuf:"bytes,3,opt,name=permanent_directory,json=permanentDirectory,proto3" json:"permanent_directory,omitempty"`
 	// Directory where the plugin can store temporary information which may be
 	// deleted.
-	TemporaryDirectory string `protobuf:"bytes,4,opt,name=temporary_directory,json=temporaryDirectory" json:"temporary_directory,omitempty"`
+	TemporaryDirectory string `protobuf:"bytes,4,opt,name=temporary_directory,json=temporaryDirectory,proto3" json:"temporary_directory,omitempty"`
 	// Data versions which will be in effect until the next configure request.
 	// This can be used to name log files or caches.
-	DataVersions         *DataVersions `protobuf:"bytes,5,opt,name=data_versions,json=dataVersions" json:"data_versions,omitempty"`
+	DataVersions         *DataVersions `protobuf:"bytes,5,opt,name=data_versions,json=dataVersions,proto3" json:"data_versions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -353,16 +369,17 @@ func (m *ConfigureRequest) Reset()         { *m = ConfigureRequest{} }
 func (m *ConfigureRequest) String() string { return proto.CompactTextString(m) }
 func (*ConfigureRequest) ProtoMessage()    {}
 func (*ConfigureRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{1}
+	return fileDescriptor_41489454d08668ce, []int{1}
 }
+
 func (m *ConfigureRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigureRequest.Unmarshal(m, b)
 }
 func (m *ConfigureRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigureRequest.Marshal(b, m, deterministic)
 }
-func (dst *ConfigureRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigureRequest.Merge(dst, src)
+func (m *ConfigureRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureRequest.Merge(m, src)
 }
 func (m *ConfigureRequest) XXX_Size() int {
 	return xxx_messageInfo_ConfigureRequest.Size(m)
@@ -418,16 +435,17 @@ func (m *ConfigureResponse) Reset()         { *m = ConfigureResponse{} }
 func (m *ConfigureResponse) String() string { return proto.CompactTextString(m) }
 func (*ConfigureResponse) ProtoMessage()    {}
 func (*ConfigureResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{2}
+	return fileDescriptor_41489454d08668ce, []int{2}
 }
+
 func (m *ConfigureResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigureResponse.Unmarshal(m, b)
 }
 func (m *ConfigureResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigureResponse.Marshal(b, m, deterministic)
 }
-func (dst *ConfigureResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigureResponse.Merge(dst, src)
+func (m *ConfigureResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureResponse.Merge(m, src)
 }
 func (m *ConfigureResponse) XXX_Size() int {
 	return xxx_messageInfo_ConfigureResponse.Size(m)
@@ -442,16 +460,16 @@ type ConnectRequest struct {
 	// The settings the publisher should use to connect, as a JSON string.
 	// The JSON will be based on the JSONSchema defined in the publisher's
 	// package.json.
-	SettingsJson string `protobuf:"bytes,2,opt,name=settings_json,json=settingsJson" json:"settings_json,omitempty"`
+	SettingsJson string `protobuf:"bytes,2,opt,name=settings_json,json=settingsJson,proto3" json:"settings_json,omitempty"`
 	// OAuth configuration information which the plugin may need to
 	// obtain an access token using the OAuth state.
-	OauthConfiguration *OAuthConfiguration `protobuf:"bytes,3,opt,name=oauth_configuration,json=oauthConfiguration" json:"oauth_configuration,omitempty"`
+	OauthConfiguration *OAuthConfiguration `protobuf:"bytes,3,opt,name=oauth_configuration,json=oauthConfiguration,proto3" json:"oauth_configuration,omitempty"`
 	// The OAuth state returned from the last Connect, ConnectSession, or
 	// CompleteOAuthFlow.
-	OauthStateJson string `protobuf:"bytes,4,opt,name=oauth_state_json,json=oauthStateJson" json:"oauth_state_json,omitempty"`
+	OauthStateJson string `protobuf:"bytes,4,opt,name=oauth_state_json,json=oauthStateJson,proto3" json:"oauth_state_json,omitempty"`
 	// Data versions which will be in effect until the next configure request.
 	// This can be used to name log files or caches.
-	DataVersions         *DataVersions `protobuf:"bytes,5,opt,name=data_versions,json=dataVersions" json:"data_versions,omitempty"`
+	DataVersions         *DataVersions `protobuf:"bytes,5,opt,name=data_versions,json=dataVersions,proto3" json:"data_versions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -461,16 +479,17 @@ func (m *ConnectRequest) Reset()         { *m = ConnectRequest{} }
 func (m *ConnectRequest) String() string { return proto.CompactTextString(m) }
 func (*ConnectRequest) ProtoMessage()    {}
 func (*ConnectRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{3}
+	return fileDescriptor_41489454d08668ce, []int{3}
 }
+
 func (m *ConnectRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConnectRequest.Unmarshal(m, b)
 }
 func (m *ConnectRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConnectRequest.Marshal(b, m, deterministic)
 }
-func (dst *ConnectRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConnectRequest.Merge(dst, src)
+func (m *ConnectRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConnectRequest.Merge(m, src)
 }
 func (m *ConnectRequest) XXX_Size() int {
 	return xxx_messageInfo_ConnectRequest.Size(m)
@@ -512,18 +531,18 @@ func (m *ConnectRequest) GetDataVersions() *DataVersions {
 // Connection result information.
 type ConnectResponse struct {
 	// If connection settings are invalid, this should contain the problem.
-	SettingsError string `protobuf:"bytes,1,opt,name=settings_error,json=settingsError" json:"settings_error,omitempty"`
+	SettingsError string `protobuf:"bytes,1,opt,name=settings_error,json=settingsError,proto3" json:"settings_error,omitempty"`
 	// If the connection settings appear valid, connecting to the target system
 	// failed, this should contain the error from the target system.
-	ConnectionError string `protobuf:"bytes,2,opt,name=connection_error,json=connectionError" json:"connection_error,omitempty"`
+	ConnectionError string `protobuf:"bytes,2,opt,name=connection_error,json=connectionError,proto3" json:"connection_error,omitempty"`
 	// If the OAuth state is invalid or expired, this should contain a description
 	// of the problem.
-	OauthError string `protobuf:"bytes,3,opt,name=oauth_error,json=oauthError" json:"oauth_error,omitempty"`
+	OauthError string `protobuf:"bytes,3,opt,name=oauth_error,json=oauthError,proto3" json:"oauth_error,omitempty"`
 	// The OAuth data which should be stored securely and passed next time
 	// a connection is requested. This is returned by Connect because
 	// forming the connection may have used up a refresh token and
 	// the new refresh token must now be stored.
-	OauthStateJson       string   `protobuf:"bytes,4,opt,name=oauth_state_json,json=oauthStateJson" json:"oauth_state_json,omitempty"`
+	OauthStateJson       string   `protobuf:"bytes,4,opt,name=oauth_state_json,json=oauthStateJson,proto3" json:"oauth_state_json,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -533,16 +552,17 @@ func (m *ConnectResponse) Reset()         { *m = ConnectResponse{} }
 func (m *ConnectResponse) String() string { return proto.CompactTextString(m) }
 func (*ConnectResponse) ProtoMessage()    {}
 func (*ConnectResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{4}
+	return fileDescriptor_41489454d08668ce, []int{4}
 }
+
 func (m *ConnectResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConnectResponse.Unmarshal(m, b)
 }
 func (m *ConnectResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConnectResponse.Marshal(b, m, deterministic)
 }
-func (dst *ConnectResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConnectResponse.Merge(dst, src)
+func (m *ConnectResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConnectResponse.Merge(m, src)
 }
 func (m *ConnectResponse) XXX_Size() int {
 	return xxx_messageInfo_ConnectResponse.Size(m)
@@ -581,32 +601,28 @@ func (m *ConnectResponse) GetOauthStateJson() string {
 	return ""
 }
 
-func (m *ConnectResponse) HasError() bool {
-	return m.ConnectionError != "" || m.OauthError != "" || m.SettingsError != "";
-}
-
 type ReadRequest struct {
 	// The schema of the records to publish.
-	Schema *Schema `protobuf:"bytes,1,opt,name=schema" json:"schema,omitempty"`
+	Schema *Schema `protobuf:"bytes,1,opt,name=schema,proto3" json:"schema,omitempty"`
 	// Limit of number of records to return.
-	Limit uint32 `protobuf:"varint,2,opt,name=limit" json:"limit,omitempty"`
+	Limit uint32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 	// Zero or more filters which should be applied to the returned records.
-	Filters []*PublishFilter `protobuf:"bytes,3,rep,name=filters" json:"filters,omitempty"`
+	Filters []*PublishFilter `protobuf:"bytes,3,rep,name=filters,proto3" json:"filters,omitempty"`
 	// Settings for real time publishing, if any.
-	RealTimeSettingsJson string `protobuf:"bytes,6,opt,name=real_time_settings_json,json=realTimeSettingsJson" json:"real_time_settings_json,omitempty"`
+	RealTimeSettingsJson string `protobuf:"bytes,6,opt,name=real_time_settings_json,json=realTimeSettingsJson,proto3" json:"real_time_settings_json,omitempty"`
 	// State object from the last published record from the
 	// connection used for this publish request.
-	RealTimeStateJson string `protobuf:"bytes,7,opt,name=real_time_state_json,json=realTimeStateJson" json:"real_time_state_json,omitempty"`
+	RealTimeStateJson string `protobuf:"bytes,7,opt,name=real_time_state_json,json=realTimeStateJson,proto3" json:"real_time_state_json,omitempty"`
 	// ID for the job which contains the schema, the connection used
 	// to connect before starting this job, the real time settings and state,
 	// and so on. Can be used to persist local state between publishes.
-	JobId string `protobuf:"bytes,8,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
+	JobId string `protobuf:"bytes,8,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
 	// The data_version is a counter that will be incremented whenever
 	// all data produced for a particular job_id should be discarded.
 	//
 	// Deprecated: Use the data_versions property instead.
-	DataVersion          uint32        `protobuf:"varint,9,opt,name=data_version,json=dataVersion" json:"data_version,omitempty"`
-	DataVersions         *DataVersions `protobuf:"bytes,10,opt,name=data_versions,json=dataVersions" json:"data_versions,omitempty"`
+	DataVersion          uint32        `protobuf:"varint,9,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	DataVersions         *DataVersions `protobuf:"bytes,10,opt,name=data_versions,json=dataVersions,proto3" json:"data_versions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -616,16 +632,17 @@ func (m *ReadRequest) Reset()         { *m = ReadRequest{} }
 func (m *ReadRequest) String() string { return proto.CompactTextString(m) }
 func (*ReadRequest) ProtoMessage()    {}
 func (*ReadRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{5}
+	return fileDescriptor_41489454d08668ce, []int{5}
 }
+
 func (m *ReadRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ReadRequest.Unmarshal(m, b)
 }
 func (m *ReadRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ReadRequest.Marshal(b, m, deterministic)
 }
-func (dst *ReadRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ReadRequest.Merge(dst, src)
+func (m *ReadRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ReadRequest.Merge(m, src)
 }
 func (m *ReadRequest) XXX_Size() int {
 	return xxx_messageInfo_ReadRequest.Size(m)
@@ -694,14 +711,14 @@ func (m *ReadRequest) GetDataVersions() *DataVersions {
 
 type PublishFilter struct {
 	// Kind of the match.
-	Kind PublishFilter_Kind `protobuf:"varint,1,opt,name=kind,enum=pub.PublishFilter_Kind" json:"kind,omitempty"`
+	Kind PublishFilter_Kind `protobuf:"varint,1,opt,name=kind,proto3,enum=pub.PublishFilter_Kind" json:"kind,omitempty"`
 	// The id of the property on each record which should be matched against the
 	// value.
-	PropertyId string `protobuf:"bytes,2,opt,name=property_id,json=propertyId" json:"property_id,omitempty"`
+	PropertyId string `protobuf:"bytes,2,opt,name=property_id,json=propertyId,proto3" json:"property_id,omitempty"`
 	// The value of the which should be matched against the named property for
 	// each record, as a string. The publisher is responsible for converting the
 	// value to the correct type.
-	Value                string   `protobuf:"bytes,3,opt,name=value" json:"value,omitempty"`
+	Value                string   `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -711,16 +728,17 @@ func (m *PublishFilter) Reset()         { *m = PublishFilter{} }
 func (m *PublishFilter) String() string { return proto.CompactTextString(m) }
 func (*PublishFilter) ProtoMessage()    {}
 func (*PublishFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{6}
+	return fileDescriptor_41489454d08668ce, []int{6}
 }
+
 func (m *PublishFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PublishFilter.Unmarshal(m, b)
 }
 func (m *PublishFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PublishFilter.Marshal(b, m, deterministic)
 }
-func (dst *PublishFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PublishFilter.Merge(dst, src)
+func (m *PublishFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PublishFilter.Merge(m, src)
 }
 func (m *PublishFilter) XXX_Size() int {
 	return xxx_messageInfo_PublishFilter.Size(m)
@@ -754,11 +772,11 @@ func (m *PublishFilter) GetValue() string {
 
 type DiscoverSchemasRequest struct {
 	// Mode is the discovery mode.
-	Mode DiscoverSchemasRequest_Mode `protobuf:"varint,1,opt,name=mode,enum=pub.DiscoverSchemasRequest_Mode" json:"mode,omitempty"`
+	Mode DiscoverSchemasRequest_Mode `protobuf:"varint,1,opt,name=mode,proto3,enum=pub.DiscoverSchemasRequest_Mode" json:"mode,omitempty"`
 	// The schemas to refresh if mode == 1.
-	ToRefresh []*Schema `protobuf:"bytes,2,rep,name=to_refresh,json=toRefresh" json:"to_refresh,omitempty"`
+	ToRefresh []*Schema `protobuf:"bytes,2,rep,name=to_refresh,json=toRefresh,proto3" json:"to_refresh,omitempty"`
 	// Size of the sample of records to include in the returned schemas.
-	SampleSize           uint32   `protobuf:"varint,4,opt,name=sample_size,json=sampleSize" json:"sample_size,omitempty"`
+	SampleSize           uint32   `protobuf:"varint,4,opt,name=sample_size,json=sampleSize,proto3" json:"sample_size,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -768,16 +786,17 @@ func (m *DiscoverSchemasRequest) Reset()         { *m = DiscoverSchemasRequest{}
 func (m *DiscoverSchemasRequest) String() string { return proto.CompactTextString(m) }
 func (*DiscoverSchemasRequest) ProtoMessage()    {}
 func (*DiscoverSchemasRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{7}
+	return fileDescriptor_41489454d08668ce, []int{7}
 }
+
 func (m *DiscoverSchemasRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DiscoverSchemasRequest.Unmarshal(m, b)
 }
 func (m *DiscoverSchemasRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DiscoverSchemasRequest.Marshal(b, m, deterministic)
 }
-func (dst *DiscoverSchemasRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DiscoverSchemasRequest.Merge(dst, src)
+func (m *DiscoverSchemasRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DiscoverSchemasRequest.Merge(m, src)
 }
 func (m *DiscoverSchemasRequest) XXX_Size() int {
 	return xxx_messageInfo_DiscoverSchemasRequest.Size(m)
@@ -811,7 +830,7 @@ func (m *DiscoverSchemasRequest) GetSampleSize() uint32 {
 
 type DiscoverSchemasResponse struct {
 	// Schemas discovered by the publisher.
-	Schemas              []*Schema `protobuf:"bytes,1,rep,name=schemas" json:"schemas,omitempty"`
+	Schemas              []*Schema `protobuf:"bytes,1,rep,name=schemas,proto3" json:"schemas,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
 	XXX_unrecognized     []byte    `json:"-"`
 	XXX_sizecache        int32     `json:"-"`
@@ -821,16 +840,17 @@ func (m *DiscoverSchemasResponse) Reset()         { *m = DiscoverSchemasResponse
 func (m *DiscoverSchemasResponse) String() string { return proto.CompactTextString(m) }
 func (*DiscoverSchemasResponse) ProtoMessage()    {}
 func (*DiscoverSchemasResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{8}
+	return fileDescriptor_41489454d08668ce, []int{8}
 }
+
 func (m *DiscoverSchemasResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DiscoverSchemasResponse.Unmarshal(m, b)
 }
 func (m *DiscoverSchemasResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DiscoverSchemasResponse.Marshal(b, m, deterministic)
 }
-func (dst *DiscoverSchemasResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DiscoverSchemasResponse.Merge(dst, src)
+func (m *DiscoverSchemasResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DiscoverSchemasResponse.Merge(m, src)
 }
 func (m *DiscoverSchemasResponse) XXX_Size() int {
 	return xxx_messageInfo_DiscoverSchemasResponse.Size(m)
@@ -850,30 +870,30 @@ func (m *DiscoverSchemasResponse) GetSchemas() []*Schema {
 
 type Schema struct {
 	// ID that the plugin uses to uniquely identify this schema.
-	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Name of this schema (must be a permanant identifier which is unique in this
 	// source).
-	Name string `protobuf:"bytes,2,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// Description of this schema, if available.
-	Description string `protobuf:"bytes,3,opt,name=description" json:"description,omitempty"`
+	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	// Properties of this schema.
-	Properties []*Property `protobuf:"bytes,4,rep,name=properties" json:"properties,omitempty"`
+	Properties []*Property `protobuf:"bytes,4,rep,name=properties,proto3" json:"properties,omitempty"`
 	// Count of records available in this schema.
-	Count *Count `protobuf:"bytes,5,opt,name=count" json:"count,omitempty"`
+	Count *Count `protobuf:"bytes,5,opt,name=count,proto3" json:"count,omitempty"`
 	// Sample containing zero or more records representative of the data in this
 	// schema.
-	Sample []*Record `protobuf:"bytes,6,rep,name=sample" json:"sample,omitempty"`
+	Sample []*Record `protobuf:"bytes,6,rep,name=sample,proto3" json:"sample,omitempty"`
 	// When returned from a publisher, the optional query which can be passed to
 	// the publisher to publish records from this schema. When passed to the
 	// publisher, the query which should be used to publish records from this
 	// schema.
-	Query string `protobuf:"bytes,7,opt,name=query" json:"query,omitempty"`
+	Query string `protobuf:"bytes,7,opt,name=query,proto3" json:"query,omitempty"`
 	// Arbitrary JSON blob containing information the publisher uses for things
 	// like change detection.
-	PublisherMetaJson string `protobuf:"bytes,8,opt,name=publisher_meta_json,json=publisherMetaJson" json:"publisher_meta_json,omitempty"`
+	PublisherMetaJson string `protobuf:"bytes,8,opt,name=publisher_meta_json,json=publisherMetaJson,proto3" json:"publisher_meta_json,omitempty"`
 	// Errors that occurred while discovering this schema.
-	Errors               []string                 `protobuf:"bytes,9,rep,name=errors" json:"errors,omitempty"`
-	DataFlowDirection    Schema_DataFlowDirection `protobuf:"varint,10,opt,name=data_flow_direction,json=dataFlowDirection,enum=pub.Schema_DataFlowDirection" json:"data_flow_direction,omitempty"`
+	Errors               []string                 `protobuf:"bytes,9,rep,name=errors,proto3" json:"errors,omitempty"`
+	DataFlowDirection    Schema_DataFlowDirection `protobuf:"varint,10,opt,name=data_flow_direction,json=dataFlowDirection,proto3,enum=pub.Schema_DataFlowDirection" json:"data_flow_direction,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -883,16 +903,17 @@ func (m *Schema) Reset()         { *m = Schema{} }
 func (m *Schema) String() string { return proto.CompactTextString(m) }
 func (*Schema) ProtoMessage()    {}
 func (*Schema) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{9}
+	return fileDescriptor_41489454d08668ce, []int{9}
 }
+
 func (m *Schema) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Schema.Unmarshal(m, b)
 }
 func (m *Schema) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Schema.Marshal(b, m, deterministic)
 }
-func (dst *Schema) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Schema.Merge(dst, src)
+func (m *Schema) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Schema.Merge(m, src)
 }
 func (m *Schema) XXX_Size() int {
 	return xxx_messageInfo_Schema.Size(m)
@@ -974,8 +995,8 @@ func (m *Schema) GetDataFlowDirection() Schema_DataFlowDirection {
 }
 
 type Count struct {
-	Kind                 Count_Kind `protobuf:"varint,1,opt,name=kind,enum=pub.Count_Kind" json:"kind,omitempty"`
-	Value                int32      `protobuf:"varint,2,opt,name=value" json:"value,omitempty"`
+	Kind                 Count_Kind `protobuf:"varint,1,opt,name=kind,proto3,enum=pub.Count_Kind" json:"kind,omitempty"`
+	Value                int32      `protobuf:"varint,2,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -985,16 +1006,17 @@ func (m *Count) Reset()         { *m = Count{} }
 func (m *Count) String() string { return proto.CompactTextString(m) }
 func (*Count) ProtoMessage()    {}
 func (*Count) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{10}
+	return fileDescriptor_41489454d08668ce, []int{10}
 }
+
 func (m *Count) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Count.Unmarshal(m, b)
 }
 func (m *Count) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Count.Marshal(b, m, deterministic)
 }
-func (dst *Count) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Count.Merge(dst, src)
+func (m *Count) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Count.Merge(m, src)
 }
 func (m *Count) XXX_Size() int {
 	return xxx_messageInfo_Count.Size(m)
@@ -1021,32 +1043,32 @@ func (m *Count) GetValue() int32 {
 
 type Property struct {
 	// ID is the permanent, unique identifier for this property.
-	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Name is an optional display name for the property.
-	Name string `protobuf:"bytes,2,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// Description of this property, if available.
-	Description string `protobuf:"bytes,3,opt,name=description" json:"description,omitempty"`
+	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	// Type of the property. Use STRING if no other type matches.
-	Type PropertyType `protobuf:"varint,4,opt,name=type,enum=pub.PropertyType" json:"type,omitempty"`
+	Type PropertyType `protobuf:"varint,4,opt,name=type,proto3,enum=pub.PropertyType" json:"type,omitempty"`
 	// Set to true if this property is part of the primary key for this schema.
-	IsKey bool `protobuf:"varint,5,opt,name=is_key,json=isKey" json:"is_key,omitempty"`
+	IsKey bool `protobuf:"varint,5,opt,name=is_key,json=isKey,proto3" json:"is_key,omitempty"`
 	// Set to true if this property is an orderable value which can be used
 	// to determine if one record was created more recently than another record.
 	// For example, a CreatedAt datetime column or an auto-incrementing integer
 	// primary key.
-	IsCreateCounter bool `protobuf:"varint,6,opt,name=is_create_counter,json=isCreateCounter" json:"is_create_counter,omitempty"`
+	IsCreateCounter bool `protobuf:"varint,6,opt,name=is_create_counter,json=isCreateCounter,proto3" json:"is_create_counter,omitempty"`
 	// Set to true if this property is an orderable value which can be used
 	// to determine if one record was updated more recently than another record.
 	// For example, an UpdatedAt datetime column.
-	IsUpdateCounter bool `protobuf:"varint,7,opt,name=is_update_counter,json=isUpdateCounter" json:"is_update_counter,omitempty"`
+	IsUpdateCounter bool `protobuf:"varint,7,opt,name=is_update_counter,json=isUpdateCounter,proto3" json:"is_update_counter,omitempty"`
 	// Arbitrary JSON blob containing information the publisher uses for things
 	// like change detection.
-	PublisherMetaJson string `protobuf:"bytes,8,opt,name=publisher_meta_json,json=publisherMetaJson" json:"publisher_meta_json,omitempty"`
+	PublisherMetaJson string `protobuf:"bytes,8,opt,name=publisher_meta_json,json=publisherMetaJson,proto3" json:"publisher_meta_json,omitempty"`
 	// The type of the property as defined in the source system. Used to provide
 	// human-readable hints when building mappings.
-	TypeAtSource string `protobuf:"bytes,9,opt,name=type_at_source,json=typeAtSource" json:"type_at_source,omitempty"`
+	TypeAtSource string `protobuf:"bytes,9,opt,name=type_at_source,json=typeAtSource,proto3" json:"type_at_source,omitempty"`
 	// Indicates that this property is nullable.
-	IsNullable           bool     `protobuf:"varint,10,opt,name=is_nullable,json=isNullable" json:"is_nullable,omitempty"`
+	IsNullable           bool     `protobuf:"varint,10,opt,name=is_nullable,json=isNullable,proto3" json:"is_nullable,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1056,16 +1078,17 @@ func (m *Property) Reset()         { *m = Property{} }
 func (m *Property) String() string { return proto.CompactTextString(m) }
 func (*Property) ProtoMessage()    {}
 func (*Property) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{11}
+	return fileDescriptor_41489454d08668ce, []int{11}
 }
+
 func (m *Property) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Property.Unmarshal(m, b)
 }
 func (m *Property) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Property.Marshal(b, m, deterministic)
 }
-func (dst *Property) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Property.Merge(dst, src)
+func (m *Property) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Property.Merge(m, src)
 }
 func (m *Property) XXX_Size() int {
 	return xxx_messageInfo_Property.Size(m)
@@ -1156,16 +1179,17 @@ func (m *DisconnectRequest) Reset()         { *m = DisconnectRequest{} }
 func (m *DisconnectRequest) String() string { return proto.CompactTextString(m) }
 func (*DisconnectRequest) ProtoMessage()    {}
 func (*DisconnectRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{12}
+	return fileDescriptor_41489454d08668ce, []int{12}
 }
+
 func (m *DisconnectRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DisconnectRequest.Unmarshal(m, b)
 }
 func (m *DisconnectRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DisconnectRequest.Marshal(b, m, deterministic)
 }
-func (dst *DisconnectRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DisconnectRequest.Merge(dst, src)
+func (m *DisconnectRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DisconnectRequest.Merge(m, src)
 }
 func (m *DisconnectRequest) XXX_Size() int {
 	return xxx_messageInfo_DisconnectRequest.Size(m)
@@ -1186,16 +1210,17 @@ func (m *DisconnectResponse) Reset()         { *m = DisconnectResponse{} }
 func (m *DisconnectResponse) String() string { return proto.CompactTextString(m) }
 func (*DisconnectResponse) ProtoMessage()    {}
 func (*DisconnectResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{13}
+	return fileDescriptor_41489454d08668ce, []int{13}
 }
+
 func (m *DisconnectResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DisconnectResponse.Unmarshal(m, b)
 }
 func (m *DisconnectResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DisconnectResponse.Marshal(b, m, deterministic)
 }
-func (dst *DisconnectResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DisconnectResponse.Merge(dst, src)
+func (m *DisconnectResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DisconnectResponse.Merge(m, src)
 }
 func (m *DisconnectResponse) XXX_Size() int {
 	return xxx_messageInfo_DisconnectResponse.Size(m)
@@ -1210,27 +1235,27 @@ type Record struct {
 	// Action for this record. Default value is UPSERT if the plugin
 	// cannot determine what the action should be relative to data alreay
 	// acquired.
-	Action Record_Action `protobuf:"varint,1,opt,name=action,enum=pub.Record_Action" json:"action,omitempty"`
+	Action Record_Action `protobuf:"varint,1,opt,name=action,proto3,enum=pub.Record_Action" json:"action,omitempty"`
 	// Data for this record, as a JSON string.
-	DataJson string `protobuf:"bytes,2,opt,name=data_json,json=dataJson" json:"data_json,omitempty"`
+	DataJson string `protobuf:"bytes,2,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
 	// State which should be preserved and passed back to the next
 	// call of PublishStream. Only considered if action indicates this is a state
 	// commit.
-	RealTimeStateJson string `protobuf:"bytes,3,opt,name=real_time_state_json,json=realTimeStateJson" json:"real_time_state_json,omitempty"`
+	RealTimeStateJson string `protobuf:"bytes,3,opt,name=real_time_state_json,json=realTimeStateJson,proto3" json:"real_time_state_json,omitempty"`
 	// Cause for the publish of the record.
 	// If provided, this should be an end-user readable string describing what
 	// triggered the publish. This should only be set for real time published
 	// records, where the cause may be interesting.
-	Cause string `protobuf:"bytes,4,opt,name=cause" json:"cause,omitempty"`
+	Cause string `protobuf:"bytes,4,opt,name=cause,proto3" json:"cause,omitempty"`
 	// Correlation ID for a record
 	// Only expected to be used within the WriteStream method
-	CorrelationId string `protobuf:"bytes,5,opt,name=correlation_id,json=correlationId" json:"correlation_id,omitempty"`
+	CorrelationId string `protobuf:"bytes,5,opt,name=correlation_id,json=correlationId,proto3" json:"correlation_id,omitempty"`
 	// RecordID for the source record.
 	// Only set on a replication writeback.
-	RecordId string `protobuf:"bytes,6,opt,name=record_id,json=recordId" json:"record_id,omitempty"`
+	RecordId string `protobuf:"bytes,6,opt,name=record_id,json=recordId,proto3" json:"record_id,omitempty"`
 	// Versions of the record from other sources.
 	// Only set on a replication writeback.
-	Versions             []*RecordVersion `protobuf:"bytes,7,rep,name=versions" json:"versions,omitempty"`
+	Versions             []*RecordVersion `protobuf:"bytes,7,rep,name=versions,proto3" json:"versions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -1240,16 +1265,17 @@ func (m *Record) Reset()         { *m = Record{} }
 func (m *Record) String() string { return proto.CompactTextString(m) }
 func (*Record) ProtoMessage()    {}
 func (*Record) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{14}
+	return fileDescriptor_41489454d08668ce, []int{14}
 }
+
 func (m *Record) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Record.Unmarshal(m, b)
 }
 func (m *Record) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Record.Marshal(b, m, deterministic)
 }
-func (dst *Record) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Record.Merge(dst, src)
+func (m *Record) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Record.Merge(m, src)
 }
 func (m *Record) XXX_Size() int {
 	return xxx_messageInfo_Record.Size(m)
@@ -1314,17 +1340,17 @@ func (m *Record) GetVersions() []*RecordVersion {
 // than the golden record data.
 type RecordVersion struct {
 	// The connection than produced this version.
-	ConnectionId string `protobuf:"bytes,1,opt,name=connection_id,json=connectionId" json:"connection_id,omitempty"`
+	ConnectionId string `protobuf:"bytes,1,opt,name=connection_id,json=connectionId,proto3" json:"connection_id,omitempty"`
 	// The job that produced this version.
-	JobId string `protobuf:"bytes,2,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
+	JobId string `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
 	// The schema that produced this version.
-	SchemaId string `protobuf:"bytes,3,opt,name=schema_id,json=schemaId" json:"schema_id,omitempty"`
+	SchemaId string `protobuf:"bytes,3,opt,name=schema_id,json=schemaId,proto3" json:"schema_id,omitempty"`
 	// The RID of the original record for this version.
-	RecordId string `protobuf:"bytes,4,opt,name=record_id,json=recordId" json:"record_id,omitempty"`
+	RecordId string `protobuf:"bytes,4,opt,name=record_id,json=recordId,proto3" json:"record_id,omitempty"`
 	// The shape data mapped from the schema data for this version.
-	DataJson string `protobuf:"bytes,5,opt,name=data_json,json=dataJson" json:"data_json,omitempty"`
+	DataJson string `protobuf:"bytes,5,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
 	// Any captured schema data for this version.
-	SchemaDataJson       string   `protobuf:"bytes,6,opt,name=schema_data_json,json=schemaDataJson" json:"schema_data_json,omitempty"`
+	SchemaDataJson       string   `protobuf:"bytes,6,opt,name=schema_data_json,json=schemaDataJson,proto3" json:"schema_data_json,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1334,16 +1360,17 @@ func (m *RecordVersion) Reset()         { *m = RecordVersion{} }
 func (m *RecordVersion) String() string { return proto.CompactTextString(m) }
 func (*RecordVersion) ProtoMessage()    {}
 func (*RecordVersion) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{15}
+	return fileDescriptor_41489454d08668ce, []int{15}
 }
+
 func (m *RecordVersion) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RecordVersion.Unmarshal(m, b)
 }
 func (m *RecordVersion) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RecordVersion.Marshal(b, m, deterministic)
 }
-func (dst *RecordVersion) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RecordVersion.Merge(dst, src)
+func (m *RecordVersion) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RecordVersion.Merge(m, src)
 }
 func (m *RecordVersion) XXX_Size() int {
 	return xxx_messageInfo_RecordVersion.Size(m)
@@ -1398,7 +1425,7 @@ func (m *RecordVersion) GetSchemaDataJson() string {
 
 type ConfigureQueryRequest struct {
 	// The form state for the request.
-	Form                 *ConfigurationFormRequest `protobuf:"bytes,1,opt,name=form" json:"form,omitempty"`
+	Form                 *ConfigurationFormRequest `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
 	XXX_unrecognized     []byte                    `json:"-"`
 	XXX_sizecache        int32                     `json:"-"`
@@ -1408,16 +1435,17 @@ func (m *ConfigureQueryRequest) Reset()         { *m = ConfigureQueryRequest{} }
 func (m *ConfigureQueryRequest) String() string { return proto.CompactTextString(m) }
 func (*ConfigureQueryRequest) ProtoMessage()    {}
 func (*ConfigureQueryRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{16}
+	return fileDescriptor_41489454d08668ce, []int{16}
 }
+
 func (m *ConfigureQueryRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigureQueryRequest.Unmarshal(m, b)
 }
 func (m *ConfigureQueryRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigureQueryRequest.Marshal(b, m, deterministic)
 }
-func (dst *ConfigureQueryRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigureQueryRequest.Merge(dst, src)
+func (m *ConfigureQueryRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureQueryRequest.Merge(m, src)
 }
 func (m *ConfigureQueryRequest) XXX_Size() int {
 	return xxx_messageInfo_ConfigureQueryRequest.Size(m)
@@ -1436,9 +1464,9 @@ func (m *ConfigureQueryRequest) GetForm() *ConfigurationFormRequest {
 }
 
 type ConfigureQueryResponse struct {
-	Form *ConfigurationFormResponse `protobuf:"bytes,1,opt,name=form" json:"form,omitempty"`
+	Form *ConfigurationFormResponse `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
 	// The schema that this query will produce.
-	Schema               *Schema  `protobuf:"bytes,2,opt,name=schema" json:"schema,omitempty"`
+	Schema               *Schema  `protobuf:"bytes,2,opt,name=schema,proto3" json:"schema,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1448,16 +1476,17 @@ func (m *ConfigureQueryResponse) Reset()         { *m = ConfigureQueryResponse{}
 func (m *ConfigureQueryResponse) String() string { return proto.CompactTextString(m) }
 func (*ConfigureQueryResponse) ProtoMessage()    {}
 func (*ConfigureQueryResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{17}
+	return fileDescriptor_41489454d08668ce, []int{17}
 }
+
 func (m *ConfigureQueryResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigureQueryResponse.Unmarshal(m, b)
 }
 func (m *ConfigureQueryResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigureQueryResponse.Marshal(b, m, deterministic)
 }
-func (dst *ConfigureQueryResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigureQueryResponse.Merge(dst, src)
+func (m *ConfigureQueryResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureQueryResponse.Merge(m, src)
 }
 func (m *ConfigureQueryResponse) XXX_Size() int {
 	return xxx_messageInfo_ConfigureQueryResponse.Size(m)
@@ -1484,10 +1513,10 @@ func (m *ConfigureQueryResponse) GetSchema() *Schema {
 
 type ConfigureConnectionRequest struct {
 	// The form state for the request.
-	Form *ConfigurationFormRequest `protobuf:"bytes,1,opt,name=form" json:"form,omitempty"`
+	Form *ConfigurationFormRequest `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
 	// An embedded ConnectRequest to support passing
 	// OAuth secrets into the connection configuration operation.
-	ConnectRequest       *ConnectRequest `protobuf:"bytes,2,opt,name=connect_request,json=connectRequest" json:"connect_request,omitempty"`
+	ConnectRequest       *ConnectRequest `protobuf:"bytes,2,opt,name=connect_request,json=connectRequest,proto3" json:"connect_request,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -1497,16 +1526,17 @@ func (m *ConfigureConnectionRequest) Reset()         { *m = ConfigureConnectionR
 func (m *ConfigureConnectionRequest) String() string { return proto.CompactTextString(m) }
 func (*ConfigureConnectionRequest) ProtoMessage()    {}
 func (*ConfigureConnectionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{18}
+	return fileDescriptor_41489454d08668ce, []int{18}
 }
+
 func (m *ConfigureConnectionRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigureConnectionRequest.Unmarshal(m, b)
 }
 func (m *ConfigureConnectionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigureConnectionRequest.Marshal(b, m, deterministic)
 }
-func (dst *ConfigureConnectionRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigureConnectionRequest.Merge(dst, src)
+func (m *ConfigureConnectionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureConnectionRequest.Merge(m, src)
 }
 func (m *ConfigureConnectionRequest) XXX_Size() int {
 	return xxx_messageInfo_ConfigureConnectionRequest.Size(m)
@@ -1532,11 +1562,11 @@ func (m *ConfigureConnectionRequest) GetConnectRequest() *ConnectRequest {
 }
 
 type ConfigureConnectionResponse struct {
-	Form *ConfigurationFormResponse `protobuf:"bytes,1,opt,name=form" json:"form,omitempty"`
+	Form *ConfigurationFormResponse `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
 	// An embedded ConnectResponse to support returning
 	// updated OAuth secrets from the connection configuration operation
 	// if the secrets have been updated.
-	ConnectResponse      *ConnectResponse `protobuf:"bytes,2,opt,name=connect_response,json=connectResponse" json:"connect_response,omitempty"`
+	ConnectResponse      *ConnectResponse `protobuf:"bytes,2,opt,name=connect_response,json=connectResponse,proto3" json:"connect_response,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -1546,16 +1576,17 @@ func (m *ConfigureConnectionResponse) Reset()         { *m = ConfigureConnection
 func (m *ConfigureConnectionResponse) String() string { return proto.CompactTextString(m) }
 func (*ConfigureConnectionResponse) ProtoMessage()    {}
 func (*ConfigureConnectionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{19}
+	return fileDescriptor_41489454d08668ce, []int{19}
 }
+
 func (m *ConfigureConnectionResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigureConnectionResponse.Unmarshal(m, b)
 }
 func (m *ConfigureConnectionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigureConnectionResponse.Marshal(b, m, deterministic)
 }
-func (dst *ConfigureConnectionResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigureConnectionResponse.Merge(dst, src)
+func (m *ConfigureConnectionResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureConnectionResponse.Merge(m, src)
 }
 func (m *ConfigureConnectionResponse) XXX_Size() int {
 	return xxx_messageInfo_ConfigureConnectionResponse.Size(m)
@@ -1582,9 +1613,9 @@ func (m *ConfigureConnectionResponse) GetConnectResponse() *ConnectResponse {
 
 type ConfigureRealTimeRequest struct {
 	// The form state for the request.
-	Form *ConfigurationFormRequest `protobuf:"bytes,1,opt,name=form" json:"form,omitempty"`
+	Form *ConfigurationFormRequest `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
 	// The schema (schema) which is being targeted for real time publishing.
-	Schema               *Schema  `protobuf:"bytes,2,opt,name=schema" json:"schema,omitempty"`
+	Schema               *Schema  `protobuf:"bytes,2,opt,name=schema,proto3" json:"schema,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1594,16 +1625,17 @@ func (m *ConfigureRealTimeRequest) Reset()         { *m = ConfigureRealTimeReque
 func (m *ConfigureRealTimeRequest) String() string { return proto.CompactTextString(m) }
 func (*ConfigureRealTimeRequest) ProtoMessage()    {}
 func (*ConfigureRealTimeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{20}
+	return fileDescriptor_41489454d08668ce, []int{20}
 }
+
 func (m *ConfigureRealTimeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigureRealTimeRequest.Unmarshal(m, b)
 }
 func (m *ConfigureRealTimeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigureRealTimeRequest.Marshal(b, m, deterministic)
 }
-func (dst *ConfigureRealTimeRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigureRealTimeRequest.Merge(dst, src)
+func (m *ConfigureRealTimeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureRealTimeRequest.Merge(m, src)
 }
 func (m *ConfigureRealTimeRequest) XXX_Size() int {
 	return xxx_messageInfo_ConfigureRealTimeRequest.Size(m)
@@ -1629,7 +1661,7 @@ func (m *ConfigureRealTimeRequest) GetSchema() *Schema {
 }
 
 type ConfigureRealTimeResponse struct {
-	Form                 *ConfigurationFormResponse `protobuf:"bytes,1,opt,name=form" json:"form,omitempty"`
+	Form                 *ConfigurationFormResponse `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
 	XXX_sizecache        int32                      `json:"-"`
@@ -1639,16 +1671,17 @@ func (m *ConfigureRealTimeResponse) Reset()         { *m = ConfigureRealTimeResp
 func (m *ConfigureRealTimeResponse) String() string { return proto.CompactTextString(m) }
 func (*ConfigureRealTimeResponse) ProtoMessage()    {}
 func (*ConfigureRealTimeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{21}
+	return fileDescriptor_41489454d08668ce, []int{21}
 }
+
 func (m *ConfigureRealTimeResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigureRealTimeResponse.Unmarshal(m, b)
 }
 func (m *ConfigureRealTimeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigureRealTimeResponse.Marshal(b, m, deterministic)
 }
-func (dst *ConfigureRealTimeResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigureRealTimeResponse.Merge(dst, src)
+func (m *ConfigureRealTimeResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureRealTimeResponse.Merge(m, src)
 }
 func (m *ConfigureRealTimeResponse) XXX_Size() int {
 	return xxx_messageInfo_ConfigureRealTimeResponse.Size(m)
@@ -1669,14 +1702,14 @@ func (m *ConfigureRealTimeResponse) GetForm() *ConfigurationFormResponse {
 type ConfigurationFormRequest struct {
 	// JSON object containing the current values of the settings
 	// as entered into the UI.
-	DataJson string `protobuf:"bytes,1,opt,name=data_json,json=dataJson" json:"data_json,omitempty"`
+	DataJson string `protobuf:"bytes,1,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
 	// Opaque state object from the most recent Configure*Response.
-	StateJson string `protobuf:"bytes,2,opt,name=state_json,json=stateJson" json:"state_json,omitempty"`
+	StateJson string `protobuf:"bytes,2,opt,name=state_json,json=stateJson,proto3" json:"state_json,omitempty"`
 	// If true, the user has indicated that they want to save the current
 	// settings, so the plugin should perform final validation
 	// and may attempt to perform any destructive actions needed
 	// to apply the settings.
-	IsSave               bool     `protobuf:"varint,3,opt,name=is_save,json=isSave" json:"is_save,omitempty"`
+	IsSave               bool     `protobuf:"varint,3,opt,name=is_save,json=isSave,proto3" json:"is_save,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1686,16 +1719,17 @@ func (m *ConfigurationFormRequest) Reset()         { *m = ConfigurationFormReque
 func (m *ConfigurationFormRequest) String() string { return proto.CompactTextString(m) }
 func (*ConfigurationFormRequest) ProtoMessage()    {}
 func (*ConfigurationFormRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{22}
+	return fileDescriptor_41489454d08668ce, []int{22}
 }
+
 func (m *ConfigurationFormRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigurationFormRequest.Unmarshal(m, b)
 }
 func (m *ConfigurationFormRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigurationFormRequest.Marshal(b, m, deterministic)
 }
-func (dst *ConfigurationFormRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigurationFormRequest.Merge(dst, src)
+func (m *ConfigurationFormRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigurationFormRequest.Merge(m, src)
 }
 func (m *ConfigurationFormRequest) XXX_Size() int {
 	return xxx_messageInfo_ConfigurationFormRequest.Size(m)
@@ -1729,21 +1763,21 @@ func (m *ConfigurationFormRequest) GetIsSave() bool {
 
 type ConfigurationFormResponse struct {
 	// The JSONSchema which should be used to build the form.
-	SchemaJson string `protobuf:"bytes,1,opt,name=schema_json,json=schemaJson" json:"schema_json,omitempty"`
+	SchemaJson string `protobuf:"bytes,1,opt,name=schema_json,json=schemaJson,proto3" json:"schema_json,omitempty"`
 	// The UI hints which should be provided to the form.
-	UiJson string `protobuf:"bytes,2,opt,name=ui_json,json=uiJson" json:"ui_json,omitempty"`
+	UiJson string `protobuf:"bytes,2,opt,name=ui_json,json=uiJson,proto3" json:"ui_json,omitempty"`
 	// The state object which should be passed in any future Configure*Request as
 	// part of this configuration session.
-	StateJson string `protobuf:"bytes,3,opt,name=state_json,json=stateJson" json:"state_json,omitempty"`
+	StateJson string `protobuf:"bytes,3,opt,name=state_json,json=stateJson,proto3" json:"state_json,omitempty"`
 	// Current values from the form.
-	DataJson string `protobuf:"bytes,4,opt,name=data_json,json=dataJson" json:"data_json,omitempty"`
+	DataJson string `protobuf:"bytes,4,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
 	// Errors which should be displayed attached to fields in the form,
 	// in the form of a JSON object with the same schema as the data object,
 	// but the values are arrays of strings containing the error messages.
-	DataErrorsJson string `protobuf:"bytes,5,opt,name=data_errors_json,json=dataErrorsJson" json:"data_errors_json,omitempty"`
+	DataErrorsJson string `protobuf:"bytes,5,opt,name=data_errors_json,json=dataErrorsJson,proto3" json:"data_errors_json,omitempty"`
 	// Generic errors which should be displayed at the bottom of the form,
 	// not associated with any specific fields.
-	Errors               []string `protobuf:"bytes,6,rep,name=errors" json:"errors,omitempty"`
+	Errors               []string `protobuf:"bytes,6,rep,name=errors,proto3" json:"errors,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1753,16 +1787,17 @@ func (m *ConfigurationFormResponse) Reset()         { *m = ConfigurationFormResp
 func (m *ConfigurationFormResponse) String() string { return proto.CompactTextString(m) }
 func (*ConfigurationFormResponse) ProtoMessage()    {}
 func (*ConfigurationFormResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{23}
+	return fileDescriptor_41489454d08668ce, []int{23}
 }
+
 func (m *ConfigurationFormResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigurationFormResponse.Unmarshal(m, b)
 }
 func (m *ConfigurationFormResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigurationFormResponse.Marshal(b, m, deterministic)
 }
-func (dst *ConfigurationFormResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigurationFormResponse.Merge(dst, src)
+func (m *ConfigurationFormResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigurationFormResponse.Merge(m, src)
 }
 func (m *ConfigurationFormResponse) XXX_Size() int {
 	return xxx_messageInfo_ConfigurationFormResponse.Size(m)
@@ -1816,9 +1851,9 @@ func (m *ConfigurationFormResponse) GetErrors() []string {
 }
 
 type BeginOAuthFlowRequest struct {
-	Configuration *OAuthConfiguration `protobuf:"bytes,1,opt,name=configuration" json:"configuration,omitempty"`
+	Configuration *OAuthConfiguration `protobuf:"bytes,1,opt,name=configuration,proto3" json:"configuration,omitempty"`
 	// The URL that the auth server should send the authorization token to.
-	RedirectUrl          string   `protobuf:"bytes,2,opt,name=redirect_url,json=redirectUrl" json:"redirect_url,omitempty"`
+	RedirectUrl          string   `protobuf:"bytes,2,opt,name=redirect_url,json=redirectUrl,proto3" json:"redirect_url,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1828,16 +1863,17 @@ func (m *BeginOAuthFlowRequest) Reset()         { *m = BeginOAuthFlowRequest{} }
 func (m *BeginOAuthFlowRequest) String() string { return proto.CompactTextString(m) }
 func (*BeginOAuthFlowRequest) ProtoMessage()    {}
 func (*BeginOAuthFlowRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{24}
+	return fileDescriptor_41489454d08668ce, []int{24}
 }
+
 func (m *BeginOAuthFlowRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BeginOAuthFlowRequest.Unmarshal(m, b)
 }
 func (m *BeginOAuthFlowRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BeginOAuthFlowRequest.Marshal(b, m, deterministic)
 }
-func (dst *BeginOAuthFlowRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BeginOAuthFlowRequest.Merge(dst, src)
+func (m *BeginOAuthFlowRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BeginOAuthFlowRequest.Merge(m, src)
 }
 func (m *BeginOAuthFlowRequest) XXX_Size() int {
 	return xxx_messageInfo_BeginOAuthFlowRequest.Size(m)
@@ -1864,7 +1900,7 @@ func (m *BeginOAuthFlowRequest) GetRedirectUrl() string {
 
 type BeginOAuthFlowResponse struct {
 	// The URL the user should use to start the authorization process.
-	AuthorizationUrl     string   `protobuf:"bytes,1,opt,name=authorization_url,json=authorizationUrl" json:"authorization_url,omitempty"`
+	AuthorizationUrl     string   `protobuf:"bytes,1,opt,name=authorization_url,json=authorizationUrl,proto3" json:"authorization_url,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1874,16 +1910,17 @@ func (m *BeginOAuthFlowResponse) Reset()         { *m = BeginOAuthFlowResponse{}
 func (m *BeginOAuthFlowResponse) String() string { return proto.CompactTextString(m) }
 func (*BeginOAuthFlowResponse) ProtoMessage()    {}
 func (*BeginOAuthFlowResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{25}
+	return fileDescriptor_41489454d08668ce, []int{25}
 }
+
 func (m *BeginOAuthFlowResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BeginOAuthFlowResponse.Unmarshal(m, b)
 }
 func (m *BeginOAuthFlowResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BeginOAuthFlowResponse.Marshal(b, m, deterministic)
 }
-func (dst *BeginOAuthFlowResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BeginOAuthFlowResponse.Merge(dst, src)
+func (m *BeginOAuthFlowResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BeginOAuthFlowResponse.Merge(m, src)
 }
 func (m *BeginOAuthFlowResponse) XXX_Size() int {
 	return xxx_messageInfo_BeginOAuthFlowResponse.Size(m)
@@ -1902,13 +1939,13 @@ func (m *BeginOAuthFlowResponse) GetAuthorizationUrl() string {
 }
 
 type CompleteOAuthFlowRequest struct {
-	Configuration *OAuthConfiguration `protobuf:"bytes,1,opt,name=configuration" json:"configuration,omitempty"`
+	Configuration *OAuthConfiguration `protobuf:"bytes,1,opt,name=configuration,proto3" json:"configuration,omitempty"`
 	// The URL that the OAuth flow redirected the user to after authentication.
 	// If the response_mode was 'query' this will contain the token.
-	RedirectUrl string `protobuf:"bytes,2,opt,name=redirect_url,json=redirectUrl" json:"redirect_url,omitempty"`
+	RedirectUrl string `protobuf:"bytes,2,opt,name=redirect_url,json=redirectUrl,proto3" json:"redirect_url,omitempty"`
 	// The body that the OAuth flow caused to be posted if the response_mode
 	// for the redirect was 'form_post'.
-	RedirectBody         string   `protobuf:"bytes,3,opt,name=redirect_body,json=redirectBody" json:"redirect_body,omitempty"`
+	RedirectBody         string   `protobuf:"bytes,3,opt,name=redirect_body,json=redirectBody,proto3" json:"redirect_body,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1918,16 +1955,17 @@ func (m *CompleteOAuthFlowRequest) Reset()         { *m = CompleteOAuthFlowReque
 func (m *CompleteOAuthFlowRequest) String() string { return proto.CompactTextString(m) }
 func (*CompleteOAuthFlowRequest) ProtoMessage()    {}
 func (*CompleteOAuthFlowRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{26}
+	return fileDescriptor_41489454d08668ce, []int{26}
 }
+
 func (m *CompleteOAuthFlowRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CompleteOAuthFlowRequest.Unmarshal(m, b)
 }
 func (m *CompleteOAuthFlowRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_CompleteOAuthFlowRequest.Marshal(b, m, deterministic)
 }
-func (dst *CompleteOAuthFlowRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CompleteOAuthFlowRequest.Merge(dst, src)
+func (m *CompleteOAuthFlowRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CompleteOAuthFlowRequest.Merge(m, src)
 }
 func (m *CompleteOAuthFlowRequest) XXX_Size() int {
 	return xxx_messageInfo_CompleteOAuthFlowRequest.Size(m)
@@ -1961,12 +1999,12 @@ func (m *CompleteOAuthFlowRequest) GetRedirectBody() string {
 
 type OAuthConfiguration struct {
 	// Client ID to use for resolving codes.
-	ClientId string `protobuf:"bytes,1,opt,name=client_id,json=clientId" json:"client_id,omitempty"`
+	ClientId string `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
 	// Client secret to use for resolving codes.
-	ClientSecret string `protobuf:"bytes,2,opt,name=client_secret,json=clientSecret" json:"client_secret,omitempty"`
+	ClientSecret string `protobuf:"bytes,2,opt,name=client_secret,json=clientSecret,proto3" json:"client_secret,omitempty"`
 	// The configuration blob stored for this plugin type,
 	// which can contain any data that should not be hard coded into the plugin.
-	ConfigurationJson    string   `protobuf:"bytes,3,opt,name=configuration_json,json=configurationJson" json:"configuration_json,omitempty"`
+	ConfigurationJson    string   `protobuf:"bytes,3,opt,name=configuration_json,json=configurationJson,proto3" json:"configuration_json,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1976,16 +2014,17 @@ func (m *OAuthConfiguration) Reset()         { *m = OAuthConfiguration{} }
 func (m *OAuthConfiguration) String() string { return proto.CompactTextString(m) }
 func (*OAuthConfiguration) ProtoMessage()    {}
 func (*OAuthConfiguration) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{27}
+	return fileDescriptor_41489454d08668ce, []int{27}
 }
+
 func (m *OAuthConfiguration) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OAuthConfiguration.Unmarshal(m, b)
 }
 func (m *OAuthConfiguration) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_OAuthConfiguration.Marshal(b, m, deterministic)
 }
-func (dst *OAuthConfiguration) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_OAuthConfiguration.Merge(dst, src)
+func (m *OAuthConfiguration) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OAuthConfiguration.Merge(m, src)
 }
 func (m *OAuthConfiguration) XXX_Size() int {
 	return xxx_messageInfo_OAuthConfiguration.Size(m)
@@ -2020,7 +2059,7 @@ func (m *OAuthConfiguration) GetConfigurationJson() string {
 type CompleteOAuthFlowResponse struct {
 	// JSON data containing the OAuth information the plugin wants
 	// to be passed to any connect request.
-	OauthStateJson       string   `protobuf:"bytes,1,opt,name=oauth_state_json,json=oauthStateJson" json:"oauth_state_json,omitempty"`
+	OauthStateJson       string   `protobuf:"bytes,1,opt,name=oauth_state_json,json=oauthStateJson,proto3" json:"oauth_state_json,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2030,16 +2069,17 @@ func (m *CompleteOAuthFlowResponse) Reset()         { *m = CompleteOAuthFlowResp
 func (m *CompleteOAuthFlowResponse) String() string { return proto.CompactTextString(m) }
 func (*CompleteOAuthFlowResponse) ProtoMessage()    {}
 func (*CompleteOAuthFlowResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{28}
+	return fileDescriptor_41489454d08668ce, []int{28}
 }
+
 func (m *CompleteOAuthFlowResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CompleteOAuthFlowResponse.Unmarshal(m, b)
 }
 func (m *CompleteOAuthFlowResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_CompleteOAuthFlowResponse.Marshal(b, m, deterministic)
 }
-func (dst *CompleteOAuthFlowResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CompleteOAuthFlowResponse.Merge(dst, src)
+func (m *CompleteOAuthFlowResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CompleteOAuthFlowResponse.Merge(m, src)
 }
 func (m *CompleteOAuthFlowResponse) XXX_Size() int {
 	return xxx_messageInfo_CompleteOAuthFlowResponse.Size(m)
@@ -2059,7 +2099,7 @@ func (m *CompleteOAuthFlowResponse) GetOauthStateJson() string {
 
 type ConfigureWriteRequest struct {
 	// The form state for the request.
-	Form                 *ConfigurationFormRequest `protobuf:"bytes,1,opt,name=form" json:"form,omitempty"`
+	Form                 *ConfigurationFormRequest `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
 	XXX_unrecognized     []byte                    `json:"-"`
 	XXX_sizecache        int32                     `json:"-"`
@@ -2069,16 +2109,17 @@ func (m *ConfigureWriteRequest) Reset()         { *m = ConfigureWriteRequest{} }
 func (m *ConfigureWriteRequest) String() string { return proto.CompactTextString(m) }
 func (*ConfigureWriteRequest) ProtoMessage()    {}
 func (*ConfigureWriteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{29}
+	return fileDescriptor_41489454d08668ce, []int{29}
 }
+
 func (m *ConfigureWriteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigureWriteRequest.Unmarshal(m, b)
 }
 func (m *ConfigureWriteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigureWriteRequest.Marshal(b, m, deterministic)
 }
-func (dst *ConfigureWriteRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigureWriteRequest.Merge(dst, src)
+func (m *ConfigureWriteRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureWriteRequest.Merge(m, src)
 }
 func (m *ConfigureWriteRequest) XXX_Size() int {
 	return xxx_messageInfo_ConfigureWriteRequest.Size(m)
@@ -2098,9 +2139,9 @@ func (m *ConfigureWriteRequest) GetForm() *ConfigurationFormRequest {
 
 type ConfigureWriteResponse struct {
 	// Configuration object to build the ui
-	Form *ConfigurationFormResponse `protobuf:"bytes,1,opt,name=form" json:"form,omitempty"`
+	Form *ConfigurationFormResponse `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
 	// The schema (schema) which is being targeted for write backs.
-	Schema               *Schema  `protobuf:"bytes,2,opt,name=schema" json:"schema,omitempty"`
+	Schema               *Schema  `protobuf:"bytes,2,opt,name=schema,proto3" json:"schema,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2110,16 +2151,17 @@ func (m *ConfigureWriteResponse) Reset()         { *m = ConfigureWriteResponse{}
 func (m *ConfigureWriteResponse) String() string { return proto.CompactTextString(m) }
 func (*ConfigureWriteResponse) ProtoMessage()    {}
 func (*ConfigureWriteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{30}
+	return fileDescriptor_41489454d08668ce, []int{30}
 }
+
 func (m *ConfigureWriteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigureWriteResponse.Unmarshal(m, b)
 }
 func (m *ConfigureWriteResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigureWriteResponse.Marshal(b, m, deterministic)
 }
-func (dst *ConfigureWriteResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigureWriteResponse.Merge(dst, src)
+func (m *ConfigureWriteResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureWriteResponse.Merge(m, src)
 }
 func (m *ConfigureWriteResponse) XXX_Size() int {
 	return xxx_messageInfo_ConfigureWriteResponse.Size(m)
@@ -2146,11 +2188,11 @@ func (m *ConfigureWriteResponse) GetSchema() *Schema {
 
 type ConfigureReplicationRequest struct {
 	// Configuration object to build the ui
-	Form *ConfigurationFormRequest `protobuf:"bytes,1,opt,name=form" json:"form,omitempty"`
+	Form *ConfigurationFormRequest `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
 	// The schema (based on a shape) which is being replicated.
-	Schema *Schema `protobuf:"bytes,2,opt,name=schema" json:"schema,omitempty"`
+	Schema *Schema `protobuf:"bytes,2,opt,name=schema,proto3" json:"schema,omitempty"`
 	// The versions which will be written back with this replication.
-	Versions             []*ReplicationWriteVersion `protobuf:"bytes,3,rep,name=versions" json:"versions,omitempty"`
+	Versions             []*ReplicationWriteVersion `protobuf:"bytes,3,rep,name=versions,proto3" json:"versions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
 	XXX_sizecache        int32                      `json:"-"`
@@ -2160,16 +2202,17 @@ func (m *ConfigureReplicationRequest) Reset()         { *m = ConfigureReplicatio
 func (m *ConfigureReplicationRequest) String() string { return proto.CompactTextString(m) }
 func (*ConfigureReplicationRequest) ProtoMessage()    {}
 func (*ConfigureReplicationRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{31}
+	return fileDescriptor_41489454d08668ce, []int{31}
 }
+
 func (m *ConfigureReplicationRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigureReplicationRequest.Unmarshal(m, b)
 }
 func (m *ConfigureReplicationRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigureReplicationRequest.Marshal(b, m, deterministic)
 }
-func (dst *ConfigureReplicationRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigureReplicationRequest.Merge(dst, src)
+func (m *ConfigureReplicationRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureReplicationRequest.Merge(m, src)
 }
 func (m *ConfigureReplicationRequest) XXX_Size() int {
 	return xxx_messageInfo_ConfigureReplicationRequest.Size(m)
@@ -2203,7 +2246,7 @@ func (m *ConfigureReplicationRequest) GetVersions() []*ReplicationWriteVersion {
 
 type ConfigureReplicationResponse struct {
 	// Configuration object to build the ui
-	Form                 *ConfigurationFormResponse `protobuf:"bytes,1,opt,name=form" json:"form,omitempty"`
+	Form                 *ConfigurationFormResponse `protobuf:"bytes,1,opt,name=form,proto3" json:"form,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
 	XXX_sizecache        int32                      `json:"-"`
@@ -2213,16 +2256,17 @@ func (m *ConfigureReplicationResponse) Reset()         { *m = ConfigureReplicati
 func (m *ConfigureReplicationResponse) String() string { return proto.CompactTextString(m) }
 func (*ConfigureReplicationResponse) ProtoMessage()    {}
 func (*ConfigureReplicationResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{32}
+	return fileDescriptor_41489454d08668ce, []int{32}
 }
+
 func (m *ConfigureReplicationResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigureReplicationResponse.Unmarshal(m, b)
 }
 func (m *ConfigureReplicationResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigureReplicationResponse.Marshal(b, m, deterministic)
 }
-func (dst *ConfigureReplicationResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigureReplicationResponse.Merge(dst, src)
+func (m *ConfigureReplicationResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigureReplicationResponse.Merge(m, src)
 }
 func (m *ConfigureReplicationResponse) XXX_Size() int {
 	return xxx_messageInfo_ConfigureReplicationResponse.Size(m)
@@ -2242,14 +2286,14 @@ func (m *ConfigureReplicationResponse) GetForm() *ConfigurationFormResponse {
 
 type PrepareWriteRequest struct {
 	// Time in seconds that a record write back must be acknowledged by the plugin
-	CommitSlaSeconds int32 `protobuf:"varint,1,opt,name=commit_sla_seconds,json=commitSlaSeconds" json:"commit_sla_seconds,omitempty"`
+	CommitSlaSeconds int32 `protobuf:"varint,1,opt,name=commit_sla_seconds,json=commitSlaSeconds,proto3" json:"commit_sla_seconds,omitempty"`
 	// Schema to write back to source system
-	Schema *Schema `protobuf:"bytes,2,opt,name=schema" json:"schema,omitempty"`
+	Schema *Schema `protobuf:"bytes,2,opt,name=schema,proto3" json:"schema,omitempty"`
 	// Replication information; if this is present, plugin should
 	// prepare replication targets and expect incoming records to contain
 	// replication data.
-	Replication          *ReplicationWriteRequest `protobuf:"bytes,3,opt,name=replication" json:"replication,omitempty"`
-	DataVersions         *DataVersions            `protobuf:"bytes,4,opt,name=data_versions,json=dataVersions" json:"data_versions,omitempty"`
+	Replication          *ReplicationWriteRequest `protobuf:"bytes,3,opt,name=replication,proto3" json:"replication,omitempty"`
+	DataVersions         *DataVersions            `protobuf:"bytes,4,opt,name=data_versions,json=dataVersions,proto3" json:"data_versions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -2259,16 +2303,17 @@ func (m *PrepareWriteRequest) Reset()         { *m = PrepareWriteRequest{} }
 func (m *PrepareWriteRequest) String() string { return proto.CompactTextString(m) }
 func (*PrepareWriteRequest) ProtoMessage()    {}
 func (*PrepareWriteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{33}
+	return fileDescriptor_41489454d08668ce, []int{33}
 }
+
 func (m *PrepareWriteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PrepareWriteRequest.Unmarshal(m, b)
 }
 func (m *PrepareWriteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PrepareWriteRequest.Marshal(b, m, deterministic)
 }
-func (dst *PrepareWriteRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PrepareWriteRequest.Merge(dst, src)
+func (m *PrepareWriteRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PrepareWriteRequest.Merge(m, src)
 }
 func (m *PrepareWriteRequest) XXX_Size() int {
 	return xxx_messageInfo_PrepareWriteRequest.Size(m)
@@ -2309,9 +2354,9 @@ func (m *PrepareWriteRequest) GetDataVersions() *DataVersions {
 
 type ReplicationWriteRequest struct {
 	// The versions which may be present on each replicated record.
-	Versions []*ReplicationWriteVersion `protobuf:"bytes,1,rep,name=versions" json:"versions,omitempty"`
+	Versions []*ReplicationWriteVersion `protobuf:"bytes,1,rep,name=versions,proto3" json:"versions,omitempty"`
 	// The settings produced using the ConfigureReplication operation.
-	SettingsJson         string   `protobuf:"bytes,2,opt,name=settings_json,json=settingsJson" json:"settings_json,omitempty"`
+	SettingsJson         string   `protobuf:"bytes,2,opt,name=settings_json,json=settingsJson,proto3" json:"settings_json,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2321,16 +2366,17 @@ func (m *ReplicationWriteRequest) Reset()         { *m = ReplicationWriteRequest
 func (m *ReplicationWriteRequest) String() string { return proto.CompactTextString(m) }
 func (*ReplicationWriteRequest) ProtoMessage()    {}
 func (*ReplicationWriteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{34}
+	return fileDescriptor_41489454d08668ce, []int{34}
 }
+
 func (m *ReplicationWriteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ReplicationWriteRequest.Unmarshal(m, b)
 }
 func (m *ReplicationWriteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ReplicationWriteRequest.Marshal(b, m, deterministic)
 }
-func (dst *ReplicationWriteRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ReplicationWriteRequest.Merge(dst, src)
+func (m *ReplicationWriteRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ReplicationWriteRequest.Merge(m, src)
 }
 func (m *ReplicationWriteRequest) XXX_Size() int {
 	return xxx_messageInfo_ReplicationWriteRequest.Size(m)
@@ -2359,16 +2405,16 @@ func (m *ReplicationWriteRequest) GetSettingsJson() string {
 // store the version records in a way which lets the source
 // of the version be visible to users of the replicated data.
 type ReplicationWriteVersion struct {
-	ConnectionId   string `protobuf:"bytes,1,opt,name=connection_id,json=connectionId" json:"connection_id,omitempty"`
-	ConnectionName string `protobuf:"bytes,2,opt,name=connection_name,json=connectionName" json:"connection_name,omitempty"`
-	JobId          string `protobuf:"bytes,3,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
-	JobName        string `protobuf:"bytes,4,opt,name=job_name,json=jobName" json:"job_name,omitempty"`
-	SchemaId       string `protobuf:"bytes,5,opt,name=schema_id,json=schemaId" json:"schema_id,omitempty"`
-	SchemaName     string `protobuf:"bytes,6,opt,name=schema_name,json=schemaName" json:"schema_name,omitempty"`
+	ConnectionId   string `protobuf:"bytes,1,opt,name=connection_id,json=connectionId,proto3" json:"connection_id,omitempty"`
+	ConnectionName string `protobuf:"bytes,2,opt,name=connection_name,json=connectionName,proto3" json:"connection_name,omitempty"`
+	JobId          string `protobuf:"bytes,3,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	JobName        string `protobuf:"bytes,4,opt,name=job_name,json=jobName,proto3" json:"job_name,omitempty"`
+	SchemaId       string `protobuf:"bytes,5,opt,name=schema_id,json=schemaId,proto3" json:"schema_id,omitempty"`
+	SchemaName     string `protobuf:"bytes,6,opt,name=schema_name,json=schemaName,proto3" json:"schema_name,omitempty"`
 	// If the version includes any captured schema data,
 	// this map will be a map of property ID to property type for
 	// each captured property.
-	CapturedSchemaDataProperties map[string]PropertyType `protobuf:"bytes,7,rep,name=captured_schema_data_properties,json=capturedSchemaDataProperties" json:"captured_schema_data_properties,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value,enum=pub.PropertyType"`
+	CapturedSchemaDataProperties map[string]PropertyType `protobuf:"bytes,7,rep,name=captured_schema_data_properties,json=capturedSchemaDataProperties,proto3" json:"captured_schema_data_properties,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=pub.PropertyType"`
 	XXX_NoUnkeyedLiteral         struct{}                `json:"-"`
 	XXX_unrecognized             []byte                  `json:"-"`
 	XXX_sizecache                int32                   `json:"-"`
@@ -2378,16 +2424,17 @@ func (m *ReplicationWriteVersion) Reset()         { *m = ReplicationWriteVersion
 func (m *ReplicationWriteVersion) String() string { return proto.CompactTextString(m) }
 func (*ReplicationWriteVersion) ProtoMessage()    {}
 func (*ReplicationWriteVersion) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{35}
+	return fileDescriptor_41489454d08668ce, []int{35}
 }
+
 func (m *ReplicationWriteVersion) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ReplicationWriteVersion.Unmarshal(m, b)
 }
 func (m *ReplicationWriteVersion) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ReplicationWriteVersion.Marshal(b, m, deterministic)
 }
-func (dst *ReplicationWriteVersion) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ReplicationWriteVersion.Merge(dst, src)
+func (m *ReplicationWriteVersion) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ReplicationWriteVersion.Merge(m, src)
 }
 func (m *ReplicationWriteVersion) XXX_Size() int {
 	return xxx_messageInfo_ReplicationWriteVersion.Size(m)
@@ -2457,16 +2504,17 @@ func (m *PrepareWriteResponse) Reset()         { *m = PrepareWriteResponse{} }
 func (m *PrepareWriteResponse) String() string { return proto.CompactTextString(m) }
 func (*PrepareWriteResponse) ProtoMessage()    {}
 func (*PrepareWriteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{36}
+	return fileDescriptor_41489454d08668ce, []int{36}
 }
+
 func (m *PrepareWriteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PrepareWriteResponse.Unmarshal(m, b)
 }
 func (m *PrepareWriteResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PrepareWriteResponse.Marshal(b, m, deterministic)
 }
-func (dst *PrepareWriteResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PrepareWriteResponse.Merge(dst, src)
+func (m *PrepareWriteResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PrepareWriteResponse.Merge(m, src)
 }
 func (m *PrepareWriteResponse) XXX_Size() int {
 	return xxx_messageInfo_PrepareWriteResponse.Size(m)
@@ -2479,9 +2527,9 @@ var xxx_messageInfo_PrepareWriteResponse proto.InternalMessageInfo
 
 type RecordAck struct {
 	// Correlation ID for record that has been written back
-	CorrelationId string `protobuf:"bytes,1,opt,name=correlation_id,json=correlationId" json:"correlation_id,omitempty"`
+	CorrelationId string `protobuf:"bytes,1,opt,name=correlation_id,json=correlationId,proto3" json:"correlation_id,omitempty"`
 	// Contains information about any error in writing back the record
-	Error                string   `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
+	Error                string   `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2491,16 +2539,17 @@ func (m *RecordAck) Reset()         { *m = RecordAck{} }
 func (m *RecordAck) String() string { return proto.CompactTextString(m) }
 func (*RecordAck) ProtoMessage()    {}
 func (*RecordAck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_publisher_e5b8cf82bf26977e, []int{37}
+	return fileDescriptor_41489454d08668ce, []int{37}
 }
+
 func (m *RecordAck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RecordAck.Unmarshal(m, b)
 }
 func (m *RecordAck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RecordAck.Marshal(b, m, deterministic)
 }
-func (dst *RecordAck) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RecordAck.Merge(dst, src)
+func (m *RecordAck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RecordAck.Merge(m, src)
 }
 func (m *RecordAck) XXX_Size() int {
 	return xxx_messageInfo_RecordAck.Size(m)
@@ -2525,7 +2574,179 @@ func (m *RecordAck) GetError() string {
 	return ""
 }
 
+type DiscoverRelatedEntitiesRequest struct {
+	// The schemas to discover related entities for
+	ToRelate             []*Schema `protobuf:"bytes,1,rep,name=to_relate,json=toRelate,proto3" json:"to_relate,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *DiscoverRelatedEntitiesRequest) Reset()         { *m = DiscoverRelatedEntitiesRequest{} }
+func (m *DiscoverRelatedEntitiesRequest) String() string { return proto.CompactTextString(m) }
+func (*DiscoverRelatedEntitiesRequest) ProtoMessage()    {}
+func (*DiscoverRelatedEntitiesRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_41489454d08668ce, []int{38}
+}
+
+func (m *DiscoverRelatedEntitiesRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DiscoverRelatedEntitiesRequest.Unmarshal(m, b)
+}
+func (m *DiscoverRelatedEntitiesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DiscoverRelatedEntitiesRequest.Marshal(b, m, deterministic)
+}
+func (m *DiscoverRelatedEntitiesRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DiscoverRelatedEntitiesRequest.Merge(m, src)
+}
+func (m *DiscoverRelatedEntitiesRequest) XXX_Size() int {
+	return xxx_messageInfo_DiscoverRelatedEntitiesRequest.Size(m)
+}
+func (m *DiscoverRelatedEntitiesRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DiscoverRelatedEntitiesRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DiscoverRelatedEntitiesRequest proto.InternalMessageInfo
+
+func (m *DiscoverRelatedEntitiesRequest) GetToRelate() []*Schema {
+	if m != nil {
+		return m.ToRelate
+	}
+	return nil
+}
+
+type DiscoverRelatedEntitiesResponse struct {
+	// Related entities discovered by the publisher.
+	RelatedEntities      []*RelatedEntity `protobuf:"bytes,1,rep,name=related_entities,json=relatedEntities,proto3" json:"related_entities,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
+}
+
+func (m *DiscoverRelatedEntitiesResponse) Reset()         { *m = DiscoverRelatedEntitiesResponse{} }
+func (m *DiscoverRelatedEntitiesResponse) String() string { return proto.CompactTextString(m) }
+func (*DiscoverRelatedEntitiesResponse) ProtoMessage()    {}
+func (*DiscoverRelatedEntitiesResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_41489454d08668ce, []int{39}
+}
+
+func (m *DiscoverRelatedEntitiesResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DiscoverRelatedEntitiesResponse.Unmarshal(m, b)
+}
+func (m *DiscoverRelatedEntitiesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DiscoverRelatedEntitiesResponse.Marshal(b, m, deterministic)
+}
+func (m *DiscoverRelatedEntitiesResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DiscoverRelatedEntitiesResponse.Merge(m, src)
+}
+func (m *DiscoverRelatedEntitiesResponse) XXX_Size() int {
+	return xxx_messageInfo_DiscoverRelatedEntitiesResponse.Size(m)
+}
+func (m *DiscoverRelatedEntitiesResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_DiscoverRelatedEntitiesResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DiscoverRelatedEntitiesResponse proto.InternalMessageInfo
+
+func (m *DiscoverRelatedEntitiesResponse) GetRelatedEntities() []*RelatedEntity {
+	if m != nil {
+		return m.RelatedEntities
+	}
+	return nil
+}
+
+type RelatedEntity struct {
+	// The source schema id that this applies to
+	SchemaId string `protobuf:"bytes,1,opt,name=schema_id,json=schemaId,proto3" json:"schema_id,omitempty"`
+	// The name of the source resource
+	SourceResource string `protobuf:"bytes,2,opt,name=source_resource,json=sourceResource,proto3" json:"source_resource,omitempty"`
+	// The name of the source column on the source resource
+	SourceColumn string `protobuf:"bytes,3,opt,name=source_column,json=sourceColumn,proto3" json:"source_column,omitempty"`
+	// The name of the foreign resource
+	ForeignResource string `protobuf:"bytes,4,opt,name=foreign_resource,json=foreignResource,proto3" json:"foreign_resource,omitempty"`
+	// The name of the foreign column on the foreign resource
+	ForeignColumn string `protobuf:"bytes,5,opt,name=foreign_column,json=foreignColumn,proto3" json:"foreign_column,omitempty"`
+	// The name of the type of relationship defined
+	RelationshipName     string   `protobuf:"bytes,6,opt,name=relationship_name,json=relationshipName,proto3" json:"relationship_name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RelatedEntity) Reset()         { *m = RelatedEntity{} }
+func (m *RelatedEntity) String() string { return proto.CompactTextString(m) }
+func (*RelatedEntity) ProtoMessage()    {}
+func (*RelatedEntity) Descriptor() ([]byte, []int) {
+	return fileDescriptor_41489454d08668ce, []int{40}
+}
+
+func (m *RelatedEntity) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RelatedEntity.Unmarshal(m, b)
+}
+func (m *RelatedEntity) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RelatedEntity.Marshal(b, m, deterministic)
+}
+func (m *RelatedEntity) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RelatedEntity.Merge(m, src)
+}
+func (m *RelatedEntity) XXX_Size() int {
+	return xxx_messageInfo_RelatedEntity.Size(m)
+}
+func (m *RelatedEntity) XXX_DiscardUnknown() {
+	xxx_messageInfo_RelatedEntity.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RelatedEntity proto.InternalMessageInfo
+
+func (m *RelatedEntity) GetSchemaId() string {
+	if m != nil {
+		return m.SchemaId
+	}
+	return ""
+}
+
+func (m *RelatedEntity) GetSourceResource() string {
+	if m != nil {
+		return m.SourceResource
+	}
+	return ""
+}
+
+func (m *RelatedEntity) GetSourceColumn() string {
+	if m != nil {
+		return m.SourceColumn
+	}
+	return ""
+}
+
+func (m *RelatedEntity) GetForeignResource() string {
+	if m != nil {
+		return m.ForeignResource
+	}
+	return ""
+}
+
+func (m *RelatedEntity) GetForeignColumn() string {
+	if m != nil {
+		return m.ForeignColumn
+	}
+	return ""
+}
+
+func (m *RelatedEntity) GetRelationshipName() string {
+	if m != nil {
+		return m.RelationshipName
+	}
+	return ""
+}
+
 func init() {
+	proto.RegisterEnum("pub.LogLevel", LogLevel_name, LogLevel_value)
+	proto.RegisterEnum("pub.PropertyType", PropertyType_name, PropertyType_value)
+	proto.RegisterEnum("pub.PublishFilter_Kind", PublishFilter_Kind_name, PublishFilter_Kind_value)
+	proto.RegisterEnum("pub.DiscoverSchemasRequest_Mode", DiscoverSchemasRequest_Mode_name, DiscoverSchemasRequest_Mode_value)
+	proto.RegisterEnum("pub.Schema_DataFlowDirection", Schema_DataFlowDirection_name, Schema_DataFlowDirection_value)
+	proto.RegisterEnum("pub.Count_Kind", Count_Kind_name, Count_Kind_value)
+	proto.RegisterEnum("pub.Record_Action", Record_Action_name, Record_Action_value)
 	proto.RegisterType((*DataVersions)(nil), "pub.DataVersions")
 	proto.RegisterType((*ConfigureRequest)(nil), "pub.ConfigureRequest")
 	proto.RegisterType((*ConfigureResponse)(nil), "pub.ConfigureResponse")
@@ -2565,25 +2786,200 @@ func init() {
 	proto.RegisterMapType((map[string]PropertyType)(nil), "pub.ReplicationWriteVersion.CapturedSchemaDataPropertiesEntry")
 	proto.RegisterType((*PrepareWriteResponse)(nil), "pub.PrepareWriteResponse")
 	proto.RegisterType((*RecordAck)(nil), "pub.RecordAck")
-	proto.RegisterEnum("pub.LogLevel", LogLevel_name, LogLevel_value)
-	proto.RegisterEnum("pub.PropertyType", PropertyType_name, PropertyType_value)
-	proto.RegisterEnum("pub.PublishFilter_Kind", PublishFilter_Kind_name, PublishFilter_Kind_value)
-	proto.RegisterEnum("pub.DiscoverSchemasRequest_Mode", DiscoverSchemasRequest_Mode_name, DiscoverSchemasRequest_Mode_value)
-	proto.RegisterEnum("pub.Schema_DataFlowDirection", Schema_DataFlowDirection_name, Schema_DataFlowDirection_value)
-	proto.RegisterEnum("pub.Count_Kind", Count_Kind_name, Count_Kind_value)
-	proto.RegisterEnum("pub.Record_Action", Record_Action_name, Record_Action_value)
+	proto.RegisterType((*DiscoverRelatedEntitiesRequest)(nil), "pub.DiscoverRelatedEntitiesRequest")
+	proto.RegisterType((*DiscoverRelatedEntitiesResponse)(nil), "pub.DiscoverRelatedEntitiesResponse")
+	proto.RegisterType((*RelatedEntity)(nil), "pub.RelatedEntity")
+}
+
+func init() {
+	proto.RegisterFile("publisher.proto", fileDescriptor_41489454d08668ce)
+}
+
+var fileDescriptor_41489454d08668ce = []byte{
+	// 2710 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x19, 0x4d, 0x6f, 0x1b, 0xc7,
+	0x55, 0xcb, 0x6f, 0x3e, 0x52, 0xd4, 0x6a, 0x24, 0x4b, 0x32, 0x6d, 0xc7, 0xca, 0x26, 0x41, 0x14,
+	0x25, 0xa1, 0x5d, 0xa5, 0x09, 0x82, 0x22, 0x89, 0x4b, 0x51, 0x6b, 0x9b, 0x36, 0xf5, 0x91, 0x25,
+	0x1d, 0x1b, 0x01, 0x8a, 0xed, 0x92, 0x3b, 0x92, 0xd6, 0x5e, 0xee, 0xd2, 0xb3, 0x4b, 0xa5, 0xf4,
+	0xb5, 0x08, 0xd0, 0x4b, 0x2f, 0x39, 0xf5, 0xda, 0x5b, 0xd1, 0x02, 0xed, 0xb9, 0xe7, 0x5e, 0x7b,
+	0x28, 0xd0, 0x73, 0x81, 0xb6, 0xff, 0xa2, 0x87, 0x02, 0xc5, 0x7c, 0xec, 0x72, 0x76, 0x49, 0xa9,
+	0xb2, 0x9d, 0xf6, 0xb6, 0xf3, 0xde, 0x9b, 0x37, 0xef, 0xbd, 0x79, 0x9f, 0xb3, 0xb0, 0x34, 0x1a,
+	0xf7, 0x5d, 0x27, 0x38, 0xc5, 0xa4, 0x31, 0x22, 0x7e, 0xe8, 0xa3, 0xec, 0x68, 0xdc, 0xd7, 0x7e,
+	0xa5, 0x40, 0x75, 0xcf, 0x0a, 0xad, 0xaf, 0x30, 0x09, 0x1c, 0xdf, 0x0b, 0xd0, 0x15, 0x28, 0x3c,
+	0xf5, 0xfb, 0xa6, 0x63, 0x6f, 0x28, 0x9b, 0xca, 0x56, 0xd9, 0xc8, 0x3f, 0xf5, 0xfb, 0x6d, 0x1b,
+	0x6d, 0x81, 0x4a, 0xc1, 0xb6, 0x15, 0x5a, 0xe6, 0x19, 0xa7, 0xdd, 0xc8, 0x6c, 0x2a, 0x5b, 0x8b,
+	0x46, 0xed, 0xa9, 0xdf, 0x97, 0x38, 0xa0, 0xab, 0x50, 0x0a, 0x4e, 0xad, 0x11, 0xa6, 0x2c, 0xb2,
+	0x8c, 0x45, 0x91, 0xad, 0xdb, 0x36, 0xfa, 0x00, 0x10, 0x47, 0x25, 0xd8, 0xe4, 0x18, 0x1b, 0x95,
+	0x61, 0x24, 0x46, 0xda, 0xbf, 0x15, 0x50, 0x5b, 0xbe, 0x77, 0xec, 0x9c, 0x8c, 0x09, 0x36, 0xf0,
+	0xf3, 0x31, 0x0e, 0x42, 0xb4, 0x0d, 0x65, 0xd7, 0x3f, 0x31, 0x5d, 0x7c, 0x86, 0x5d, 0x26, 0x61,
+	0x6d, 0x67, 0xb1, 0x31, 0x1a, 0xf7, 0x1b, 0x1d, 0xff, 0xa4, 0x43, 0x81, 0x46, 0xc9, 0x15, 0x5f,
+	0xe8, 0x2d, 0x58, 0xa4, 0xb4, 0xb6, 0x43, 0xf0, 0x20, 0xf4, 0xc9, 0x84, 0x09, 0x5c, 0x36, 0xaa,
+	0xae, 0x7f, 0xb2, 0x17, 0xc1, 0xd0, 0x2d, 0x58, 0x19, 0x61, 0x32, 0xb4, 0x3c, 0xec, 0x85, 0x12,
+	0x29, 0x97, 0x1c, 0xc5, 0xa8, 0xc4, 0x86, 0x10, 0x0f, 0x47, 0x3e, 0xb1, 0xc8, 0x44, 0xda, 0x90,
+	0xe3, 0x1b, 0x62, 0xd4, 0x74, 0xc3, 0x27, 0xb0, 0x28, 0xeb, 0x1b, 0x6c, 0xe4, 0x37, 0x95, 0xad,
+	0xca, 0xce, 0x32, 0x13, 0x5b, 0xb6, 0xbd, 0x51, 0xb5, 0xa5, 0x95, 0xb6, 0x02, 0xcb, 0x92, 0xfa,
+	0xc1, 0xc8, 0xf7, 0x02, 0xac, 0xfd, 0x43, 0x81, 0x5a, 0xcb, 0xf7, 0x3c, 0x3c, 0x08, 0x23, 0x93,
+	0xbc, 0x05, 0x8b, 0x01, 0x0e, 0x43, 0xc7, 0x3b, 0x09, 0xcc, 0xa7, 0x81, 0xb8, 0x97, 0xb2, 0x51,
+	0x8d, 0x80, 0x0f, 0x02, 0xdf, 0x43, 0xf7, 0x61, 0xc5, 0xb7, 0xc6, 0xe1, 0xa9, 0x39, 0x10, 0x2c,
+	0xad, 0x90, 0xda, 0x3e, 0xcb, 0x44, 0x59, 0x67, 0xa2, 0x1c, 0x36, 0xc7, 0xe1, 0x69, 0x4b, 0x46,
+	0x1b, 0x88, 0xed, 0x49, 0xc0, 0xa8, 0x27, 0x70, 0x4e, 0x41, 0x68, 0x85, 0x98, 0x9f, 0xc8, 0x95,
+	0xaf, 0x31, 0x78, 0x97, 0x82, 0xd9, 0x99, 0xaf, 0xaa, 0xf8, 0xef, 0x15, 0x58, 0x8a, 0x75, 0xe4,
+	0x7a, 0xa3, 0x77, 0xa0, 0x16, 0x2b, 0x89, 0x09, 0xf1, 0x89, 0x70, 0xcf, 0x58, 0x75, 0x9d, 0x02,
+	0xd1, 0x7b, 0xa0, 0x0e, 0xf8, 0x4e, 0xc7, 0xf7, 0x04, 0x21, 0x37, 0xc7, 0xd2, 0x14, 0xce, 0x49,
+	0x6f, 0x42, 0x85, 0xeb, 0xc1, 0xa9, 0xf8, 0x85, 0x03, 0x03, 0x71, 0x82, 0x4b, 0x2b, 0xaa, 0xfd,
+	0x25, 0x03, 0x15, 0x03, 0x5b, 0xf6, 0xf4, 0x46, 0x0a, 0xc1, 0xe0, 0x14, 0x0f, 0x2d, 0x26, 0x64,
+	0x65, 0xa7, 0xc2, 0x34, 0xee, 0x32, 0x90, 0x21, 0x50, 0x68, 0x15, 0xf2, 0xae, 0x33, 0x74, 0x42,
+	0x11, 0x46, 0x7c, 0x81, 0x3e, 0x80, 0xe2, 0xb1, 0xe3, 0x86, 0x98, 0x04, 0x1b, 0xd9, 0xcd, 0xec,
+	0x56, 0x65, 0x07, 0xb1, 0xbd, 0x47, 0x3c, 0x76, 0xef, 0x32, 0x94, 0x11, 0x91, 0xa0, 0x8f, 0x61,
+	0x9d, 0x60, 0xcb, 0x35, 0x43, 0x67, 0x88, 0xcd, 0xa4, 0x13, 0x14, 0x98, 0xa4, 0xab, 0x14, 0xdd,
+	0x73, 0x86, 0xb8, 0x2b, 0x3b, 0xc3, 0x2d, 0x58, 0x95, 0xb6, 0x4d, 0xb5, 0x2b, 0xb2, 0x3d, 0xcb,
+	0xf1, 0x9e, 0xf8, 0x26, 0xa7, 0x49, 0xa1, 0x24, 0x27, 0x85, 0x37, 0xa1, 0x9a, 0x88, 0xe4, 0x32,
+	0xd3, 0xa4, 0x22, 0x5d, 0xe6, 0xac, 0x0f, 0xc0, 0xe5, 0x7c, 0xe0, 0x37, 0x0a, 0x2c, 0x26, 0x94,
+	0x46, 0xef, 0x43, 0xee, 0x99, 0xe3, 0xd9, 0x22, 0xe8, 0xd7, 0x67, 0xcd, 0xd2, 0x78, 0xe8, 0x78,
+	0xb6, 0xc1, 0x88, 0xe8, 0xe5, 0x8e, 0x88, 0x3f, 0xc2, 0x24, 0x9c, 0x50, 0xa9, 0xb9, 0x0b, 0x40,
+	0x04, 0x6a, 0xdb, 0xd4, 0xfa, 0x67, 0x96, 0x3b, 0xc6, 0xe2, 0xde, 0xf9, 0x42, 0xfb, 0x08, 0x72,
+	0x94, 0x09, 0x02, 0x28, 0xe8, 0x5f, 0x3e, 0x6a, 0x76, 0xba, 0xea, 0x02, 0x5a, 0x84, 0x72, 0x47,
+	0xef, 0x76, 0xcd, 0xde, 0xfd, 0xe6, 0x81, 0xaa, 0x20, 0x15, 0xaa, 0xf7, 0x0c, 0xbd, 0xd9, 0xd3,
+	0x0d, 0x0e, 0xc9, 0x68, 0x7f, 0x54, 0x60, 0x6d, 0xcf, 0x09, 0x06, 0xfe, 0x19, 0x26, 0xfc, 0x8e,
+	0x83, 0xc8, 0x11, 0x7e, 0x08, 0xb9, 0xa1, 0x6f, 0x63, 0x21, 0xf3, 0x26, 0x57, 0x7a, 0x2e, 0x69,
+	0x63, 0xdf, 0xb7, 0xb1, 0xc1, 0xa8, 0xd1, 0x36, 0x40, 0xe8, 0x9b, 0x04, 0x1f, 0x13, 0x1c, 0x9c,
+	0x6e, 0x64, 0x98, 0x1b, 0x24, 0x5c, 0xa8, 0x1c, 0xfa, 0x06, 0xc7, 0x52, 0x45, 0x03, 0x6b, 0x38,
+	0x72, 0xb1, 0x19, 0x38, 0x2f, 0xb0, 0xc8, 0xa5, 0xc0, 0x41, 0x5d, 0xe7, 0x05, 0xd6, 0xae, 0x43,
+	0x8e, 0xb2, 0x46, 0x45, 0xc8, 0x36, 0x3b, 0x1d, 0x75, 0x01, 0x55, 0xa0, 0x68, 0xe8, 0x77, 0x0d,
+	0xbd, 0x7b, 0x5f, 0x55, 0xb4, 0x1f, 0xc3, 0xfa, 0x8c, 0x3c, 0x71, 0xc4, 0x15, 0xb9, 0xa7, 0x06,
+	0x1b, 0xca, 0xac, 0x08, 0x11, 0x4e, 0xfb, 0x5d, 0x16, 0x0a, 0x1c, 0x86, 0x6a, 0x90, 0x89, 0xcb,
+	0x46, 0xc6, 0xb1, 0x11, 0x82, 0x9c, 0x67, 0x0d, 0xb1, 0xb0, 0x3e, 0xfb, 0x46, 0x9b, 0x50, 0xb1,
+	0x71, 0x30, 0x20, 0xce, 0x28, 0xce, 0x3f, 0x65, 0x43, 0x06, 0xa1, 0x0f, 0x21, 0xba, 0x27, 0x07,
+	0x07, 0x1b, 0x39, 0x76, 0x34, 0x4f, 0xf1, 0x47, 0xe2, 0xfa, 0x0c, 0x89, 0x00, 0x6d, 0x42, 0x7e,
+	0xe0, 0x8f, 0xbd, 0x50, 0x24, 0x17, 0x60, 0x94, 0x2d, 0x0a, 0x31, 0x38, 0x82, 0x45, 0x23, 0xb3,
+	0xc7, 0x46, 0x41, 0xd2, 0xc3, 0xc0, 0x03, 0x9f, 0xd8, 0x86, 0x40, 0x51, 0x7f, 0x78, 0x3e, 0xc6,
+	0x64, 0x22, 0x62, 0x80, 0x2f, 0x50, 0x03, 0x56, 0xe2, 0xaa, 0x69, 0x0e, 0x71, 0x68, 0xf1, 0x38,
+	0xe1, 0x41, 0xb0, 0x1c, 0xa3, 0xf6, 0x71, 0x68, 0xb1, 0x38, 0x59, 0x83, 0x02, 0xcb, 0x26, 0xc1,
+	0x46, 0x79, 0x33, 0xbb, 0x55, 0x36, 0xc4, 0x0a, 0xed, 0xc3, 0x0a, 0x8b, 0x82, 0x63, 0xd7, 0xff,
+	0x46, 0xd4, 0x0c, 0xaa, 0x3d, 0x30, 0xb7, 0xb8, 0x21, 0xd9, 0x95, 0x85, 0xc4, 0x5d, 0xd7, 0xff,
+	0x66, 0x2f, 0x22, 0x32, 0x96, 0xed, 0x34, 0x48, 0xfb, 0x14, 0x96, 0x67, 0xe8, 0x50, 0x09, 0x72,
+	0x86, 0xde, 0xdc, 0x53, 0x17, 0x50, 0x19, 0xf2, 0x8f, 0x8d, 0x76, 0x4f, 0x57, 0x15, 0x54, 0x03,
+	0xa0, 0x40, 0x93, 0xaf, 0x33, 0x5a, 0x08, 0xf9, 0x96, 0x30, 0x8a, 0x1c, 0x4d, 0x4b, 0x53, 0xab,
+	0xc9, 0x51, 0x14, 0x07, 0x09, 0xbd, 0xc1, 0x7c, 0x14, 0x24, 0xb7, 0x45, 0x90, 0x2c, 0x41, 0xe5,
+	0xd1, 0x41, 0xf3, 0xab, 0x66, 0xbb, 0xd3, 0xdc, 0xed, 0xe8, 0xea, 0x02, 0xaa, 0x42, 0x49, 0xef,
+	0xf6, 0xda, 0xfb, 0x4d, 0x76, 0x74, 0x19, 0xf2, 0xfa, 0x93, 0x66, 0xab, 0xa7, 0x66, 0xb4, 0xbf,
+	0x65, 0xa0, 0x14, 0x5d, 0xde, 0xf7, 0xe4, 0x25, 0xef, 0x40, 0x2e, 0x9c, 0x8c, 0xb8, 0xc3, 0xd7,
+	0x44, 0x3a, 0x89, 0x8e, 0xe8, 0x4d, 0x46, 0xd8, 0x60, 0x68, 0x9a, 0xb8, 0x9c, 0xc0, 0x7c, 0x86,
+	0x27, 0xcc, 0x3d, 0x4a, 0x46, 0xde, 0x09, 0x1e, 0xe2, 0x09, 0xda, 0x86, 0x65, 0x27, 0x30, 0x07,
+	0x04, 0xd3, 0xd4, 0xc7, 0xbc, 0x04, 0x13, 0x96, 0x31, 0x4b, 0xc6, 0x92, 0x13, 0xb4, 0x18, 0xbc,
+	0xc5, 0xc1, 0x82, 0x76, 0x3c, 0xb2, 0x65, 0xda, 0x62, 0x44, 0xfb, 0x88, 0xc1, 0x23, 0xda, 0x97,
+	0xf5, 0x97, 0xb7, 0xa1, 0x46, 0xc5, 0x34, 0xad, 0xd0, 0x0c, 0xfc, 0x31, 0x19, 0x60, 0x96, 0x42,
+	0xcb, 0x46, 0x95, 0x42, 0x9b, 0x61, 0x97, 0xc1, 0x68, 0x8c, 0x3b, 0x81, 0xe9, 0x8d, 0x5d, 0xd7,
+	0xea, 0xbb, 0x98, 0x79, 0x4d, 0xc9, 0x00, 0x27, 0x38, 0x10, 0x10, 0xda, 0x29, 0xb0, 0x28, 0x96,
+	0xdb, 0x02, 0x6d, 0x15, 0x90, 0x0c, 0x14, 0xfd, 0xc3, 0x3f, 0x33, 0x50, 0xe0, 0xae, 0x8f, 0xb6,
+	0xa1, 0x60, 0x71, 0x3f, 0xe4, 0x4e, 0x80, 0xa4, 0xb8, 0x68, 0x34, 0xb9, 0xf3, 0x09, 0x0a, 0x74,
+	0x0d, 0xca, 0xcc, 0x81, 0xa5, 0xfe, 0xa2, 0x44, 0x01, 0x17, 0x96, 0x93, 0xec, 0x79, 0xe5, 0x64,
+	0x15, 0xf2, 0x03, 0x6b, 0x1c, 0x60, 0x51, 0x4e, 0xf9, 0x82, 0x96, 0xf8, 0x81, 0x4f, 0x08, 0x76,
+	0x59, 0x9f, 0x41, 0xd3, 0x76, 0x9e, 0x97, 0x78, 0x09, 0xda, 0xb6, 0xa9, 0x28, 0x84, 0xc9, 0x48,
+	0x29, 0x78, 0x95, 0x2b, 0x71, 0x40, 0xdb, 0x46, 0x0d, 0x28, 0xc5, 0x95, 0xa6, 0x28, 0xd5, 0x4f,
+	0xae, 0x95, 0xa8, 0x2e, 0x46, 0x4c, 0xa3, 0xf5, 0xa0, 0xc0, 0x35, 0xa5, 0x29, 0xff, 0xd1, 0x51,
+	0x57, 0x37, 0x7a, 0xea, 0x02, 0xfd, 0x6e, 0x1f, 0xb0, 0x6f, 0x85, 0xc3, 0xf7, 0xa8, 0x4b, 0x67,
+	0xe8, 0xf7, 0x9e, 0xde, 0xd1, 0x7b, 0xba, 0x9a, 0x45, 0x75, 0x58, 0x33, 0xf4, 0x66, 0xc7, 0xec,
+	0xb5, 0xf7, 0x75, 0xb3, 0xdb, 0x6b, 0xf6, 0x74, 0xb3, 0x75, 0xb8, 0xbf, 0xdf, 0xee, 0xa9, 0x39,
+	0xed, 0xcf, 0x0a, 0x2c, 0x26, 0x4e, 0xa4, 0x3d, 0x9a, 0xd4, 0x97, 0xc4, 0xfe, 0x5f, 0x9d, 0x02,
+	0xdb, 0xb6, 0x54, 0x65, 0x33, 0x72, 0x95, 0xbd, 0x06, 0x65, 0x9e, 0x6c, 0xa7, 0x1d, 0x75, 0x89,
+	0x03, 0xd2, 0xd6, 0xc8, 0xa5, 0xac, 0x91, 0xb8, 0xb5, 0x7c, 0xea, 0xd6, 0xb6, 0x40, 0x15, 0x6c,
+	0xa7, 0x34, 0xdc, 0x9c, 0x35, 0x0e, 0xdf, 0x13, 0x94, 0xda, 0x03, 0xb8, 0x12, 0x37, 0xa2, 0x5f,
+	0xd2, 0xbc, 0x18, 0x95, 0xb7, 0x1f, 0x40, 0xee, 0xd8, 0x27, 0x43, 0xd1, 0xe5, 0xdc, 0x10, 0x49,
+	0x44, 0x6a, 0x16, 0xef, 0xfa, 0x64, 0x28, 0x88, 0x0d, 0x46, 0xaa, 0x3d, 0x87, 0xb5, 0x34, 0x2f,
+	0x51, 0x6f, 0x76, 0x12, 0xcc, 0xde, 0x38, 0x8f, 0x19, 0xa7, 0xe6, 0xdc, 0xa4, 0x46, 0x2b, 0x73,
+	0x6e, 0xa3, 0xa5, 0xfd, 0x52, 0x81, 0x7a, 0x7c, 0x66, 0x2b, 0x36, 0xf8, 0xab, 0x2b, 0x81, 0x3e,
+	0x83, 0xa8, 0x9b, 0x34, 0x09, 0x47, 0x88, 0xf3, 0x57, 0xa2, 0xdd, 0x52, 0x20, 0x1a, 0xb5, 0x54,
+	0x60, 0x7e, 0xa7, 0xc0, 0xb5, 0xb9, 0xf2, 0xbc, 0x86, 0x21, 0xee, 0xc4, 0x7d, 0xaf, 0x49, 0x04,
+	0x46, 0x88, 0xb4, 0x9a, 0x14, 0x49, 0xec, 0x5a, 0x4a, 0xe7, 0x05, 0x02, 0x1b, 0xd2, 0xb0, 0xc1,
+	0x03, 0xf6, 0x35, 0x2c, 0x74, 0xa9, 0x8b, 0x39, 0x84, 0xab, 0x73, 0xce, 0x7c, 0x75, 0x2b, 0x68,
+	0xfe, 0x54, 0x89, 0xb4, 0x5c, 0xc9, 0x58, 0x50, 0x52, 0xb1, 0x70, 0x03, 0x40, 0xca, 0x5b, 0x3c,
+	0xfa, 0xca, 0x41, 0x9c, 0xaf, 0xd6, 0xa1, 0xe8, 0x04, 0x66, 0x60, 0x9d, 0xf1, 0x76, 0xb1, 0x64,
+	0x14, 0x9c, 0xa0, 0x6b, 0x9d, 0x61, 0xed, 0xaf, 0xca, 0x54, 0x85, 0x19, 0xa1, 0x58, 0x6f, 0xc6,
+	0x23, 0x4c, 0x3a, 0x14, 0x38, 0x28, 0xe2, 0x3b, 0x76, 0xe4, 0x33, 0x0b, 0x63, 0x67, 0x8e, 0x3c,
+	0xd9, 0xb4, 0x3c, 0x09, 0x5d, 0x72, 0xb3, 0x71, 0xcd, 0x90, 0xbc, 0xf5, 0x90, 0x63, 0xbf, 0x46,
+	0xe1, 0x6c, 0xb6, 0x09, 0x52, 0xdd, 0x4a, 0x41, 0xee, 0x56, 0xb4, 0x09, 0x5c, 0xd9, 0xc5, 0x27,
+	0x8e, 0xc7, 0x06, 0x42, 0xda, 0x64, 0x44, 0x36, 0xfc, 0x9c, 0x65, 0x31, 0x69, 0x7c, 0x54, 0x2e,
+	0x1e, 0x1f, 0x93, 0xd4, 0x74, 0x5c, 0x20, 0x98, 0x77, 0x3f, 0xe6, 0x98, 0xb8, 0x42, 0xe7, 0x4a,
+	0x04, 0x7b, 0x44, 0x5c, 0x4d, 0x87, 0xb5, 0xf4, 0xd1, 0xc2, 0x98, 0xef, 0xc3, 0x32, 0x1d, 0xba,
+	0x7c, 0xe2, 0xbc, 0xe0, 0xf5, 0x81, 0x72, 0xe0, 0x26, 0x55, 0x13, 0x08, 0xca, 0xe6, 0xd7, 0x0a,
+	0xf5, 0x04, 0xda, 0xd8, 0x85, 0xf8, 0xff, 0xaf, 0x05, 0xcd, 0xf6, 0x31, 0x49, 0xdf, 0xb7, 0xa3,
+	0xd7, 0x84, 0x78, 0xdf, 0xae, 0x6f, 0x4f, 0xb4, 0x6f, 0x15, 0x40, 0xb3, 0xa7, 0xd1, 0xbb, 0x1d,
+	0xb8, 0x0e, 0xf6, 0xc2, 0x69, 0x95, 0x28, 0x71, 0x40, 0xdb, 0x66, 0x65, 0x84, 0x23, 0x03, 0x3c,
+	0x20, 0x38, 0x8c, 0x46, 0x7d, 0x0e, 0xec, 0x32, 0x18, 0xfa, 0x10, 0x50, 0x42, 0xe2, 0x44, 0x31,
+	0x4e, 0x60, 0x58, 0x76, 0xd7, 0xa9, 0x0b, 0xcf, 0x98, 0x4a, 0x58, 0x7d, 0xde, 0x0c, 0xac, 0xcc,
+	0x9d, 0x81, 0xe5, 0x22, 0xf1, 0x98, 0x38, 0x21, 0xfe, 0x9e, 0x8a, 0x84, 0xe0, 0xf5, 0xbf, 0x2e,
+	0x12, 0x7f, 0x90, 0x93, 0xb2, 0x81, 0x47, 0xae, 0x33, 0xb0, 0x5e, 0xb3, 0x4a, 0x5c, 0xe6, 0x5c,
+	0xf4, 0xa9, 0xd4, 0xb0, 0xf0, 0x81, 0xff, 0xba, 0x68, 0x58, 0x62, 0x11, 0x98, 0x05, 0x66, 0x5b,
+	0x17, 0x03, 0xae, 0xcf, 0x17, 0xf8, 0x35, 0x12, 0xe8, 0xdf, 0x15, 0x58, 0x39, 0x22, 0x78, 0x64,
+	0xa5, 0xee, 0xf0, 0x03, 0xea, 0x52, 0xc3, 0xa1, 0x13, 0x9a, 0x81, 0x6b, 0x51, 0xdf, 0xf3, 0x3d,
+	0x3b, 0x60, 0x9c, 0xf3, 0x86, 0xca, 0x31, 0x5d, 0xd7, 0xea, 0x72, 0xf8, 0xe5, 0x14, 0xff, 0x02,
+	0x2a, 0x64, 0x2a, 0xb5, 0x78, 0x88, 0x9a, 0xaf, 0x7b, 0x64, 0x56, 0x79, 0xc3, 0xec, 0xc3, 0x42,
+	0xee, 0x72, 0x0f, 0x0b, 0x3f, 0x83, 0xf5, 0x73, 0xf8, 0x27, 0xee, 0x42, 0x79, 0x99, 0xbb, 0xb8,
+	0xd4, 0x13, 0x9c, 0xf6, 0xa7, 0xec, 0xec, 0xd1, 0x2f, 0xd5, 0x1f, 0xbe, 0x0b, 0xd2, 0x23, 0x96,
+	0x29, 0x0d, 0x4d, 0xb5, 0x29, 0xf8, 0x80, 0x8e, 0x4f, 0xd3, 0x46, 0x32, 0x2b, 0x37, 0x92, 0x57,
+	0xa1, 0x44, 0xc1, 0x6c, 0x23, 0xaf, 0x1a, 0xc5, 0xa7, 0x7e, 0x9f, 0xed, 0x48, 0xf4, 0x98, 0xf9,
+	0x54, 0x8f, 0x39, 0xad, 0x63, 0x6c, 0x6b, 0x41, 0xae, 0x63, 0x6c, 0xf7, 0xb7, 0x0a, 0xdc, 0x1c,
+	0x58, 0xa3, 0x70, 0x4c, 0xb0, 0x6d, 0xca, 0x4d, 0xa5, 0x34, 0xc8, 0xf3, 0x6e, 0xfc, 0x8b, 0x8b,
+	0x0c, 0xda, 0x68, 0x09, 0x1e, 0xdd, 0xb8, 0xff, 0x3c, 0x8a, 0x19, 0xe8, 0x5e, 0x48, 0x26, 0xc6,
+	0xf5, 0xc1, 0x05, 0x24, 0xf5, 0x3e, 0xbc, 0xf9, 0x5f, 0x59, 0x20, 0x15, 0xb2, 0x74, 0x1e, 0xe4,
+	0x06, 0xa6, 0x9f, 0xe8, 0x5d, 0x79, 0xcc, 0x9d, 0x3b, 0x4c, 0x72, 0xfc, 0x8f, 0x32, 0x9f, 0x2a,
+	0xda, 0x1a, 0xac, 0x26, 0x23, 0x44, 0x34, 0x50, 0xf7, 0xa1, 0xcc, 0x5b, 0xfe, 0xe6, 0xe0, 0xd9,
+	0x9c, 0x51, 0x46, 0x99, 0x37, 0xca, 0xac, 0x42, 0x5e, 0x7e, 0xa2, 0xe4, 0x0b, 0xed, 0x01, 0xbc,
+	0x11, 0xbd, 0xc9, 0x18, 0x94, 0x16, 0xdb, 0xba, 0x17, 0x3a, 0x54, 0x81, 0xc8, 0x51, 0xb7, 0xa0,
+	0xcc, 0x1e, 0x88, 0x28, 0x72, 0xde, 0xe3, 0x4c, 0x29, 0xf4, 0xf9, 0x4e, 0xed, 0xa7, 0x70, 0xf3,
+	0x5c, 0x5e, 0x22, 0x4f, 0x7c, 0x0e, 0x2a, 0xe7, 0x64, 0x9b, 0x58, 0xe0, 0x04, 0xcf, 0x68, 0x74,
+	0x9a, 0xee, 0x9b, 0x18, 0x4b, 0x24, 0xc9, 0x46, 0xfb, 0x17, 0x9b, 0x75, 0x24, 0x92, 0xa4, 0x2f,
+	0x29, 0x29, 0x5f, 0x7a, 0x17, 0x96, 0xf8, 0xa4, 0x4b, 0xfb, 0x54, 0x3e, 0xf2, 0x0a, 0x1f, 0xe6,
+	0x2b, 0x43, 0x40, 0x59, 0x48, 0x71, 0xc2, 0x81, 0xef, 0x8e, 0x87, 0x51, 0x01, 0xab, 0x72, 0x60,
+	0x8b, 0xc1, 0xd0, 0x7b, 0xa0, 0x1e, 0xfb, 0x04, 0x3b, 0x27, 0xde, 0x94, 0x1d, 0xf7, 0xec, 0x25,
+	0x01, 0x8f, 0xf9, 0xbd, 0x03, 0xb5, 0x88, 0x54, 0x30, 0x14, 0xd3, 0xa5, 0x80, 0x0a, 0x8e, 0xef,
+	0xc3, 0x72, 0x74, 0x41, 0xc1, 0xa9, 0x33, 0x92, 0x3d, 0x5e, 0x95, 0x11, 0xd4, 0xef, 0xb7, 0xef,
+	0x40, 0x29, 0xfa, 0xed, 0xc0, 0x9e, 0x3b, 0xe8, 0xf5, 0xa9, 0x0b, 0xa8, 0x04, 0xb9, 0xc7, 0x16,
+	0xf1, 0x54, 0x85, 0x7e, 0xb5, 0xbd, 0x63, 0x5f, 0xcd, 0x50, 0xf4, 0x1e, 0xee, 0x8f, 0x4f, 0xd4,
+	0x2c, 0xfd, 0xec, 0x11, 0x6b, 0x80, 0xd5, 0xdc, 0xf6, 0x77, 0x0a, 0x54, 0x65, 0x47, 0xa3, 0x13,
+	0x66, 0xb7, 0x67, 0xb4, 0x0f, 0xee, 0x71, 0x36, 0xbb, 0x87, 0x87, 0x1d, 0x35, 0x83, 0x2a, 0x50,
+	0x6c, 0x1f, 0xf4, 0xf4, 0x7b, 0xba, 0xc1, 0xb7, 0xdf, 0xed, 0x1c, 0x36, 0x7b, 0x6a, 0x8e, 0xc2,
+	0xf7, 0xf4, 0x56, 0x7b, 0xbf, 0xd9, 0x51, 0xf3, 0x94, 0x9c, 0x8d, 0xa9, 0x05, 0xfa, 0x45, 0xa7,
+	0x52, 0xb5, 0x88, 0xaa, 0x50, 0xa2, 0x30, 0xb6, 0x2a, 0x31, 0xb8, 0xfe, 0xa4, 0xa7, 0x96, 0x19,
+	0xeb, 0xce, 0xe1, 0xae, 0x0a, 0xf4, 0xeb, 0x41, 0xf7, 0xf0, 0x40, 0xad, 0xa0, 0x22, 0x64, 0x9f,
+	0xec, 0x77, 0xd4, 0xea, 0xce, 0xcf, 0x2b, 0x50, 0x3e, 0x8a, 0x9e, 0x2a, 0xd0, 0x67, 0x50, 0x8e,
+	0xcb, 0x0c, 0xba, 0x92, 0xa8, 0x22, 0x51, 0xe2, 0xac, 0xaf, 0xa5, 0xc1, 0x22, 0x26, 0x16, 0xd0,
+	0x27, 0x50, 0x14, 0xa3, 0x07, 0x9a, 0x37, 0x1b, 0xd5, 0xe7, 0x4e, 0x27, 0xda, 0x02, 0xba, 0x13,
+	0xff, 0xe5, 0xe8, 0xe2, 0x80, 0x65, 0xc8, 0x97, 0xd9, 0x7e, 0x5b, 0x41, 0x47, 0x50, 0x8b, 0x1f,
+	0x36, 0x4f, 0xad, 0x11, 0x0e, 0xd0, 0xb5, 0x0b, 0x5e, 0x5f, 0xeb, 0xd7, 0xe7, 0x23, 0x05, 0xc3,
+	0xec, 0x2f, 0x32, 0x0a, 0x3a, 0x80, 0xa5, 0x14, 0xfe, 0x75, 0x58, 0x2e, 0x20, 0x1d, 0xae, 0xa4,
+	0x90, 0xdd, 0x90, 0x60, 0x6b, 0x78, 0x31, 0x57, 0x39, 0xce, 0x99, 0xa2, 0x1f, 0xc7, 0xef, 0xe4,
+	0x62, 0xbb, 0x2a, 0xa2, 0x36, 0xfe, 0x1d, 0x51, 0x97, 0x1f, 0x3c, 0x99, 0x2e, 0xb7, 0x15, 0x74,
+	0x0b, 0x80, 0x92, 0x5c, 0x6e, 0x0f, 0x3d, 0xe7, 0x0e, 0xc0, 0xf4, 0x39, 0x09, 0xad, 0x4d, 0x65,
+	0x4c, 0x5c, 0xc8, 0xfa, 0x0c, 0x3c, 0xd6, 0xf7, 0x6b, 0x58, 0x99, 0x33, 0xf5, 0xa2, 0x9b, 0x49,
+	0xdf, 0x99, 0x99, 0xcf, 0xeb, 0x9b, 0xe7, 0x13, 0xc4, 0xbc, 0x1f, 0x32, 0x77, 0x91, 0x5e, 0x15,
+	0x50, 0x3d, 0xb9, 0x4b, 0x7e, 0xb6, 0xa8, 0x5f, 0x9b, 0x8b, 0x8b, 0x99, 0xf5, 0x12, 0xff, 0xdd,
+	0xf8, 0x58, 0x8a, 0x6e, 0xa4, 0x5d, 0x3c, 0x31, 0x22, 0xd7, 0xdf, 0x38, 0x0f, 0x2d, 0x8b, 0x98,
+	0x9c, 0x6c, 0x84, 0x88, 0x73, 0x27, 0x2d, 0x21, 0xe2, 0xfc, 0x51, 0x28, 0x12, 0x31, 0xd5, 0xb3,
+	0xc7, 0x22, 0xce, 0x1f, 0x7b, 0x62, 0x11, 0xcf, 0x69, 0xf5, 0x53, 0x56, 0x64, 0xc5, 0x2d, 0x6d,
+	0x45, 0xb9, 0x5b, 0x4a, 0x5b, 0x31, 0x59, 0x0d, 0x17, 0xd0, 0x4f, 0x60, 0x75, 0x5e, 0x7b, 0x8a,
+	0x36, 0xd3, 0x96, 0x4a, 0xb7, 0xda, 0xf5, 0x37, 0x2f, 0xa0, 0x90, 0xa2, 0xa7, 0x2a, 0x97, 0x61,
+	0xb4, 0x21, 0x8a, 0xf6, 0x4c, 0xef, 0x5a, 0xbf, 0x3a, 0x07, 0x13, 0xb3, 0xb9, 0x0d, 0x15, 0x06,
+	0x12, 0x71, 0x20, 0x7b, 0x7d, 0xbd, 0x26, 0x2d, 0x9a, 0x83, 0x67, 0xda, 0xc2, 0x16, 0x0d, 0x9c,
+	0xe3, 0xe9, 0x1f, 0x93, 0x54, 0x45, 0x45, 0x6f, 0x25, 0x02, 0x77, 0x7e, 0xed, 0xae, 0xbf, 0x7d,
+	0x31, 0x51, 0x24, 0xd9, 0xee, 0xe6, 0xd7, 0xf9, 0xc6, 0xad, 0xd1, 0xb8, 0xff, 0xdb, 0xcc, 0x5a,
+	0x73, 0xec, 0x59, 0xee, 0x24, 0x74, 0x06, 0x41, 0xa3, 0x6b, 0x3f, 0x6b, 0x1c, 0xb9, 0xe3, 0x13,
+	0xc7, 0x0b, 0xfa, 0x05, 0xf6, 0x1b, 0xff, 0xa3, 0xff, 0x04, 0x00, 0x00, 0xff, 0xff, 0x09, 0xbf,
+	0x3d, 0xeb, 0xd9, 0x1f, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
-var _ grpc.ClientConn
+var _ grpc.ClientConnInterface
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion4
+const _ = grpc.SupportPackageIsVersion6
 
-// Client API for Publisher service
-
+// PublisherClient is the client API for Publisher service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type PublisherClient interface {
 	// Configures the plugin.
 	Configure(ctx context.Context, in *ConfigureRequest, opts ...grpc.CallOption) (*ConfigureResponse, error)
@@ -2601,6 +2997,8 @@ type PublisherClient interface {
 	//
 	// Deprecated: Deprecated in API version 2. Implement DiscoverSchemasStream
 	// instead.
+	//
+	// Deprecated: Do not use.
 	DiscoverShapes(ctx context.Context, in *DiscoverSchemasRequest, opts ...grpc.CallOption) (*DiscoverSchemasResponse, error)
 	// Requests a listing of schemas this publisher can provide records for.
 	// New plugins should implement DiscoverSchemaStream and stream discovered
@@ -2617,6 +3015,8 @@ type PublisherClient interface {
 	// Implement ReadStream instead.
 	//
 	// Deprecated: Deprecated in API Version 2. Implement ReadStream instead.
+	//
+	// Deprecated: Do not use.
 	PublishStream(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (Publisher_PublishStreamClient, error)
 	// ReadStream begins streaming records to the client from the plugin.
 	// API Version: 2
@@ -2657,19 +3057,21 @@ type PublisherClient interface {
 	// acks for write backs This must be implemented if the manifest has
 	// `canWrite` set to true.
 	WriteStream(ctx context.Context, opts ...grpc.CallOption) (Publisher_WriteStreamClient, error)
+	// Requests a listing of all related entities.
+	DiscoverRelatedEntities(ctx context.Context, in *DiscoverRelatedEntitiesRequest, opts ...grpc.CallOption) (*DiscoverRelatedEntitiesResponse, error)
 }
 
 type publisherClient struct {
-	cc *grpc.ClientConn
+	cc grpc.ClientConnInterface
 }
 
-func NewPublisherClient(cc *grpc.ClientConn) PublisherClient {
+func NewPublisherClient(cc grpc.ClientConnInterface) PublisherClient {
 	return &publisherClient{cc}
 }
 
 func (c *publisherClient) Configure(ctx context.Context, in *ConfigureRequest, opts ...grpc.CallOption) (*ConfigureResponse, error) {
 	out := new(ConfigureResponse)
-	err := grpc.Invoke(ctx, "/pub.Publisher/Configure", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/Configure", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2678,7 +3080,7 @@ func (c *publisherClient) Configure(ctx context.Context, in *ConfigureRequest, o
 
 func (c *publisherClient) Connect(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (*ConnectResponse, error) {
 	out := new(ConnectResponse)
-	err := grpc.Invoke(ctx, "/pub.Publisher/Connect", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/Connect", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2686,7 +3088,7 @@ func (c *publisherClient) Connect(ctx context.Context, in *ConnectRequest, opts 
 }
 
 func (c *publisherClient) ConnectSession(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (Publisher_ConnectSessionClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Publisher_serviceDesc.Streams[0], c.cc, "/pub.Publisher/ConnectSession", opts...)
+	stream, err := c.cc.NewStream(ctx, &_Publisher_serviceDesc.Streams[0], "/pub.Publisher/ConnectSession", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2720,7 +3122,7 @@ func (x *publisherConnectSessionClient) Recv() (*ConnectResponse, error) {
 // Deprecated: Do not use.
 func (c *publisherClient) DiscoverShapes(ctx context.Context, in *DiscoverSchemasRequest, opts ...grpc.CallOption) (*DiscoverSchemasResponse, error) {
 	out := new(DiscoverSchemasResponse)
-	err := grpc.Invoke(ctx, "/pub.Publisher/DiscoverShapes", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/DiscoverShapes", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2729,7 +3131,7 @@ func (c *publisherClient) DiscoverShapes(ctx context.Context, in *DiscoverSchema
 
 func (c *publisherClient) DiscoverSchemas(ctx context.Context, in *DiscoverSchemasRequest, opts ...grpc.CallOption) (*DiscoverSchemasResponse, error) {
 	out := new(DiscoverSchemasResponse)
-	err := grpc.Invoke(ctx, "/pub.Publisher/DiscoverSchemas", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/DiscoverSchemas", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2737,7 +3139,7 @@ func (c *publisherClient) DiscoverSchemas(ctx context.Context, in *DiscoverSchem
 }
 
 func (c *publisherClient) DiscoverSchemasStream(ctx context.Context, in *DiscoverSchemasRequest, opts ...grpc.CallOption) (Publisher_DiscoverSchemasStreamClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Publisher_serviceDesc.Streams[1], c.cc, "/pub.Publisher/DiscoverSchemasStream", opts...)
+	stream, err := c.cc.NewStream(ctx, &_Publisher_serviceDesc.Streams[1], "/pub.Publisher/DiscoverSchemasStream", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2770,7 +3172,7 @@ func (x *publisherDiscoverSchemasStreamClient) Recv() (*Schema, error) {
 
 // Deprecated: Do not use.
 func (c *publisherClient) PublishStream(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (Publisher_PublishStreamClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Publisher_serviceDesc.Streams[2], c.cc, "/pub.Publisher/PublishStream", opts...)
+	stream, err := c.cc.NewStream(ctx, &_Publisher_serviceDesc.Streams[2], "/pub.Publisher/PublishStream", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2802,7 +3204,7 @@ func (x *publisherPublishStreamClient) Recv() (*Record, error) {
 }
 
 func (c *publisherClient) ReadStream(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (Publisher_ReadStreamClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Publisher_serviceDesc.Streams[3], c.cc, "/pub.Publisher/ReadStream", opts...)
+	stream, err := c.cc.NewStream(ctx, &_Publisher_serviceDesc.Streams[3], "/pub.Publisher/ReadStream", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2835,7 +3237,7 @@ func (x *publisherReadStreamClient) Recv() (*Record, error) {
 
 func (c *publisherClient) Disconnect(ctx context.Context, in *DisconnectRequest, opts ...grpc.CallOption) (*DisconnectResponse, error) {
 	out := new(DisconnectResponse)
-	err := grpc.Invoke(ctx, "/pub.Publisher/Disconnect", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/Disconnect", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2844,7 +3246,7 @@ func (c *publisherClient) Disconnect(ctx context.Context, in *DisconnectRequest,
 
 func (c *publisherClient) ConfigureConnection(ctx context.Context, in *ConfigureConnectionRequest, opts ...grpc.CallOption) (*ConfigureConnectionResponse, error) {
 	out := new(ConfigureConnectionResponse)
-	err := grpc.Invoke(ctx, "/pub.Publisher/ConfigureConnection", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/ConfigureConnection", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2853,7 +3255,7 @@ func (c *publisherClient) ConfigureConnection(ctx context.Context, in *Configure
 
 func (c *publisherClient) ConfigureQuery(ctx context.Context, in *ConfigureQueryRequest, opts ...grpc.CallOption) (*ConfigureQueryResponse, error) {
 	out := new(ConfigureQueryResponse)
-	err := grpc.Invoke(ctx, "/pub.Publisher/ConfigureQuery", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/ConfigureQuery", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2862,7 +3264,7 @@ func (c *publisherClient) ConfigureQuery(ctx context.Context, in *ConfigureQuery
 
 func (c *publisherClient) ConfigureRealTime(ctx context.Context, in *ConfigureRealTimeRequest, opts ...grpc.CallOption) (*ConfigureRealTimeResponse, error) {
 	out := new(ConfigureRealTimeResponse)
-	err := grpc.Invoke(ctx, "/pub.Publisher/ConfigureRealTime", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/ConfigureRealTime", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2871,7 +3273,7 @@ func (c *publisherClient) ConfigureRealTime(ctx context.Context, in *ConfigureRe
 
 func (c *publisherClient) BeginOAuthFlow(ctx context.Context, in *BeginOAuthFlowRequest, opts ...grpc.CallOption) (*BeginOAuthFlowResponse, error) {
 	out := new(BeginOAuthFlowResponse)
-	err := grpc.Invoke(ctx, "/pub.Publisher/BeginOAuthFlow", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/BeginOAuthFlow", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2880,7 +3282,7 @@ func (c *publisherClient) BeginOAuthFlow(ctx context.Context, in *BeginOAuthFlow
 
 func (c *publisherClient) CompleteOAuthFlow(ctx context.Context, in *CompleteOAuthFlowRequest, opts ...grpc.CallOption) (*CompleteOAuthFlowResponse, error) {
 	out := new(CompleteOAuthFlowResponse)
-	err := grpc.Invoke(ctx, "/pub.Publisher/CompleteOAuthFlow", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/CompleteOAuthFlow", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2889,7 +3291,7 @@ func (c *publisherClient) CompleteOAuthFlow(ctx context.Context, in *CompleteOAu
 
 func (c *publisherClient) ConfigureWrite(ctx context.Context, in *ConfigureWriteRequest, opts ...grpc.CallOption) (*ConfigureWriteResponse, error) {
 	out := new(ConfigureWriteResponse)
-	err := grpc.Invoke(ctx, "/pub.Publisher/ConfigureWrite", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/ConfigureWrite", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2898,7 +3300,7 @@ func (c *publisherClient) ConfigureWrite(ctx context.Context, in *ConfigureWrite
 
 func (c *publisherClient) ConfigureReplication(ctx context.Context, in *ConfigureReplicationRequest, opts ...grpc.CallOption) (*ConfigureReplicationResponse, error) {
 	out := new(ConfigureReplicationResponse)
-	err := grpc.Invoke(ctx, "/pub.Publisher/ConfigureReplication", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/ConfigureReplication", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2907,7 +3309,7 @@ func (c *publisherClient) ConfigureReplication(ctx context.Context, in *Configur
 
 func (c *publisherClient) PrepareWrite(ctx context.Context, in *PrepareWriteRequest, opts ...grpc.CallOption) (*PrepareWriteResponse, error) {
 	out := new(PrepareWriteResponse)
-	err := grpc.Invoke(ctx, "/pub.Publisher/PrepareWrite", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/PrepareWrite", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2915,7 +3317,7 @@ func (c *publisherClient) PrepareWrite(ctx context.Context, in *PrepareWriteRequ
 }
 
 func (c *publisherClient) WriteStream(ctx context.Context, opts ...grpc.CallOption) (Publisher_WriteStreamClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Publisher_serviceDesc.Streams[4], c.cc, "/pub.Publisher/WriteStream", opts...)
+	stream, err := c.cc.NewStream(ctx, &_Publisher_serviceDesc.Streams[4], "/pub.Publisher/WriteStream", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2945,8 +3347,16 @@ func (x *publisherWriteStreamClient) Recv() (*RecordAck, error) {
 	return m, nil
 }
 
-// Server API for Publisher service
+func (c *publisherClient) DiscoverRelatedEntities(ctx context.Context, in *DiscoverRelatedEntitiesRequest, opts ...grpc.CallOption) (*DiscoverRelatedEntitiesResponse, error) {
+	out := new(DiscoverRelatedEntitiesResponse)
+	err := c.cc.Invoke(ctx, "/pub.Publisher/DiscoverRelatedEntities", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
 
+// PublisherServer is the server API for Publisher service.
 type PublisherServer interface {
 	// Configures the plugin.
 	Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error)
@@ -2964,6 +3374,8 @@ type PublisherServer interface {
 	//
 	// Deprecated: Deprecated in API version 2. Implement DiscoverSchemasStream
 	// instead.
+	//
+	// Deprecated: Do not use.
 	DiscoverShapes(context.Context, *DiscoverSchemasRequest) (*DiscoverSchemasResponse, error)
 	// Requests a listing of schemas this publisher can provide records for.
 	// New plugins should implement DiscoverSchemaStream and stream discovered
@@ -2980,6 +3392,8 @@ type PublisherServer interface {
 	// Implement ReadStream instead.
 	//
 	// Deprecated: Deprecated in API Version 2. Implement ReadStream instead.
+	//
+	// Deprecated: Do not use.
 	PublishStream(*ReadRequest, Publisher_PublishStreamServer) error
 	// ReadStream begins streaming records to the client from the plugin.
 	// API Version: 2
@@ -3020,6 +3434,70 @@ type PublisherServer interface {
 	// acks for write backs This must be implemented if the manifest has
 	// `canWrite` set to true.
 	WriteStream(Publisher_WriteStreamServer) error
+	// Requests a listing of all related entities.
+	DiscoverRelatedEntities(context.Context, *DiscoverRelatedEntitiesRequest) (*DiscoverRelatedEntitiesResponse, error)
+}
+
+// UnimplementedPublisherServer can be embedded to have forward compatible implementations.
+type UnimplementedPublisherServer struct {
+}
+
+func (*UnimplementedPublisherServer) Configure(ctx context.Context, req *ConfigureRequest) (*ConfigureResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Configure not implemented")
+}
+func (*UnimplementedPublisherServer) Connect(ctx context.Context, req *ConnectRequest) (*ConnectResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Connect not implemented")
+}
+func (*UnimplementedPublisherServer) ConnectSession(req *ConnectRequest, srv Publisher_ConnectSessionServer) error {
+	return status.Errorf(codes.Unimplemented, "method ConnectSession not implemented")
+}
+func (*UnimplementedPublisherServer) DiscoverShapes(ctx context.Context, req *DiscoverSchemasRequest) (*DiscoverSchemasResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DiscoverShapes not implemented")
+}
+func (*UnimplementedPublisherServer) DiscoverSchemas(ctx context.Context, req *DiscoverSchemasRequest) (*DiscoverSchemasResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DiscoverSchemas not implemented")
+}
+func (*UnimplementedPublisherServer) DiscoverSchemasStream(req *DiscoverSchemasRequest, srv Publisher_DiscoverSchemasStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method DiscoverSchemasStream not implemented")
+}
+func (*UnimplementedPublisherServer) PublishStream(req *ReadRequest, srv Publisher_PublishStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method PublishStream not implemented")
+}
+func (*UnimplementedPublisherServer) ReadStream(req *ReadRequest, srv Publisher_ReadStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method ReadStream not implemented")
+}
+func (*UnimplementedPublisherServer) Disconnect(ctx context.Context, req *DisconnectRequest) (*DisconnectResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Disconnect not implemented")
+}
+func (*UnimplementedPublisherServer) ConfigureConnection(ctx context.Context, req *ConfigureConnectionRequest) (*ConfigureConnectionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfigureConnection not implemented")
+}
+func (*UnimplementedPublisherServer) ConfigureQuery(ctx context.Context, req *ConfigureQueryRequest) (*ConfigureQueryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfigureQuery not implemented")
+}
+func (*UnimplementedPublisherServer) ConfigureRealTime(ctx context.Context, req *ConfigureRealTimeRequest) (*ConfigureRealTimeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfigureRealTime not implemented")
+}
+func (*UnimplementedPublisherServer) BeginOAuthFlow(ctx context.Context, req *BeginOAuthFlowRequest) (*BeginOAuthFlowResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BeginOAuthFlow not implemented")
+}
+func (*UnimplementedPublisherServer) CompleteOAuthFlow(ctx context.Context, req *CompleteOAuthFlowRequest) (*CompleteOAuthFlowResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CompleteOAuthFlow not implemented")
+}
+func (*UnimplementedPublisherServer) ConfigureWrite(ctx context.Context, req *ConfigureWriteRequest) (*ConfigureWriteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfigureWrite not implemented")
+}
+func (*UnimplementedPublisherServer) ConfigureReplication(ctx context.Context, req *ConfigureReplicationRequest) (*ConfigureReplicationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfigureReplication not implemented")
+}
+func (*UnimplementedPublisherServer) PrepareWrite(ctx context.Context, req *PrepareWriteRequest) (*PrepareWriteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrepareWrite not implemented")
+}
+func (*UnimplementedPublisherServer) WriteStream(srv Publisher_WriteStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method WriteStream not implemented")
+}
+func (*UnimplementedPublisherServer) DiscoverRelatedEntities(ctx context.Context, req *DiscoverRelatedEntitiesRequest) (*DiscoverRelatedEntitiesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DiscoverRelatedEntities not implemented")
 }
 
 func RegisterPublisherServer(s *grpc.Server, srv PublisherServer) {
@@ -3370,6 +3848,24 @@ func (x *publisherWriteStreamServer) Recv() (*Record, error) {
 	return m, nil
 }
 
+func _Publisher_DiscoverRelatedEntities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DiscoverRelatedEntitiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PublisherServer).DiscoverRelatedEntities(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pub.Publisher/DiscoverRelatedEntities",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PublisherServer).DiscoverRelatedEntities(ctx, req.(*DiscoverRelatedEntitiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Publisher_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pub.Publisher",
 	HandlerType: (*PublisherServer)(nil),
@@ -3426,6 +3922,10 @@ var _Publisher_serviceDesc = grpc.ServiceDesc{
 			MethodName: "PrepareWrite",
 			Handler:    _Publisher_PrepareWrite_Handler,
 		},
+		{
+			MethodName: "DiscoverRelatedEntities",
+			Handler:    _Publisher_DiscoverRelatedEntities_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -3456,167 +3956,4 @@ var _Publisher_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Metadata: "publisher.proto",
-}
-
-func init() { proto.RegisterFile("publisher.proto", fileDescriptor_publisher_e5b8cf82bf26977e) }
-
-var fileDescriptor_publisher_e5b8cf82bf26977e = []byte{
-	// 2509 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x39, 0xcd, 0x6f, 0x1b, 0xc7,
-	0xf5, 0x5a, 0x7e, 0xf3, 0x91, 0xa2, 0x56, 0x23, 0x59, 0x92, 0x69, 0x3b, 0x91, 0x37, 0xbf, 0x20,
-	0xfa, 0x29, 0x8e, 0xec, 0x2a, 0x4d, 0x60, 0x14, 0x69, 0x5c, 0x9a, 0x5a, 0xdb, 0xb4, 0xa9, 0x8f,
-	0x0c, 0xe9, 0xd8, 0x28, 0x50, 0x2c, 0x96, 0xdc, 0x91, 0xb4, 0xf6, 0x92, 0x4b, 0xcf, 0x2e, 0x95,
-	0xd2, 0xf7, 0x00, 0xbd, 0xf4, 0x92, 0x53, 0x81, 0x9e, 0x7a, 0x2b, 0x50, 0xa0, 0x3d, 0xf7, 0xdc,
-	0x6b, 0x0f, 0x05, 0x7a, 0x2e, 0xd0, 0xf6, 0xff, 0x28, 0x50, 0xcc, 0xc7, 0x2e, 0x67, 0x97, 0x94,
-	0x2a, 0xdb, 0x69, 0x6f, 0xdc, 0xf7, 0x35, 0xef, 0xbd, 0x79, 0x9f, 0x43, 0x58, 0x1a, 0x8d, 0x7b,
-	0x9e, 0x1b, 0x9c, 0x12, 0xba, 0x33, 0xa2, 0x7e, 0xe8, 0xa3, 0xec, 0x68, 0xdc, 0x33, 0x7e, 0xa5,
-	0x41, 0x75, 0xcf, 0x0e, 0xed, 0xaf, 0x09, 0x0d, 0x5c, 0x7f, 0x18, 0xa0, 0x2b, 0x50, 0x78, 0xe1,
-	0xf7, 0x2c, 0xd7, 0xd9, 0xd0, 0x36, 0xb5, 0xad, 0x32, 0xce, 0xbf, 0xf0, 0x7b, 0x2d, 0x07, 0x6d,
-	0x81, 0xce, 0xc0, 0x8e, 0x1d, 0xda, 0xd6, 0x99, 0xa0, 0xdd, 0xc8, 0x6c, 0x6a, 0x5b, 0x8b, 0xb8,
-	0xf6, 0xc2, 0xef, 0x29, 0x12, 0xd0, 0x55, 0x28, 0x05, 0xa7, 0xf6, 0x88, 0x30, 0x11, 0x59, 0x2e,
-	0xa2, 0xc8, 0xbf, 0x5b, 0x0e, 0xba, 0x05, 0x48, 0xa0, 0x12, 0x62, 0x72, 0x5c, 0x8c, 0xce, 0x31,
-	0x8a, 0x20, 0xe3, 0x5f, 0x1a, 0xe8, 0x4d, 0x7f, 0x78, 0xec, 0x9e, 0x8c, 0x29, 0xc1, 0xe4, 0xd5,
-	0x98, 0x04, 0x21, 0xda, 0x86, 0xb2, 0xe7, 0x9f, 0x58, 0x1e, 0x39, 0x23, 0x1e, 0xd7, 0xb0, 0xb6,
-	0xbb, 0xb8, 0x33, 0x1a, 0xf7, 0x76, 0xda, 0xfe, 0x49, 0x9b, 0x01, 0x71, 0xc9, 0x93, 0xbf, 0xd0,
-	0x07, 0xb0, 0xc8, 0x68, 0x1d, 0x97, 0x92, 0x7e, 0xe8, 0xd3, 0x09, 0x57, 0xb8, 0x8c, 0xab, 0x9e,
-	0x7f, 0xb2, 0x17, 0xc1, 0xd0, 0x6d, 0x58, 0x19, 0x11, 0x3a, 0xb0, 0x87, 0x64, 0x18, 0x2a, 0xa4,
-	0x42, 0x73, 0x14, 0xa3, 0x12, 0x0c, 0x21, 0x19, 0x8c, 0x7c, 0x6a, 0xd3, 0x89, 0xc2, 0x90, 0x13,
-	0x0c, 0x31, 0x6a, 0xca, 0xf0, 0x39, 0x2c, 0xaa, 0xf6, 0x06, 0x1b, 0xf9, 0x4d, 0x6d, 0xab, 0xb2,
-	0xbb, 0xcc, 0xd5, 0x56, 0x7d, 0x8f, 0xab, 0x8e, 0xf2, 0x65, 0xac, 0xc0, 0xb2, 0x62, 0x7e, 0x30,
-	0xf2, 0x87, 0x01, 0x31, 0xfe, 0xa1, 0x41, 0xad, 0xe9, 0x0f, 0x87, 0xa4, 0x1f, 0x46, 0x2e, 0xf9,
-	0x00, 0x16, 0x03, 0x12, 0x86, 0xee, 0xf0, 0x24, 0xb0, 0x5e, 0x04, 0xf2, 0x5e, 0xca, 0xb8, 0x1a,
-	0x01, 0x1f, 0x07, 0xfe, 0x10, 0x3d, 0x82, 0x15, 0xdf, 0x1e, 0x87, 0xa7, 0x56, 0x5f, 0x8a, 0xb4,
-	0x43, 0xe6, 0xfb, 0x2c, 0x57, 0x65, 0x9d, 0xab, 0x72, 0xd8, 0x18, 0x87, 0xa7, 0x4d, 0x15, 0x8d,
-	0x11, 0xe7, 0x49, 0xc0, 0x58, 0x24, 0x08, 0x49, 0x41, 0x68, 0x87, 0x44, 0x9c, 0x28, 0x8c, 0xaf,
-	0x71, 0x78, 0x87, 0x81, 0xf9, 0x99, 0x6f, 0x6b, 0xf8, 0xef, 0x35, 0x58, 0x8a, 0x6d, 0x14, 0x76,
-	0xa3, 0x0f, 0xa1, 0x16, 0x1b, 0x49, 0x28, 0xf5, 0xa9, 0x0c, 0xcf, 0xd8, 0x74, 0x93, 0x01, 0xd1,
-	0xff, 0x83, 0xde, 0x17, 0x9c, 0xae, 0x3f, 0x94, 0x84, 0xc2, 0x1d, 0x4b, 0x53, 0xb8, 0x20, 0x7d,
-	0x1f, 0x2a, 0xc2, 0x0e, 0x41, 0x25, 0x2e, 0x1c, 0x38, 0x48, 0x10, 0x5c, 0xda, 0x50, 0xe3, 0x2f,
-	0x19, 0xa8, 0x60, 0x62, 0x3b, 0xd3, 0x1b, 0x29, 0x04, 0xfd, 0x53, 0x32, 0xb0, 0xb9, 0x92, 0x95,
-	0xdd, 0x0a, 0xb7, 0xb8, 0xc3, 0x41, 0x58, 0xa2, 0xd0, 0x2a, 0xe4, 0x3d, 0x77, 0xe0, 0x86, 0x32,
-	0x8d, 0xc4, 0x07, 0xba, 0x05, 0xc5, 0x63, 0xd7, 0x0b, 0x09, 0x0d, 0x36, 0xb2, 0x9b, 0xd9, 0xad,
-	0xca, 0x2e, 0xe2, 0xbc, 0x47, 0x22, 0x77, 0x1f, 0x70, 0x14, 0x8e, 0x48, 0xd0, 0x67, 0xb0, 0x4e,
-	0x89, 0xed, 0x59, 0xa1, 0x3b, 0x20, 0x56, 0x32, 0x08, 0x0a, 0x5c, 0xd3, 0x55, 0x86, 0xee, 0xba,
-	0x03, 0xd2, 0x51, 0x83, 0xe1, 0x36, 0xac, 0x2a, 0x6c, 0x53, 0xeb, 0x8a, 0x9c, 0x67, 0x39, 0xe6,
-	0x89, 0x6f, 0x72, 0x5a, 0x14, 0x4a, 0x6a, 0x51, 0xb8, 0x09, 0xd5, 0x44, 0x26, 0x97, 0xb9, 0x25,
-	0x15, 0xe5, 0x32, 0x67, 0x63, 0x00, 0x2e, 0x17, 0x03, 0xbf, 0xd5, 0x60, 0x31, 0x61, 0x34, 0xfa,
-	0x18, 0x72, 0x2f, 0xdd, 0xa1, 0x23, 0x93, 0x7e, 0x7d, 0xd6, 0x2d, 0x3b, 0x4f, 0xdc, 0xa1, 0x83,
-	0x39, 0x11, 0xbb, 0xdc, 0x11, 0xf5, 0x47, 0x84, 0x86, 0x13, 0xa6, 0xb5, 0x08, 0x01, 0x88, 0x40,
-	0x2d, 0x87, 0x79, 0xff, 0xcc, 0xf6, 0xc6, 0x44, 0xde, 0xbb, 0xf8, 0x30, 0x3e, 0x85, 0x1c, 0x13,
-	0x82, 0x00, 0x0a, 0xe6, 0x57, 0x4f, 0x1b, 0xed, 0x8e, 0xbe, 0x80, 0x16, 0xa1, 0xdc, 0x36, 0x3b,
-	0x1d, 0xab, 0xfb, 0xa8, 0x71, 0xa0, 0x6b, 0x48, 0x87, 0xea, 0x43, 0x6c, 0x36, 0xba, 0x26, 0x16,
-	0x90, 0x8c, 0xf1, 0x47, 0x0d, 0xd6, 0xf6, 0xdc, 0xa0, 0xef, 0x9f, 0x11, 0x2a, 0xee, 0x38, 0x88,
-	0x02, 0xe1, 0x87, 0x90, 0x1b, 0xf8, 0x0e, 0x91, 0x3a, 0x6f, 0x0a, 0xa3, 0xe7, 0x92, 0xee, 0xec,
-	0xfb, 0x0e, 0xc1, 0x9c, 0x1a, 0x6d, 0x03, 0x84, 0xbe, 0x45, 0xc9, 0x31, 0x25, 0xc1, 0xe9, 0x46,
-	0x86, 0x87, 0x41, 0x22, 0x84, 0xca, 0xa1, 0x8f, 0x05, 0x96, 0x19, 0x1a, 0xd8, 0x83, 0x91, 0x47,
-	0xac, 0xc0, 0x7d, 0x4d, 0x64, 0x2d, 0x05, 0x01, 0xea, 0xb8, 0xaf, 0x89, 0x71, 0x1d, 0x72, 0x4c,
-	0x34, 0x2a, 0x42, 0xb6, 0xd1, 0x6e, 0xeb, 0x0b, 0xa8, 0x02, 0x45, 0x6c, 0x3e, 0xc0, 0x66, 0xe7,
-	0x91, 0xae, 0x19, 0x3f, 0x81, 0xf5, 0x19, 0x7d, 0xe2, 0x8c, 0x2b, 0x8a, 0x48, 0x0d, 0x36, 0xb4,
-	0x59, 0x15, 0x22, 0x9c, 0xf1, 0xbb, 0x2c, 0x14, 0x04, 0x0c, 0xd5, 0x20, 0x13, 0xb7, 0x8d, 0x8c,
-	0xeb, 0x20, 0x04, 0xb9, 0xa1, 0x3d, 0x20, 0xd2, 0xfb, 0xfc, 0x37, 0xda, 0x84, 0x8a, 0x43, 0x82,
-	0x3e, 0x75, 0x47, 0x71, 0xfd, 0x29, 0x63, 0x15, 0x84, 0x3e, 0x81, 0xe8, 0x9e, 0x5c, 0x12, 0x6c,
-	0xe4, 0xf8, 0xd1, 0xa2, 0xc4, 0x1f, 0xc9, 0xeb, 0xc3, 0x0a, 0x01, 0xda, 0x84, 0x7c, 0xdf, 0x1f,
-	0x0f, 0x43, 0x59, 0x5c, 0x80, 0x53, 0x36, 0x19, 0x04, 0x0b, 0x04, 0xcf, 0x46, 0xee, 0x8f, 0x8d,
-	0x82, 0x62, 0x07, 0x26, 0x7d, 0x9f, 0x3a, 0x58, 0xa2, 0x58, 0x3c, 0xbc, 0x1a, 0x13, 0x3a, 0x91,
-	0x39, 0x20, 0x3e, 0xd0, 0x0e, 0xac, 0xc4, 0x5d, 0xd3, 0x1a, 0x90, 0xd0, 0x16, 0x79, 0x22, 0x92,
-	0x60, 0x39, 0x46, 0xed, 0x93, 0xd0, 0xe6, 0x79, 0xb2, 0x06, 0x05, 0x5e, 0x4d, 0x82, 0x8d, 0xf2,
-	0x66, 0x76, 0xab, 0x8c, 0xe5, 0x17, 0xda, 0x87, 0x15, 0x9e, 0x05, 0xc7, 0x9e, 0xff, 0x8d, 0xec,
-	0x19, 0xcc, 0x7a, 0xe0, 0x61, 0x71, 0x43, 0xf1, 0x2b, 0x4f, 0x89, 0x07, 0x9e, 0xff, 0xcd, 0x5e,
-	0x44, 0x84, 0x97, 0x9d, 0x34, 0xc8, 0xb8, 0x0b, 0xcb, 0x33, 0x74, 0xa8, 0x04, 0x39, 0x6c, 0x36,
-	0xf6, 0xf4, 0x05, 0x54, 0x86, 0xfc, 0x33, 0xdc, 0xea, 0x9a, 0xba, 0x86, 0x6a, 0x00, 0x0c, 0x68,
-	0x89, 0xef, 0x8c, 0x11, 0x42, 0xbe, 0x29, 0x9d, 0xa2, 0x66, 0xd3, 0xd2, 0xd4, 0x6b, 0x6a, 0x16,
-	0xc5, 0x49, 0xc2, 0x6e, 0x30, 0x1f, 0x25, 0xc9, 0x1d, 0x99, 0x24, 0x4b, 0x50, 0x79, 0x7a, 0xd0,
-	0xf8, 0xba, 0xd1, 0x6a, 0x37, 0xee, 0xb7, 0x4d, 0x7d, 0x01, 0x55, 0xa1, 0x64, 0x76, 0xba, 0xad,
-	0xfd, 0x06, 0x3f, 0xba, 0x0c, 0x79, 0xf3, 0x79, 0xa3, 0xd9, 0xd5, 0x33, 0xc6, 0xdf, 0x32, 0x50,
-	0x8a, 0x2e, 0xef, 0x7b, 0x8a, 0x92, 0x0f, 0x21, 0x17, 0x4e, 0x46, 0x22, 0xe0, 0x6b, 0xb2, 0x9c,
-	0x44, 0x47, 0x74, 0x27, 0x23, 0x82, 0x39, 0x9a, 0x15, 0x2e, 0x37, 0xb0, 0x5e, 0x92, 0x09, 0x0f,
-	0x8f, 0x12, 0xce, 0xbb, 0xc1, 0x13, 0x32, 0x41, 0xdb, 0xb0, 0xec, 0x06, 0x56, 0x9f, 0x12, 0x56,
-	0xfa, 0x78, 0x94, 0x10, 0xca, 0x2b, 0x66, 0x09, 0x2f, 0xb9, 0x41, 0x93, 0xc3, 0x9b, 0x02, 0x2c,
-	0x69, 0xc7, 0x23, 0x47, 0xa5, 0x2d, 0x46, 0xb4, 0x4f, 0x39, 0x3c, 0xa2, 0x7d, 0xd3, 0x78, 0xf9,
-	0x3f, 0xa8, 0x31, 0x35, 0x2d, 0x3b, 0xb4, 0x02, 0x7f, 0x4c, 0xfb, 0x84, 0x97, 0xd0, 0x32, 0xae,
-	0x32, 0x68, 0x23, 0xec, 0x70, 0x18, 0xcb, 0x71, 0x37, 0xb0, 0x86, 0x63, 0xcf, 0xb3, 0x7b, 0x1e,
-	0xe1, 0x51, 0x53, 0xc2, 0xe0, 0x06, 0x07, 0x12, 0xc2, 0x26, 0x05, 0x9e, 0xc5, 0xea, 0x58, 0x60,
-	0xac, 0x02, 0x52, 0x81, 0x72, 0x7e, 0xf8, 0x67, 0x06, 0x0a, 0x22, 0xf4, 0xd1, 0x36, 0x14, 0x6c,
-	0x11, 0x87, 0x22, 0x08, 0x90, 0x92, 0x17, 0x3b, 0x0d, 0x11, 0x7c, 0x92, 0x02, 0x5d, 0x83, 0x32,
-	0x0f, 0x60, 0x65, 0xbe, 0x28, 0x31, 0xc0, 0x85, 0xed, 0x24, 0x7b, 0x5e, 0x3b, 0x59, 0x85, 0x7c,
-	0xdf, 0x1e, 0x07, 0x44, 0xb6, 0x53, 0xf1, 0xc1, 0x5a, 0x7c, 0xdf, 0xa7, 0x94, 0x78, 0x7c, 0xce,
-	0x60, 0x65, 0x3b, 0x2f, 0x5a, 0xbc, 0x02, 0x6d, 0x39, 0x4c, 0x15, 0xca, 0x75, 0x64, 0x14, 0xa2,
-	0xcb, 0x95, 0x04, 0xa0, 0xe5, 0xa0, 0x1d, 0x28, 0xc5, 0x9d, 0xa6, 0xa8, 0xf4, 0x4f, 0x61, 0x95,
-	0xec, 0x2e, 0x38, 0xa6, 0x31, 0xba, 0x50, 0x10, 0x96, 0xb2, 0x92, 0xff, 0xf4, 0xa8, 0x63, 0xe2,
-	0xae, 0xbe, 0xc0, 0x7e, 0xb7, 0x0e, 0xf8, 0x6f, 0x4d, 0xc0, 0xf7, 0x58, 0x48, 0x67, 0xd8, 0xef,
-	0x3d, 0xb3, 0x6d, 0x76, 0x4d, 0x3d, 0x8b, 0xea, 0xb0, 0x86, 0xcd, 0x46, 0xdb, 0xea, 0xb6, 0xf6,
-	0x4d, 0xab, 0xd3, 0x6d, 0x74, 0x4d, 0xab, 0x79, 0xb8, 0xbf, 0xdf, 0xea, 0xea, 0x39, 0xe3, 0xcf,
-	0x1a, 0x2c, 0x26, 0x4e, 0x64, 0x33, 0x9a, 0x32, 0x97, 0xc4, 0xf1, 0x5f, 0x9d, 0x02, 0x5b, 0x8e,
-	0xd2, 0x65, 0x33, 0x6a, 0x97, 0xbd, 0x06, 0x65, 0x51, 0x6c, 0xa7, 0x13, 0x75, 0x49, 0x00, 0xd2,
-	0xde, 0xc8, 0xa5, 0xbc, 0x91, 0xb8, 0xb5, 0x7c, 0xea, 0xd6, 0xb6, 0x40, 0x97, 0x62, 0xa7, 0x34,
-	0xc2, 0x9d, 0x35, 0x01, 0xdf, 0x93, 0x94, 0xc6, 0x63, 0xb8, 0x12, 0x0f, 0xa2, 0x5f, 0xb1, 0xba,
-	0x18, 0xb5, 0xb7, 0x1f, 0x40, 0xee, 0xd8, 0xa7, 0x03, 0x39, 0xe5, 0xdc, 0x90, 0x45, 0x44, 0x19,
-	0x16, 0x1f, 0xf8, 0x74, 0x20, 0x89, 0x31, 0x27, 0x35, 0x5e, 0xc1, 0x5a, 0x5a, 0x96, 0xec, 0x37,
-	0xbb, 0x09, 0x61, 0xef, 0x9d, 0x27, 0x4c, 0x50, 0x0b, 0x69, 0xca, 0xa0, 0x95, 0x39, 0x77, 0xd0,
-	0x32, 0x7e, 0xa9, 0x41, 0x3d, 0x3e, 0xb3, 0x19, 0x3b, 0xfc, 0xed, 0x8d, 0x40, 0x5f, 0x40, 0x34,
-	0x4d, 0x5a, 0x54, 0x20, 0xe4, 0xf9, 0x2b, 0x11, 0xb7, 0x92, 0x88, 0xb8, 0x96, 0x4a, 0xcc, 0xef,
-	0x34, 0xb8, 0x36, 0x57, 0x9f, 0x77, 0x70, 0xc4, 0xbd, 0x78, 0xee, 0xb5, 0xa8, 0xc4, 0x48, 0x95,
-	0x56, 0x93, 0x2a, 0x49, 0xae, 0xa5, 0x74, 0x5d, 0xa0, 0xb0, 0xa1, 0x2c, 0x1b, 0x22, 0x61, 0xdf,
-	0xc1, 0x43, 0x97, 0xba, 0x98, 0x43, 0xb8, 0x3a, 0xe7, 0xcc, 0xb7, 0xf7, 0x82, 0xe1, 0x4f, 0x8d,
-	0x48, 0xeb, 0x95, 0xcc, 0x05, 0x2d, 0x95, 0x0b, 0x37, 0x00, 0x94, 0xba, 0x25, 0xb2, 0xaf, 0x1c,
-	0xc4, 0xf5, 0x6a, 0x1d, 0x8a, 0x6e, 0x60, 0x05, 0xf6, 0x99, 0x18, 0x17, 0x4b, 0xb8, 0xe0, 0x06,
-	0x1d, 0xfb, 0x8c, 0x18, 0x7f, 0xd5, 0xa6, 0x26, 0xcc, 0x28, 0xc5, 0x67, 0x33, 0x91, 0x61, 0xca,
-	0xa1, 0x20, 0x40, 0x91, 0xdc, 0xb1, 0xab, 0x9e, 0x59, 0x18, 0xbb, 0x73, 0xf4, 0xc9, 0xa6, 0xf5,
-	0x49, 0xd8, 0x92, 0x9b, 0xcd, 0x6b, 0x8e, 0x14, 0xa3, 0x87, 0x9a, 0xfb, 0x35, 0x06, 0xe7, 0xbb,
-	0x4d, 0x90, 0x9a, 0x56, 0x0a, 0xea, 0xb4, 0x62, 0x4c, 0xe0, 0xca, 0x7d, 0x72, 0xe2, 0x0e, 0xf9,
-	0x42, 0xc8, 0x86, 0x8c, 0xc8, 0x87, 0x3f, 0xe6, 0x55, 0x4c, 0x59, 0x1f, 0xb5, 0x8b, 0xd7, 0xc7,
-	0x24, 0x35, 0x5b, 0x17, 0x28, 0x11, 0xd3, 0x8f, 0x35, 0xa6, 0x9e, 0xb4, 0xb9, 0x12, 0xc1, 0x9e,
-	0x52, 0xcf, 0x30, 0x61, 0x2d, 0x7d, 0xb4, 0x74, 0xe6, 0xc7, 0xb0, 0xcc, 0x96, 0x2e, 0x9f, 0xba,
-	0xaf, 0x45, 0x7f, 0x60, 0x12, 0x84, 0x4b, 0xf5, 0x04, 0x82, 0x89, 0xf9, 0x8d, 0xc6, 0x22, 0x81,
-	0x0d, 0x76, 0x21, 0xf9, 0xdf, 0x5b, 0xc1, 0xaa, 0x7d, 0x4c, 0xd2, 0xf3, 0x9d, 0xe8, 0x35, 0x21,
-	0xe6, 0xbb, 0xef, 0x3b, 0x13, 0xe3, 0x5b, 0x0d, 0xd0, 0xec, 0x69, 0xec, 0x6e, 0xfb, 0x9e, 0x4b,
-	0x86, 0xe1, 0xb4, 0x4b, 0x94, 0x04, 0xa0, 0xe5, 0xf0, 0x36, 0x22, 0x90, 0x01, 0xe9, 0x53, 0x12,
-	0x46, 0xab, 0xbe, 0x00, 0x76, 0x38, 0x0c, 0x7d, 0x02, 0x28, 0xa1, 0x71, 0xa2, 0x19, 0x27, 0x30,
-	0xbc, 0xba, 0x9b, 0x2c, 0x84, 0x67, 0x5c, 0x25, 0xbd, 0x3e, 0x6f, 0x07, 0xd6, 0xe6, 0xee, 0xc0,
-	0x6a, 0x93, 0x78, 0x46, 0xdd, 0x90, 0x7c, 0x4f, 0x4d, 0x42, 0xca, 0xfa, 0x6f, 0x37, 0x89, 0x3f,
-	0xa8, 0x45, 0x19, 0x93, 0x91, 0xe7, 0xf6, 0xed, 0x77, 0xec, 0x12, 0x97, 0x39, 0x17, 0xdd, 0x55,
-	0x06, 0x16, 0xb1, 0xf0, 0x5f, 0x97, 0x03, 0x4b, 0xac, 0x02, 0xf7, 0xc0, 0xec, 0xe8, 0x82, 0xe1,
-	0xfa, 0x7c, 0x85, 0xdf, 0xa1, 0x80, 0xfe, 0x5d, 0x83, 0x95, 0x23, 0x4a, 0x46, 0x76, 0xea, 0x0e,
-	0x6f, 0xb1, 0x90, 0x1a, 0x0c, 0xdc, 0xd0, 0x0a, 0x3c, 0x9b, 0xc5, 0x9e, 0x3f, 0x74, 0x02, 0x2e,
-	0x39, 0x8f, 0x75, 0x81, 0xe9, 0x78, 0x76, 0x47, 0xc0, 0x2f, 0x67, 0xf8, 0x97, 0x50, 0xa1, 0x53,
-	0xad, 0xe5, 0x43, 0xd4, 0x7c, 0xdb, 0x23, 0xb7, 0xaa, 0x0c, 0xb3, 0x0f, 0x0b, 0xb9, 0xcb, 0x3d,
-	0x2c, 0xfc, 0x1c, 0xd6, 0xcf, 0x91, 0x9f, 0xb8, 0x0b, 0xed, 0x4d, 0xee, 0xe2, 0x52, 0x4f, 0x70,
-	0xc6, 0x9f, 0xb2, 0xb3, 0x47, 0xbf, 0xd1, 0x7c, 0xf8, 0x11, 0x28, 0x8f, 0x58, 0x96, 0xb2, 0x34,
-	0xd5, 0xa6, 0xe0, 0x03, 0xb6, 0x3e, 0x4d, 0x07, 0xc9, 0xac, 0x3a, 0x48, 0x5e, 0x85, 0x12, 0x03,
-	0x73, 0x46, 0xd1, 0x35, 0x8a, 0x2f, 0xfc, 0x1e, 0xe7, 0x48, 0xcc, 0x98, 0xf9, 0xd4, 0x8c, 0x39,
-	0xed, 0x63, 0x9c, 0xb5, 0xa0, 0xf6, 0x31, 0xce, 0xfd, 0xad, 0x06, 0xef, 0xf7, 0xed, 0x51, 0x38,
-	0xa6, 0xc4, 0xb1, 0xd4, 0xa1, 0x52, 0x59, 0xe4, 0xc5, 0x34, 0xfe, 0xe5, 0x45, 0x0e, 0xdd, 0x69,
-	0x4a, 0x19, 0x9d, 0x78, 0xfe, 0x3c, 0x8a, 0x05, 0x98, 0xc3, 0x90, 0x4e, 0xf0, 0xf5, 0xfe, 0x05,
-	0x24, 0xf5, 0x1e, 0xdc, 0xfc, 0x8f, 0x22, 0x90, 0x0e, 0x59, 0xb6, 0x0f, 0x0a, 0x07, 0xb3, 0x9f,
-	0xe8, 0x23, 0x75, 0xcd, 0x9d, 0xbb, 0x4c, 0x0a, 0xfc, 0x8f, 0x32, 0x77, 0x35, 0x63, 0x0d, 0x56,
-	0x93, 0x19, 0x22, 0x07, 0xa8, 0x47, 0x50, 0x16, 0x23, 0x7f, 0xa3, 0xff, 0x72, 0xce, 0x2a, 0xa3,
-	0xcd, 0x5b, 0x65, 0x56, 0x21, 0xaf, 0x3e, 0x51, 0x8a, 0x8f, 0xed, 0x7b, 0x50, 0x8a, 0x1e, 0xb3,
-	0xf9, 0x12, 0xcd, 0x80, 0xfa, 0x02, 0xdb, 0xef, 0x9f, 0xd9, 0x74, 0xa8, 0x6b, 0xec, 0x57, 0x6b,
-	0x78, 0xec, 0xeb, 0x19, 0x86, 0xde, 0x23, 0xbd, 0xf1, 0x89, 0x9e, 0x65, 0x3f, 0xbb, 0xd4, 0xee,
-	0x13, 0x3d, 0xb7, 0xfd, 0x9d, 0x06, 0x55, 0x55, 0x7d, 0xb6, 0xb7, 0x74, 0xba, 0xb8, 0x75, 0xf0,
-	0x50, 0x88, 0xb9, 0x7f, 0x78, 0xd8, 0xd6, 0x33, 0xa8, 0x02, 0xc5, 0xd6, 0x41, 0xd7, 0x7c, 0x68,
-	0x62, 0xc1, 0xfe, 0xa0, 0x7d, 0xd8, 0xe8, 0xea, 0x39, 0x06, 0xdf, 0x33, 0x9b, 0xad, 0xfd, 0x46,
-	0x5b, 0xcf, 0x33, 0x72, 0xbe, 0xfc, 0x14, 0xd8, 0x2f, 0xb6, 0xeb, 0xe8, 0x45, 0xb6, 0xe7, 0x33,
-	0x18, 0xff, 0x2a, 0x71, 0xb8, 0xf9, 0xbc, 0xab, 0x97, 0xb9, 0xe8, 0xf6, 0xe1, 0x7d, 0x1d, 0xd8,
-	0xaf, 0xc7, 0x9d, 0xc3, 0x03, 0xbd, 0x82, 0x8a, 0x90, 0x7d, 0xbe, 0xdf, 0xd6, 0xab, 0xbb, 0xbf,
-	0x06, 0x28, 0x1f, 0x45, 0x0b, 0x30, 0xfa, 0x02, 0xca, 0x71, 0xf1, 0x42, 0x57, 0x12, 0xb5, 0x29,
-	0x4a, 0xc7, 0xfa, 0x5a, 0x1a, 0x2c, 0x3d, 0xbd, 0x80, 0x3e, 0x87, 0xa2, 0x1c, 0x68, 0xd1, 0xbc,
-	0x89, 0xbb, 0x3e, 0x77, 0xe6, 0x35, 0x16, 0xd0, 0xbd, 0xf8, 0xed, 0xbc, 0x43, 0x02, 0x9e, 0x77,
-	0x6f, 0xc2, 0x7e, 0x47, 0x43, 0x47, 0x50, 0x8b, 0x9f, 0xcb, 0x4e, 0xed, 0x11, 0x09, 0xd0, 0xb5,
-	0x0b, 0xde, 0xf4, 0xea, 0xd7, 0xe7, 0x23, 0xa5, 0xc0, 0xec, 0x2f, 0x32, 0x1a, 0x3a, 0x80, 0xa5,
-	0x14, 0xfe, 0x5d, 0x44, 0x2e, 0x20, 0x13, 0xae, 0xa4, 0x90, 0x9d, 0x90, 0x12, 0x7b, 0x70, 0xb1,
-	0x54, 0xb5, 0x42, 0x73, 0x43, 0x3f, 0x8b, 0x5f, 0x5f, 0x25, 0xbb, 0x2e, 0x13, 0x37, 0x7e, 0xe4,
-	0xae, 0xab, 0xcf, 0x68, 0xdc, 0x96, 0x3b, 0x1a, 0xba, 0x0d, 0xc0, 0x48, 0x2e, 0xc7, 0xc3, 0xce,
-	0xb9, 0x07, 0x30, 0x7d, 0xa4, 0x40, 0x6b, 0x53, 0x1d, 0x13, 0x17, 0xb2, 0x3e, 0x03, 0x8f, 0xed,
-	0xfd, 0x29, 0xac, 0xcc, 0xd9, 0xa5, 0xd0, 0xfb, 0xc9, 0xd8, 0x99, 0xd9, 0xfa, 0xea, 0x9b, 0xe7,
-	0x13, 0xc4, 0xb2, 0x9f, 0xf0, 0x70, 0x51, 0x76, 0x55, 0x54, 0x4f, 0x72, 0xa9, 0xcb, 0x70, 0xfd,
-	0xda, 0x5c, 0x5c, 0x2c, 0xac, 0x9b, 0xf8, 0x37, 0x47, 0x2c, 0x3b, 0xe8, 0x46, 0x3a, 0xc4, 0x13,
-	0x8b, 0x57, 0xfd, 0xbd, 0xf3, 0xd0, 0xaa, 0x8a, 0xc9, 0x79, 0x59, 0xaa, 0x38, 0x77, 0x7e, 0x97,
-	0x2a, 0xce, 0x1f, 0xb0, 0x23, 0x15, 0x53, 0x93, 0x60, 0xac, 0xe2, 0xfc, 0x61, 0x3a, 0x56, 0xf1,
-	0x9c, 0x01, 0x32, 0xe5, 0x45, 0x5e, 0x32, 0xd3, 0x5e, 0x54, 0x7b, 0x70, 0xda, 0x8b, 0xc9, 0x1a,
-	0xbb, 0x80, 0x7e, 0x06, 0xab, 0xf3, 0x86, 0x1e, 0xb4, 0x99, 0xf6, 0x54, 0x7a, 0x80, 0xab, 0xdf,
-	0xbc, 0x80, 0x42, 0xc9, 0x9e, 0xaa, 0x5a, 0xdc, 0xd1, 0x86, 0x6c, 0x05, 0x33, 0x13, 0x51, 0xfd,
-	0xea, 0x1c, 0x4c, 0x2c, 0xe6, 0x0e, 0x54, 0x38, 0x48, 0xe6, 0x81, 0x1a, 0xf5, 0xf5, 0x9a, 0xf2,
-	0xd1, 0xe8, 0xbf, 0x34, 0x16, 0xb6, 0xb4, 0x3b, 0x5a, 0xaf, 0xc0, 0xff, 0x92, 0xfd, 0xf4, 0xdf,
-	0x01, 0x00, 0x00, 0xff, 0xff, 0xde, 0xda, 0xd3, 0xa6, 0xa5, 0x1d, 0x00, 0x00,
 }

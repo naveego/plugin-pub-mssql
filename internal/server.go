@@ -481,6 +481,88 @@ func (s *Server) DiscoverSchemas(ctx context.Context, req *pub.DiscoverSchemasRe
 	}, err
 }
 
+func (s *Server) DiscoverRelatedEntities(ctx context.Context, req *pub.DiscoverRelatedEntitiesRequest) (*pub.DiscoverRelatedEntitiesResponse, error) {
+
+	db := s.session.DB
+	if db == nil {
+		return nil, errors.New("database connection not available")
+	}
+
+	if len(req.ToRelate) == 0 {
+		return nil, errors.New("No schemas provided to relate")
+	}
+
+	response := &pub.DiscoverRelatedEntitiesResponse{
+		RelatedEntities: []*pub.RelatedEntity{},
+	}
+
+	for _, schema := range req.ToRelate {
+		_, schemaName, tableName := DecomposeSafeName(schema.Id)
+
+		query := fmt.Sprintf(`
+		SELECT
+		OBJECT_SCHEMA_NAME(fk.parent_object_id) AS SOURCE_TABLE_SCHEMA,
+		OBJECT_NAME(fk.parent_object_id) AS SOURCE_TABLE_NAME,
+		STRING_AGG(COL_NAME(fkc.parent_object_id, fkc.parent_column_id), ', ') AS SOURCE_COLUMNS,
+		OBJECT_SCHEMA_NAME(fk.referenced_object_id) AS FOREIGN_TABLE_SCHEMA,
+		OBJECT_NAME(fk.referenced_object_id) AS FOREIGN_TABLE_NAME,
+		STRING_AGG(COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id), ', ') AS FOREIGN_COLUMNS,
+		CASE
+			WHEN COUNT(DISTINCT fkc.referenced_column_id) > 1 THEN 'MULTI-PART FOREIGN KEY'
+			ELSE 'FOREIGN KEY'
+		END AS RELATIONSHIP_NAME
+
+		FROM sys.foreign_keys AS fk
+		INNER JOIN sys.foreign_key_columns AS fkc ON fk.object_id = fkc.constraint_object_id
+		WHERE OBJECT_SCHEMA_NAME(fk.parent_object_id) = '%s' AND OBJECT_NAME(fk.parent_object_id) = '%s'
+		GROUP BY fk.object_id, fk.parent_object_id, fk.referenced_object_id
+		ORDER BY SOURCE_TABLE_SCHEMA, SOURCE_TABLE_NAME
+		`, schemaName, tableName)
+
+		rows, err := db.Query(query)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var sourceTableSchema, sourceTableName, sourceColumn string
+			var foreignTableSchema, foreignTableName, foreignColumn string
+			var relationshipName string
+
+			err := rows.Scan(
+				&sourceTableSchema,
+				&sourceTableName,
+				&sourceColumn,
+				&foreignTableSchema,
+				&foreignTableName,
+				&foreignColumn,
+				&relationshipName,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			relatedEntity := &pub.RelatedEntity{
+				SchemaId:         sourceTableSchema,
+				SourceResource:   sourceTableName,
+				SourceColumn:     sourceColumn,
+				ForeignResource:  foreignTableName,
+				ForeignColumn:    foreignColumn,
+				RelationshipName: relationshipName,
+			}
+
+			response.RelatedEntities = append(response.RelatedEntities, relatedEntity)
+		}
+
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+	}
+
+	return response, nil
+}
+
 func (s *Server) ReadStream(req *pub.ReadRequest, stream pub.Publisher_ReadStreamServer) error {
 
 	session, err := s.getOpSession(context.Background())

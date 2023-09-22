@@ -1,3 +1,4 @@
+//go:build mage
 // +build mage
 
 package main
@@ -33,7 +34,7 @@ func Build() error {
 // Generates the client for the plugin using the dataflow-contracts/plugins grpc.
 func GenerateGRPC() error {
 
-	toDir := "./internal/pub"
+	toDir := "./internal"
 	dcDir := getDataflowContractsDir()
 
 	fromDir := filepath.Join(dcDir, "plugins")

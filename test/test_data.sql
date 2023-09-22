@@ -53,6 +53,15 @@ IF OBJECT_ID('w3.dbo.RealTime', 'U') IS NOT NULL
 IF OBJECT_ID('w3.dbo.RealTimeAux', 'U') IS NOT NULL
     DROP TABLE w3.dbo.RealTimeAux;
 
+IF OBJECT_ID('w3.dbo.OrderDetailsTable', 'U') IS NOT NULL
+    DROP TABLE w3.dbo.OrderDetailsTable;
+
+IF OBJECT_ID('w3.dbo.ProductTable', 'U') IS NOT NULL
+    DROP TABLE w3.dbo.ProductTable;
+
+IF OBJECT_ID('w3.dbo.OrderTable', 'U') IS NOT NULL
+    DROP TABLE w3.dbo.OrderTable;
+
 CREATE TABLE w3.dbo.CompositeKey
 (
     id1   INT NOT NULL,
@@ -63,6 +72,43 @@ CREATE TABLE w3.dbo.CompositeKey
 
 ALTER TABLE w3.dbo.CompositeKey
     ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON)
+
+CREATE TABLE ProductTable
+(
+    ProductID INT NOT NULL,
+    CategoryID INT NOT NULL,
+    ProductName VARCHAR(50),
+    Price DECIMAL(10,2),
+    PRIMARY KEY (ProductID, CategoryID)
+);
+
+CREATE TABLE OrderTable
+(
+    OrderID INT NOT NULL,
+    CustomerID INT NOT NULL,
+    OrderDate DATE,
+    PRIMARY KEY (OrderID)
+);
+CREATE TABLE OrderDetailsTable
+(
+    ItemID INT NOT NULL,
+    OrderID INT NOT NULL,
+    ProductID INT NOT NULL,
+    CategoryID INT NOT NULL,
+    Quantity INT,
+    PRIMARY KEY (ItemID),
+    FOREIGN KEY (OrderID) REFERENCES OrderTable(OrderID),
+    FOREIGN KEY (ProductID, CategoryID) REFERENCES ProductTable(ProductID, CategoryID)
+);
+
+ALTER TABLE w3.dbo.ProductTable
+    ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON);
+
+ALTER TABLE w3.dbo.OrderTable
+    ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON);
+
+ALTER TABLE w3.dbo.OrderDetailsTable
+    ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = ON);
 
 
 CREATE TABLE w3.dbo.RealTime
